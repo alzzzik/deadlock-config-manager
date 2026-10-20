@@ -1,0 +1,148 @@
+import { invoke } from "@tauri-apps/api/core";
+
+export type Account = { id: string; persona: string | null; videoPath: string; hasVideo: boolean };
+
+export type Status =
+  | { kind: "notApplied" }
+  | { kind: "missing" }
+  | { kind: "applied"; pack: string }
+  | { kind: "appliedDmm"; pack: string }
+  | { kind: "changed"; pack: string };
+
+export type AppliedRecord = {
+  repo: string | null;
+  packId: string;
+  packName: string;
+  revision: string | null;
+  appliedAt: string;
+};
+
+export type Overview = {
+  steamRoot: string | null;
+  gameinfoPath: string | null;
+  gameinfoFound: boolean;
+  gameinfoCreatable: boolean;
+  videoPath: string | null;
+  videoFound: boolean;
+  accounts: Account[];
+  accountId: string | null;
+  status: Status;
+  applied: AppliedRecord | null;
+  deadlockRunning: boolean;
+  repos: string[];
+  pinned: string[];
+  preservedKeys: string[];
+  optionalPreserved: string[];
+  alwaysPreserved: string[];
+};
+
+export type PackInfo = {
+  repo: string;
+  id: string;
+  name: string;
+  description: string;
+  folder: string;
+  lastCommitDate: string | null;
+  revision: string | null;
+  commitMessage: string | null;
+  htmlUrl: string;
+  videoFile?: string | null;
+};
+
+export type RepoGroup = {
+  repo: string;
+  url: string;
+  updatedAt: string | null;
+  packs: PackInfo[];
+  offline: boolean;
+  error: string | null;
+};
+
+export type Change = { key: string; before: string | null; after: string | null };
+export type FileDiff = { file: string; created: boolean; changes: Change[]; unchanged: number };
+export type Preview = { packName: string; files: FileDiff[]; warnings: string[] };
+
+export type ApplyResponse =
+  | { kind: "preview"; preview: Preview }
+  | { kind: "done"; message: string; notes: string[] };
+
+export type BackupMeta = {
+  id: string;
+  createdAt: string;
+  original: boolean;
+  packName: string | null;
+  reason: string;
+  gameinfoPath: string | null;
+  videoPath: string | null;
+  absent: string[];
+};
+
+export type PathKind = "steam" | "gameinfo" | "video";
+export type Location = "game" | "video" | "userdata" | "backups";
+
+export const api = {
+  overview: () => invoke<Overview>("get_overview"),
+  setAccount: (id: string) => invoke<Overview>("set_account", { id }),
+  setPath: (kind: PathKind, path: string | null) => invoke<Overview>("set_path", { kind, path }),
+  saveSettings: (preservedKeys: string[]) => invoke<Overview>("save_settings", { preservedKeys }),
+  listPacks: () => invoke<RepoGroup[]>("list_packs"),
+  addRepo: (input: string) => invoke<{ overview: Overview; group: RepoGroup }>("add_repo", { input }),
+  removeRepo: (repo: string) => invoke<Overview>("remove_repo", { repo }),
+  moveRepo: (repo: string, delta: number) => invoke<Overview>("move_repo", { repo, delta }),
+  applyPack: (pack: PackInfo, confirmed: boolean) => invoke<ApplyResponse>("apply_pack", { pack, confirmed }),
+  applyLocal: (folder: string, confirmed: boolean) => invoke<ApplyResponse>("apply_local", { folder, confirmed }),
+  listBackups: () => invoke<BackupMeta[]>("list_backups"),
+  restore: (id: string) => invoke<string>("restore_backup", { id }),
+  open: (which: Location) => invoke<void>("open_location", { which }),
+  openGithub: (url: string) => invoke<void>("open_github", { url }),
+  togglePin: (key: string) => invoke<Overview>("toggle_pin", { key }),
+};
+
+/** Tauri rejects with the Rust error string; normalise anything else. */
+export function errorText(e: unknown): string {
+  return typeof e === "string" ? e : e instanceof Error ? e.message : JSON.stringify(e);
+}
+
+const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+
+/** "today", "yesterday", "3 weeks ago", … */
+export function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const minutes = Math.round((t - Date.now()) / 60_000);
+  if (minutes > -60) return minutes > -2 ? "just now" : RELATIVE.format(minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (hours > -24) return RELATIVE.format(hours, "hour");
+  const days = Math.round(hours / 24);
+  if (days > -14) return RELATIVE.format(days, "day");
+  if (days > -60) return RELATIVE.format(Math.round(days / 7), "week");
+  return RELATIVE.format(Math.round(days / 30), "month");
+}
+
+export function shortDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** "2026-10-20_02-10-05" → readable local time. */
+export function formatBackupId(id: string): string {
+  const m = id.match(/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
+  if (!m) return id;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+export const isSamePack = (a: AppliedRecord | null, p: PackInfo, firstRepo: string | undefined): boolean =>
+  !!a && a.packId === p.id && (a.repo ?? firstRepo) === p.repo;
+
+/** Settings key for a pinned pack. */
+export const pinKey = (p: PackInfo): string => `${p.repo}#${p.id}`;
+
+/** Case-insensitive match on the text a user would search for. */
+export function matchesSearch(p: PackInfo, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [p.name, p.description, p.repo, p.commitMessage ?? ""].some((t) => t.toLowerCase().includes(q));
+}

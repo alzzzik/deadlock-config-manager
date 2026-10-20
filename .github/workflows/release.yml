@@ -1,0 +1,51 @@
+# Builds the Windows installer when a version tag (v0.1.0, v0.2.0, …) is pushed,
+# runs the tests first, and attaches the installer to a draft GitHub release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Type-check UI
+        run: npx tsc --noEmit
+
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test
+
+      - name: Build installer and draft release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Deadlock Config Manager ${{ github.ref_name }}
+          releaseBody: |
+            Download **Deadlock Config Manager_*_x64-setup.exe** below and run it.
+            Windows may say "Windows protected your PC" because the app isn't code-signed yet: click **More info → Run anyway**.
+          releaseDraft: true
+          prerelease: false

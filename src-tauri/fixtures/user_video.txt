@@ -1,0 +1,13 @@
+"video.cfg"
+{
+	"Version"		"20"
+	"VendorID"		"4318"
+	"DeviceID"		"12036"
+	"setting.cpu_level"		"1"
+	"setting.defaultres"		"1920"
+	"setting.defaultresheight"		"1080"
+	"setting.fullscreen"		"1"
+	"setting.mat_viewportscale"		"1"
+	"setting.custom_display"		"7"
+	"setting.user_only_key"		"5"
+}

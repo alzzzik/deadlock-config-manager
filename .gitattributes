@@ -1,0 +1,7 @@
+# Keep LF in the repo and on checkout so builds and tests behave the same everywhere.
+* text=auto eol=lf
+# Test fixtures must stay byte-for-byte (some are deliberately CRLF, like Valve's own files).
+src-tauri/fixtures/** -text
+*.png binary
+*.ico binary
+*.icns binary

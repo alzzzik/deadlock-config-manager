@@ -1,0 +1,626 @@
+//! Config packs from a GitHub repo (packs.json, or every top-level folder with a gameinfo.gi),
+//! plus local folders. Downloads are cached per pack and commit so offline re-applies work.
+
+use crate::apply::PackFiles;
+use crate::github::{self, get_text};
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
+
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Repo {
+    pub owner: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PackInfo {
+    /// `owner/name` of the repo the pack comes from (filled in after loading).
+    #[serde(default)]
+    pub repo: String,
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub folder: String,
+    #[serde(default)]
+    pub last_commit_date: Option<String>,
+    #[serde(default)]
+    pub revision: Option<String>,
+    /// First line of the latest commit that touched the pack folder.
+    #[serde(default)]
+    pub commit_message: Option<String>,
+    #[serde(default)]
+    pub html_url: String,
+    /// Exact file name of the pack's video file (e.g. "Video.txt", "video(Shadows).txt"); None = "video.txt".
+    #[serde(default)]
+    pub video_file: Option<String>,
+}
+
+/// One linked repo and its packs, as shown in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoGroup {
+    pub repo: String,
+    pub url: String,
+    /// Newest commit date among the repo's packs.
+    pub updated_at: Option<String>,
+    pub packs: Vec<PackInfo>,
+    pub offline: bool,
+    pub error: Option<String>,
+}
+
+pub struct FetchedPack {
+    pub files: PackFiles,
+    pub revision: Option<String>,
+    pub from_cache: bool,
+}
+
+fn is_safe_segment(s: &str) -> bool {
+    !s.is_empty() && s != "." && s != ".." && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+}
+
+/// Pack folder names may contain spaces, brackets and non-ASCII letters
+/// (e.g. "OptiLock FPS Config (Recommended)"); they are only ever used URL-encoded.
+fn is_safe_folder(folder: &str) -> bool {
+    // "" = the repo root (repos that keep gameinfo.gi next to their README).
+    folder.is_empty() || folder.split('/').all(|seg| {
+        !seg.is_empty() && seg != "." && seg != ".." && seg.len() <= 120 && !seg.chars().any(|c| c.is_control() || c == '\\')
+    })
+}
+
+/// Percent-encodes each path segment (keeps `/` between segments).
+fn encode_path(path: &str) -> String {
+    path.split('/')
+        .map(|seg| {
+            seg.bytes()
+                .map(|b| match b {
+                    b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => (b as char).to_string(),
+                    _ => format!("%{b:02X}"),
+                })
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// Stable, filesystem-safe id for a folder: "OptiLock FPS Config (Recommended)" -> "optilock-fps-config-recommended".
+pub fn slug(folder: &str) -> String {
+    let raw: String = folder
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+        .collect();
+    let joined = raw.split('-').filter(|s| !s.is_empty()).collect::<Vec<_>>().join("-");
+    if joined.is_empty() {
+        // Non-Latin names: fall back to a short hash so the id is still unique and safe.
+        let h = folder.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
+        format!("pack-{:x}", h & 0xffff_ffff)
+    } else {
+        joined
+    }
+}
+
+/// Accepts `owner/repo` or a github.com URL.
+pub fn parse_repo(input: &str) -> Result<Repo, String> {
+    let trimmed = input.trim().trim_end_matches('/').trim_end_matches(".git");
+    let path = ["https://github.com/", "http://github.com/", "github.com/"]
+        .iter()
+        .find_map(|p| trimmed.strip_prefix(p))
+        .unwrap_or(trimmed);
+    match path.split('/').collect::<Vec<_>>().as_slice() {
+        [owner, name] if is_safe_segment(owner) && is_safe_segment(name) => {
+            Ok(Repo { owner: owner.to_string(), name: name.to_string() })
+        }
+        _ => Err(format!("\"{input}\" is not a GitHub repo. Use owner/repo, e.g. alzzzik/alz-deadlock-cfg.")),
+    }
+}
+
+/// api.github.com JSON through the ETag cache in `cache_root/http`.
+fn get_api_json(url: &str, cache_root: &Path) -> Result<serde_json::Value, String> {
+    let text = github::get_text_cached(url, &cache_root.join("http"))?.ok_or_else(|| format!("Not found: {url}"))?;
+    serde_json::from_str(&text).map_err(|e| format!("Bad response from GitHub: {e}"))
+}
+
+/// `folder/file`, or just `file` for a pack at the repo root.
+fn in_folder(folder: &str, file: &str) -> String {
+    if folder.is_empty() {
+        file.to_string()
+    } else {
+        format!("{folder}/{file}")
+    }
+}
+
+fn raw_url(repo: &Repo, rev: &str, path: &str) -> String {
+    format!("https://raw.githubusercontent.com/{}/{}/{rev}/{}", repo.owner, repo.name, encode_path(path))
+}
+
+/// Link to a pack folder on github.com.
+pub fn folder_url(repo_label: &str, folder: &str) -> String {
+    if folder.is_empty() {
+        return format!("https://github.com/{repo_label}");
+    }
+    format!("https://github.com/{repo_label}/tree/HEAD/{}", encode_path(folder))
+}
+
+fn api_url(repo: &Repo, path: &str) -> String {
+    format!("https://api.github.com/repos/{}/{}/{path}", repo.owner, repo.name)
+}
+
+/// True for text that reads like words, not ASCII art or separators.
+fn is_wordy(s: &str) -> bool {
+    let letters = s.chars().filter(|c| c.is_alphabetic()).count();
+    letters >= 8 && letters * 2 >= s.chars().filter(|c| !c.is_whitespace()).count()
+}
+
+/// First `//` comment line of a file, used as a description when there is no packs.json.
+/// ASCII-art banners don't count.
+pub fn header_comment(text: &str) -> String {
+    text.lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .and_then(|l| l.strip_prefix("//"))
+        .map(|l| l.trim().to_string())
+        .filter(|l| is_wordy(l) && l.split_whitespace().count() >= SUMMARY_MIN_WORDS)
+        .unwrap_or_default()
+}
+
+const DESCRIPTION_MAX: usize = 220;
+
+const SUMMARY_MIN_WORDS: usize = 5;
+
+/// First sentence-like line of a readme (headings included, since some readmes put the
+/// description there), with simple markdown removed. Short titles and labels like "Directions:" are skipped.
+pub fn readme_summary(md: &str) -> String {
+    let line = md
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('!') && !l.starts_with('<') && !l.starts_with("---"))
+        .map(|l| l.trim_start_matches(['#', '>', '-', '*', ' ']).replace("**", "").replace('`', ""))
+        .find(|l| is_wordy(l) && l.split_whitespace().count() >= SUMMARY_MIN_WORDS && !l.trim_end().ends_with(':'))
+        .unwrap_or_default();
+    match line.char_indices().nth(DESCRIPTION_MAX) {
+        Some((i, _)) => format!("{}…", line[..i].trim_end()),
+        None => line,
+    }
+}
+
+/// Pack description: the gameinfo.gi header comment or the folder's readme. A pack at the repo
+/// root reads the README first, since that describes the whole repo.
+fn describe(repo: &Repo, folder: &str) -> String {
+    let from_gameinfo = || get_text(&raw_url(repo, "HEAD", &in_folder(folder, "gameinfo.gi"))).ok().flatten().map(|t| header_comment(&t));
+    let from_readme = || {
+        ["readme.md", "README.md", "Readme.md"]
+            .iter()
+            .find_map(|name| get_text(&raw_url(repo, "HEAD", &in_folder(folder, name))).ok().flatten())
+            .map(|md| readme_summary(&md))
+    };
+    let is_root = folder.is_empty();
+    let primary = if is_root { from_readme() } else { from_gameinfo() };
+    primary
+        .filter(|d| !d.is_empty())
+        .or_else(|| if is_root { from_gameinfo() } else { from_readme() })
+        .unwrap_or_default()
+}
+
+fn title_case(s: &str) -> String {
+    let mut chars = s.chars();
+    chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default()
+}
+
+#[derive(Deserialize)]
+struct IndexFile {
+    packs: Vec<PackInfo>,
+}
+
+pub fn parse_index(json: &str) -> Result<Vec<PackInfo>, String> {
+    let idx: IndexFile = serde_json::from_str(json).map_err(|e| format!("packs.json is invalid: {e}"))?;
+    Ok(idx.packs.into_iter().filter(|p| is_safe_segment(&p.id) && is_safe_folder(&p.folder)).collect())
+}
+
+/// Folders that contain gameinfo.gi, from a git tree listing: top-level folders, plus ""
+/// (listed first) when the repo root itself is a pack.
+pub fn folders_from_tree(tree: &serde_json::Value) -> Vec<String> {
+    let paths = tree_paths(tree);
+    let mut folders: Vec<String> = paths
+        .iter()
+        .filter_map(|p| p.strip_suffix("/gameinfo.gi"))
+        .filter(|f| !f.contains('/') && is_safe_folder(f))
+        .map(str::to_string)
+        .collect();
+    folders.sort();
+    if paths.iter().any(|p| p == "gameinfo.gi") {
+        folders.insert(0, String::new());
+    }
+    folders
+}
+
+fn tree_paths(tree: &serde_json::Value) -> Vec<String> {
+    tree["tree"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|e| e["path"].as_str().map(str::to_string)).collect())
+        .unwrap_or_default()
+}
+
+/// Video files directly in `folder`: `video.txt` in any case, or variants like `video(Shadows).txt`.
+pub fn video_files(paths: &[String], folder: &str) -> Vec<String> {
+    let prefix = in_folder(folder, "");
+    let mut files: Vec<String> = paths
+        .iter()
+        .filter_map(|p| p.strip_prefix(&prefix))
+        .filter(|name| !name.contains('/'))
+        .filter(|name| {
+            let lower = name.to_ascii_lowercase();
+            lower.starts_with("video") && lower.ends_with(".txt")
+        })
+        .map(str::to_string)
+        .collect();
+    files.sort();
+    files
+}
+
+/// "video(No Shadows).txt" -> "No Shadows"; "video_low.txt" -> "low".
+pub fn variant_label(file: &str) -> String {
+    let stem = file.get(5..file.len().saturating_sub(4)).unwrap_or("");
+    let label = stem.trim_matches(|c: char| c == '(' || c == ')' || c == '_' || c == '-' || c == ' ' || c == '[' || c == ']');
+    if label.is_empty() {
+        file.to_string()
+    } else {
+        label.to_string()
+    }
+}
+
+fn fetch_index(repo: &Repo, cache_root: &Path) -> Result<Vec<PackInfo>, String> {
+    let base = match get_text(&raw_url(repo, "HEAD", "packs.json"))? {
+        Some(json) => parse_index(&json)?,
+        None => {
+            let tree = match get_api_json(&api_url(repo, "git/trees/HEAD?recursive=1"), cache_root) {
+                Ok(t) => t,
+                // API refused and nothing cached: a root pack can still be found via raw files (no API limit).
+                Err(e) => root_only_tree(repo).ok_or(e)?,
+            };
+            let paths = tree_paths(&tree);
+            let mut used = std::collections::HashSet::new();
+            let mut unique = |base: String| {
+                (1..).map(|n| if n == 1 { base.clone() } else { format!("{base}-{n}") }).find(|c| used.insert(c.clone())).unwrap_or(base)
+            };
+            folders_from_tree(&tree)
+                .into_iter()
+                .flat_map(|folder| {
+                    let description = describe(repo, &folder);
+                    // A pack at the repo root is named after the repo.
+                    let label = if folder.is_empty() { repo.name.clone() } else { folder.clone() };
+                    let videos = video_files(&paths, &folder);
+                    // One pack per video variant; a single (or missing) video file is just the folder.
+                    let variants: Vec<Option<String>> = if videos.len() > 1 { videos.into_iter().map(Some).collect() } else { vec![videos.into_iter().next()] };
+                    let many = variants.len() > 1;
+                    variants
+                        .into_iter()
+                        .map(|video| {
+                            let (name, id) = match (&video, many) {
+                                (Some(v), true) => (format!("{} · {}", title_case(&label), variant_label(v)), slug(&format!("{label} {}", variant_label(v)))),
+                                _ => (title_case(&label), slug(&label)),
+                            };
+                            PackInfo {
+                                repo: String::new(),
+                                commit_message: None,
+                                html_url: String::new(),
+                                description: description.clone(),
+                                id: unique(id),
+                                name,
+                                folder: folder.clone(),
+                                last_commit_date: None,
+                                revision: None,
+                                video_file: video,
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect()
+        }
+    };
+    if base.is_empty() {
+        return Err("No config packs found in this repo.".into());
+    }
+    // Each folder's latest commit, fetched in parallel; variants of one folder share a lookup.
+    let folders: Vec<String> = base.iter().map(|p| p.folder.clone()).fold(Vec::new(), |mut acc, f| {
+        if !acc.contains(&f) {
+            acc.push(f);
+        }
+        acc
+    });
+    let commits: Vec<(String, Option<github::Commit>)> = std::thread::scope(|s| {
+        let handles: Vec<_> = folders
+            .iter()
+            .map(|f| s.spawn(move || (f.clone(), last_commit(repo, f, cache_root))))
+            .collect();
+        handles.into_iter().filter_map(|h| h.join().ok()).collect()
+    });
+    Ok(base
+        .into_iter()
+        .map(|p| {
+            let c = commits.iter().find(|(f, _)| *f == p.folder).and_then(|(_, c)| c.clone());
+            with_commit(p, c)
+        })
+        .collect())
+}
+
+/// A minimal tree for a repo whose root is a pack, built from raw downloads.
+fn root_only_tree(repo: &Repo) -> Option<serde_json::Value> {
+    get_text(&raw_url(repo, "HEAD", "gameinfo.gi")).ok().flatten()?;
+    let mut paths = vec!["gameinfo.gi"];
+    if get_text(&raw_url(repo, "HEAD", "video.txt")).ok().flatten().is_some() {
+        paths.push("video.txt");
+    }
+    Some(serde_json::json!({ "tree": paths.iter().map(|p| serde_json::json!({ "path": p })).collect::<Vec<_>>() }))
+}
+
+/// Latest commit for a folder: the Atom feed first (no API cost), then the API through the ETag cache.
+fn last_commit(repo: &Repo, folder: &str, cache_root: &Path) -> Option<github::Commit> {
+    github::latest_commit(&repo.owner, &repo.name, &encode_path(folder)).or_else(|| {
+        let path = if folder.is_empty() { String::new() } else { format!("path={}&", encode_path(folder)) };
+        let json = get_api_json(&api_url(repo, &format!("commits?{path}per_page=1")), cache_root).ok()?;
+        let first = json.get(0)?;
+        Some(github::Commit {
+            sha: first["sha"].as_str()?.to_string(),
+            date: first["commit"]["committer"]["date"].as_str().unwrap_or_default().to_string(),
+            message: first["commit"]["message"].as_str().and_then(|m| m.lines().next()).unwrap_or_default().trim().to_string(),
+        })
+    })
+}
+
+fn with_commit(pack: PackInfo, commit: Option<github::Commit>) -> PackInfo {
+    match commit {
+        Some(c) => PackInfo {
+            revision: Some(c.sha).filter(|s| is_safe_segment(s)),
+            last_commit_date: Some(c.date).filter(|d| !d.is_empty()),
+            commit_message: Some(c.message).filter(|m| !m.is_empty()),
+            ..pack
+        },
+        None => pack,
+    }
+}
+
+fn repo_cache(cache_root: &Path, repo: &Repo) -> PathBuf {
+    cache_root.join(format!("{}__{}", repo.owner, repo.name))
+}
+
+/// Stamps repo-level fields onto packs (also fixes up caches written by older versions).
+fn with_repo_fields(repo: &Repo, packs: Vec<PackInfo>) -> Vec<PackInfo> {
+    let label = format!("{}/{}", repo.owner, repo.name);
+    packs
+        .into_iter()
+        .map(|p| PackInfo {
+            html_url: folder_url(&label, &p.folder),
+            repo: label.clone(),
+            ..p
+        })
+        .collect()
+}
+
+fn group(repo: &Repo, packs: Vec<PackInfo>, offline: bool, error: Option<String>) -> RepoGroup {
+    let label = format!("{}/{}", repo.owner, repo.name);
+    RepoGroup {
+        url: format!("https://github.com/{label}"),
+        // RFC 3339 UTC dates from GitHub sort correctly as strings.
+        updated_at: packs.iter().filter_map(|p| p.last_commit_date.clone()).max(),
+        repo: label,
+        packs,
+        offline,
+        error,
+    }
+}
+
+pub fn list_packs(repo_input: &str, cache_root: &Path) -> RepoGroup {
+    let repo = match parse_repo(repo_input) {
+        Ok(r) => r,
+        Err(e) => {
+            return RepoGroup { repo: repo_input.into(), url: String::new(), updated_at: None, packs: vec![], offline: false, error: Some(e) }
+        }
+    };
+    let index_file = repo_cache(cache_root, &repo).join("index.json");
+    match fetch_index(&repo, cache_root) {
+        Ok(packs) => {
+            let packs = with_repo_fields(&repo, packs);
+            let _ = fs::create_dir_all(repo_cache(cache_root, &repo));
+            let _ = serde_json::to_vec_pretty(&packs).map(|b| fs::write(&index_file, b));
+            group(&repo, packs, false, None)
+        }
+        Err(e) => {
+            let cached: Vec<PackInfo> = fs::read(&index_file).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+            let cached = with_repo_fields(&repo, cached);
+            let offline = !cached.is_empty();
+            group(&repo, cached, offline, Some(e))
+        }
+    }
+}
+
+/// Loads every repo in parallel, keeping the given order.
+pub fn list_all(repos: &[String], cache_root: &Path) -> Vec<RepoGroup> {
+    std::thread::scope(|s| {
+        let handles: Vec<_> = repos.iter().map(|r| s.spawn(move || list_packs(r, cache_root))).collect();
+        handles
+            .into_iter()
+            .zip(repos)
+            .map(|(h, r)| {
+                h.join().unwrap_or_else(|_| RepoGroup {
+                    repo: r.clone(),
+                    url: String::new(),
+                    updated_at: None,
+                    packs: vec![],
+                    offline: false,
+                    error: Some("Loading this repo crashed.".into()),
+                })
+            })
+            .collect()
+    })
+}
+
+fn read_cached(dir: &Path) -> Option<PackFiles> {
+    Some(PackFiles {
+        gameinfo: fs::read_to_string(dir.join("gameinfo.gi")).ok()?,
+        video: fs::read_to_string(dir.join("video.txt")).ok(),
+    })
+}
+
+fn newest_cached(pack_dir: &Path) -> Option<(PathBuf, String)> {
+    fs::read_dir(pack_dir)
+        .ok()?
+        .filter_map(Result::ok)
+        .filter(|e| e.path().join("gameinfo.gi").is_file())
+        .max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok())
+        .map(|e| (e.path(), e.file_name().to_string_lossy().into_owned()))
+}
+
+pub fn fetch_pack(repo_input: &str, pack: &PackInfo, cache_root: &Path) -> Result<FetchedPack, String> {
+    let repo = parse_repo(repo_input)?;
+    if !is_safe_segment(&pack.id) || !is_safe_folder(&pack.folder) {
+        return Err("Invalid pack.".into());
+    }
+    let pack_dir = repo_cache(cache_root, &repo).join(&pack.id);
+    if let Some(rev) = &pack.revision {
+        if let Some(files) = read_cached(&pack_dir.join(rev)) {
+            return Ok(FetchedPack { files, revision: Some(rev.clone()), from_cache: true });
+        }
+    }
+    let rev = pack.revision.clone().unwrap_or_else(|| "HEAD".into());
+    let download = || -> Result<PackFiles, String> {
+        let gi = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, "gameinfo.gi")))?
+            .ok_or("The pack has no gameinfo.gi.")?;
+        let video_name = pack.video_file.as_deref().filter(|v| !v.contains(['/', '\\'])).unwrap_or("video.txt");
+        let video = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, video_name)))?;
+        Ok(PackFiles { gameinfo: gi, video })
+    };
+    match download() {
+        Ok(files) => {
+            let key = if rev == "HEAD" { chrono::Local::now().format("head-%Y%m%d%H%M%S").to_string() } else { rev.clone() };
+            let dir = pack_dir.join(&key);
+            if fs::create_dir_all(&dir).is_ok() {
+                let _ = fs::write(dir.join("gameinfo.gi"), &files.gameinfo);
+                if let Some(v) = &files.video {
+                    let _ = fs::write(dir.join("video.txt"), v);
+                }
+            }
+            Ok(FetchedPack { files, revision: pack.revision.clone(), from_cache: false })
+        }
+        Err(e) => match newest_cached(&pack_dir).and_then(|(dir, key)| read_cached(&dir).map(|f| (f, key))) {
+            Some((files, key)) => Ok(FetchedPack { files, revision: Some(key), from_cache: true }),
+            None => Err(format!("{e} No cached copy of this pack is available.")),
+        },
+    }
+}
+
+/// A pack from a local folder (offline/testing).
+pub fn read_local(folder: &Path) -> Result<PackFiles, String> {
+    let gi = fs::read_to_string(folder.join("gameinfo.gi"))
+        .map_err(|_| format!("{} has no readable gameinfo.gi.", folder.display()))?;
+    Ok(PackFiles { gameinfo: gi, video: fs::read_to_string(folder.join("video.txt")).ok() })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_repo_forms() {
+        let want = Repo { owner: "alzzzik".into(), name: "alz-deadlock-cfg".into() };
+        assert_eq!(parse_repo("alzzzik/alz-deadlock-cfg").unwrap(), want);
+        assert_eq!(parse_repo("https://github.com/alzzzik/alz-deadlock-cfg/").unwrap(), want);
+        assert_eq!(parse_repo("github.com/alzzzik/alz-deadlock-cfg.git").unwrap(), want);
+        assert!(parse_repo("alzzzik").is_err());
+        assert!(parse_repo("../../etc/x").is_err());
+    }
+
+    #[test]
+    fn finds_pack_folders_in_tree() {
+        let tree = serde_json::json!({"tree": [
+            {"path": "README.md"}, {"path": "stable"}, {"path": "stable/gameinfo.gi"},
+            {"path": "experimental/gameinfo.gi"}, {"path": "reports/old/gameinfo.gi"},
+            {"path": "OptiLock FPS Config (Recommended)/gameinfo.gi"}
+        ]});
+        assert_eq!(folders_from_tree(&tree), vec!["OptiLock FPS Config (Recommended)", "experimental", "stable"]);
+        let root = serde_json::json!({"tree": [{"path": "README.md"}, {"path": "gameinfo.gi"}, {"path": "video.txt"}, {"path": "x/gameinfo.gi"}]});
+        assert_eq!(folders_from_tree(&root), vec!["", "x"]);
+        assert_eq!(video_files(&tree_paths(&root), ""), vec!["video.txt"]);
+        assert_eq!(folder_url("o/r", ""), "https://github.com/o/r");
+        assert_eq!(in_folder("", "gameinfo.gi"), "gameinfo.gi");
+        assert!(is_safe_folder(""));
+    }
+
+    #[test]
+    fn finds_video_variants_in_any_case() {
+        let paths: Vec<String> = [
+            "A/gameinfo.gi", "A/video(No Shadows).txt", "A/video(Shadows).txt", "A/videotxtexample.png",
+            "B/Video.txt", "B/sub/video.txt", "C/gameinfo.gi",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        assert_eq!(video_files(&paths, "A"), vec!["video(No Shadows).txt", "video(Shadows).txt"]);
+        assert_eq!(video_files(&paths, "B"), vec!["Video.txt"]);
+        assert!(video_files(&paths, "C").is_empty());
+        assert_eq!(variant_label("video(No Shadows).txt"), "No Shadows");
+        assert_eq!(variant_label("video_low.txt"), "low");
+    }
+
+    #[test]
+    fn parses_index_and_drops_unsafe_entries() {
+        let json = r#"{"packs":[{"id":"stable","name":"Stable","description":"d","folder":"stable"},
+                                 {"id":"bad","name":"B","folder":"../x"}]}"#;
+        let packs = parse_index(json).unwrap();
+        assert_eq!(packs.len(), 1);
+        assert_eq!(packs[0].name, "Stable");
+    }
+
+    #[test]
+    fn uses_header_comment_as_description() {
+        assert_eq!(header_comment("// alz cfg - stable build\n\nGameInfo"), "alz cfg - stable build");
+        assert_eq!(header_comment("GameInfo\n{"), "");
+        assert_eq!(header_comment("//   ____        __  _ __   \\\\\n//  / __ \\____  / /_(_) /"), "");
+    }
+
+    #[test]
+    fn summarises_readme_and_handles_spaced_folders() {
+        let md = "# OptiLock\n\n![img](x.png)\n\n**Recommended** config for most PCs, balancing FPS and clarity.\n";
+        assert_eq!(readme_summary(md), "Recommended config for most PCs, balancing FPS and clarity.");
+        assert_eq!(slug("OptiLock FPS Config (Recommended)"), "optilock-fps-config-recommended");
+        assert!(slug("Картофельный пресет").starts_with("pack-"));
+        assert_eq!(encode_path("A B (C)/video.txt"), "A%20B%20%28C%29/video.txt");
+        assert_eq!(folder_url("o/r", "A B"), "https://github.com/o/r/tree/HEAD/A%20B");
+        assert!(is_safe_folder("OptiLock FPS Config (Recommended)"));
+        assert!(!is_safe_folder("../etc") && !is_safe_folder("a\\b"));
+    }
+
+    #[test]
+    fn reads_cached_pack_by_revision_without_network() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("alzzzik__alz-deadlock-cfg").join("stable").join("abc123");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("gameinfo.gi"), "GameInfo { }").unwrap();
+        let pack = PackInfo {
+            repo: "alzzzik/alz-deadlock-cfg".into(), id: "stable".into(), name: "Stable".into(), description: String::new(),
+            folder: "stable".into(), last_commit_date: None, revision: Some("abc123".into()), commit_message: None,
+            html_url: String::new(), video_file: None,
+        };
+        let got = fetch_pack("alzzzik/alz-deadlock-cfg", &pack, tmp.path()).unwrap();
+        assert!(got.from_cache);
+        assert_eq!(got.files.gameinfo, "GameInfo { }");
+        assert!(got.files.video.is_none());
+    }
+
+    #[test]
+    fn group_reports_newest_update_and_stamps_links() {
+        let repo = parse_repo("o/r").unwrap();
+        let pack = |id: &str, date: &str| PackInfo {
+            repo: String::new(), id: id.into(), name: id.into(), description: String::new(), folder: id.into(),
+            last_commit_date: Some(date.into()), revision: None, commit_message: None, html_url: String::new(), video_file: None,
+        };
+        let packs = with_repo_fields(&repo, vec![pack("a", "2026-09-01T00:00:00Z"), pack("b", "2026-10-19T00:00:00Z")]);
+        let g = group(&repo, packs, false, None);
+        assert_eq!(g.updated_at.as_deref(), Some("2026-10-19T00:00:00Z"));
+        assert_eq!(g.url, "https://github.com/o/r");
+        assert_eq!(g.packs[0].repo, "o/r");
+        assert_eq!(g.packs[1].html_url, "https://github.com/o/r/tree/HEAD/b");
+    }
+}
