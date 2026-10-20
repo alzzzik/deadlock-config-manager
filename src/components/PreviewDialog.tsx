@@ -49,7 +49,7 @@ function FileSection({ d }: { d: FileDiff }) {
         </ul>
       )}
       {d.changes.length > COLLAPSED_ROWS && (
-        <button className="link-btn" onClick={() => setAll((v) => !v)}>
+        <button className="btn btn-quiet btn-sm" onClick={() => setAll((v) => !v)}>
           {all ? "Show fewer" : `Show all ${d.changes.length}`}
         </button>
       )}
@@ -68,7 +68,7 @@ export function PreviewDialog({ preview, onCancel, onConfirm }: PreviewDialogPro
         <>
           <span className="muted small">A backup is taken first, so you can always restore.</span>
           <span className="spacer" />
-          <button className="btn" onClick={onCancel}>
+          <button className="btn btn-secondary" onClick={onCancel}>
             Cancel
           </button>
           <button className="btn btn-primary" onClick={onConfirm} autoFocus>

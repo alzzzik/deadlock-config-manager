@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { HelpIcon } from "./icons";
 
 interface AccountHelpProps {
   onOpenUserdata: () => void;
@@ -23,8 +24,8 @@ export function AccountHelp({ onOpenUserdata }: AccountHelpProps) {
 
   return (
     <span className="help" ref={ref}>
-      <button className="help-btn" aria-label="How to find your Steam account" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        ?
+      <button className="icon-btn icon-btn-sm" aria-label="How to find your Steam account" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <HelpIcon size={15} />
       </button>
       {open && (
         <div className="popover" role="dialog" aria-label="Finding your Steam account">
@@ -41,7 +42,7 @@ export function AccountHelp({ onOpenUserdata }: AccountHelpProps) {
               after you've launched the game once on that account.
             </li>
           </ol>
-          <button className="btn btn-ghost" onClick={onOpenUserdata}>
+          <button className="btn btn-secondary btn-sm" onClick={onOpenUserdata}>
             Open userdata folder
           </button>
         </div>

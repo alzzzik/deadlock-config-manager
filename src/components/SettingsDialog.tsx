@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Overview } from "../api";
 import { AddRepo } from "./AddRepo";
+import { ChevronIcon, CloseIcon } from "./icons";
 import { Modal } from "./Modal";
 
 interface SettingsDialogProps {
@@ -37,11 +38,11 @@ export function SettingsDialog({ overview, onClose, onSaveKeys, onAddRepo, onMov
       onClose={onClose}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onOpenBackups}>
+          <button className="btn btn-quiet" onClick={onOpenBackups}>
             Open backups folder
           </button>
           <span className="spacer" />
-          <button className="btn" onClick={onClose}>
+          <button className="btn btn-secondary" onClick={onClose}>
             Cancel
           </button>
           <button className="btn btn-primary" onClick={() => onSaveKeys(keys)}>
@@ -59,13 +60,13 @@ export function SettingsDialog({ overview, onClose, onSaveKeys, onAddRepo, onMov
               <code>{r}</code>
               <span className="spacer" />
               <button className="icon-btn" onClick={() => onMoveRepo(r, -1)} disabled={i === 0} aria-label={`Move ${r} up`}>
-                ↑
+                <ChevronIcon className="rot-up" />
               </button>
               <button className="icon-btn" onClick={() => onMoveRepo(r, 1)} disabled={i === repos.length - 1} aria-label={`Move ${r} down`}>
-                ↓
+                <ChevronIcon className="rot-down" />
               </button>
               <button className="icon-btn danger" onClick={() => onRemoveRepo(r)} aria-label={`Remove ${r}`}>
-                ×
+                <CloseIcon />
               </button>
             </li>
           ))}

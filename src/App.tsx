@@ -15,9 +15,9 @@ import {
   matchesSearch,
   pinKey,
 } from "./api";
-import { FilesPanel } from "./components/FilesPanel";
-import { RepoSection } from "./components/RepoSection";
-import { PackCard } from "./components/PackCard";
+import { StatusStrip } from "./components/StatusStrip";
+import { PinnedSection, RepoSection } from "./components/RepoSection";
+import { FolderIcon, RefreshIcon, SearchIcon } from "./components/icons";
 import { AddRepo } from "./components/AddRepo";
 import { RestoreDialog } from "./components/RestoreDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
@@ -51,6 +51,7 @@ export default function App() {
   const [dialog, setDialog] = useState<Dialog>({ kind: "none" });
   const [query, setQuery] = useState("");
   const notifiedRevision = useRef<string | null>(null);
+  const seenFirstLoad = useRef(false);
   const { toasts, push, dismiss } = useToasts();
   const fail = useCallback((e: unknown) => push("error", errorText(e)), [push]);
 
@@ -88,15 +89,22 @@ export default function App() {
   );
   const updateAvailable = !!appliedPack?.revision && !!overview?.applied?.revision && appliedPack.revision !== overview.applied.revision;
 
-  // Toast once per new revision of the applied pack.
+  // Toast once when a background check finds a new revision of the applied pack. On startup the
+  // status strip already says "Update available", so the first load is recorded silently.
   useEffect(() => {
+    if (!groups || !overview) return;
     const rev = appliedPack?.revision ?? null;
+    if (!seenFirstLoad.current) {
+      seenFirstLoad.current = true;
+      notifiedRevision.current = rev;
+      return;
+    }
     if (updateAvailable && appliedPack && rev && notifiedRevision.current !== rev) {
       notifiedRevision.current = rev;
       const what = appliedPack.commitMessage ? `: "${appliedPack.commitMessage}"` : "";
       push("info", `${appliedPack.name} has an update${what}. Re-apply to get it.`);
     }
-  }, [updateAvailable, appliedPack, push]);
+  }, [groups, overview, updateAvailable, appliedPack, push]);
 
   const allPacks = useMemo(() => groups?.flatMap((g) => g.packs) ?? [], [groups]);
   const pinnedPacks = useMemo(
@@ -217,22 +225,38 @@ export default function App() {
   const canWrite = !!overview && (overview.gameinfoFound || overview.gameinfoCreatable);
   const blocked = busy || !overview || overview.deadlockRunning || !canWrite;
 
+  const packCount = allPacks.length;
+
   return (
     <div className="app">
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark" aria-hidden />
-          <span>Deadlock Config Manager</span>
+          Deadlock Config Manager
         </div>
+        <span className="spacer" />
         {busy && <span className="working">Working…</span>}
+        {overview && (
+          <span className={`game-state ${overview.deadlockRunning ? "is-running" : ""}`} title="Files can only be changed while Deadlock is closed">
+            <span className="game-dot" aria-hidden />
+            {overview.deadlockRunning ? "Deadlock running" : "Deadlock closed"}
+          </span>
+        )}
+        <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "restore" })}>
+          Restore…
+        </button>
+        <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "settings" })} disabled={!overview}>
+          Settings
+        </button>
       </header>
 
       <main className="content">
         {overview ? (
-          <FilesPanel
+          <StatusStrip
             overview={overview}
             busy={busy}
             updateAvailable={updateAvailable}
+            updateNote={updateAvailable ? appliedPack?.commitMessage ?? null : null}
             canReapply={!!appliedPack || overview.applied?.packId === "local"}
             onReapply={reapply}
             onAccount={(id) => api.setAccount(id).then(setOverview, fail)}
@@ -241,73 +265,51 @@ export default function App() {
             onOpen={openLocation}
           />
         ) : (
-          <section className="files-panel skeleton" />
+          <section className="status is-loading" aria-busy="true" />
         )}
 
-        <div className="packs">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">Config packs</p>
-              <h2>From your linked repos</h2>
-            </div>
-            <div className="section-tools">
-              {allPacks.length > SEARCH_MIN_PACKS && (
-                <input
-                  className="search"
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search packs"
-                  aria-label="Search packs"
-                />
-              )}
-              <button className="btn btn-ghost" onClick={() => refreshPacks()} disabled={loading}>
-                {loading ? "Refreshing…" : "Refresh all"}
-              </button>
-            </div>
+        <section className="packs" aria-labelledby="packs-title">
+          <div className="toolbar">
+            <h2 id="packs-title">
+              Packs {packCount > 0 && <span className="count">{packCount}</span>}
+            </h2>
+            <span className="spacer" />
+            {packCount > SEARCH_MIN_PACKS && (
+              <label className="search">
+                <SearchIcon size={14} />
+                <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search packs" aria-label="Search packs" />
+              </label>
+            )}
+            <button className="icon-btn" onClick={() => refreshPacks()} disabled={loading} aria-label="Refresh all repos" title="Refresh all repos">
+              <RefreshIcon className={loading ? "spin" : ""} />
+            </button>
+            <button className="btn btn-quiet btn-sm" onClick={applyLocal} disabled={blocked} title="Apply a pack from a folder on this PC">
+              <FolderIcon size={14} />
+              From folder…
+            </button>
           </div>
 
           {pinnedPacks.length > 0 && (
-            <section className="repo pinned" aria-label="Pinned packs">
-              <header className="repo-head">
-                <span className="pin-mark" aria-hidden>
-                  ★
-                </span>
-                <span className="repo-title">Pinned</span>
-              </header>
-              <div className="pack-grid">
-                {pinnedPacks.map((p, i) => {
-                  const isApplied = isSamePack(overview?.applied ?? null, p, firstRepo);
-                  return (
-                    <PackCard
-                      key={pinKey(p)}
-                      pack={p}
-                      index={i}
-                      applied={isApplied}
-                      hasUpdate={isApplied && updateAvailable}
-                      disabled={blocked}
-                      pinned
-                      showRepo
-                      onApply={applyPack}
-                      onOpenGithub={openGithub}
-                      onTogglePin={togglePin}
-                    />
-                  );
-                })}
-              </div>
-            </section>
+            <PinnedSection
+              packs={pinnedPacks}
+              pinned={overview?.pinned ?? []}
+              firstRepo={firstRepo}
+              applied={overview?.applied ?? null}
+              disabled={blocked}
+              onApply={applyPack}
+              onOpenGithub={openGithub}
+              onTogglePin={togglePin}
+            />
           )}
 
-          {query.trim() && filtered.length === 0 && pinnedPacks.length === 0 && (
-            <p className="empty">No packs match “{query.trim()}”.</p>
-          )}
+          {query.trim() && filtered.length === 0 && pinnedPacks.length === 0 && <p className="empty">No packs match “{query.trim()}”.</p>}
 
           {!groups && loading && (
-            <div className="pack-grid">
-              {[0, 1].map((i) => (
-                <div key={i} className="pack-card skeleton" />
+            <ul className="pack-list" aria-busy="true">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="pack-row is-loading" />
               ))}
-            </div>
+            </ul>
           )}
 
           {filtered.map(({ group: g, packs }, i) => (
@@ -332,27 +334,8 @@ export default function App() {
           ))}
 
           <AddRepo linked={overview?.repos ?? []} onAdd={addRepo} onOpenGithub={openGithub} />
-        </div>
+        </section>
       </main>
-
-      <footer className="bottombar">
-        <button className="btn" onClick={() => setDialog({ kind: "restore" })}>
-          Restore…
-        </button>
-        <button className="btn btn-ghost" onClick={applyLocal} disabled={blocked}>
-          Apply from folder…
-        </button>
-        <span className="spacer" />
-        {overview && (
-          <span className={`game-state ${overview.deadlockRunning ? "is-running" : ""}`}>
-            <span className="dot" aria-hidden />
-            {overview.deadlockRunning ? "Deadlock running" : "Deadlock closed"}
-          </span>
-        )}
-        <button className="btn btn-ghost" onClick={() => setDialog({ kind: "settings" })} disabled={!overview}>
-          Settings
-        </button>
-      </footer>
 
       {dialog.kind === "restore" && (
         <RestoreDialog busy={busy} onClose={() => setDialog({ kind: "none" })} onRestore={restore} onOpenFolder={() => openLocation("backups")} />

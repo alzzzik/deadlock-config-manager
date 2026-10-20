@@ -31,17 +31,17 @@ export function RestoreDialog({ busy, onClose, onRestore, onOpenFolder }: Restor
       onClose={onClose}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onOpenFolder}>
+          <button className="btn btn-quiet" onClick={onOpenFolder}>
             Open backups folder
           </button>
           <span className="spacer" />
-          <button className="btn" onClick={onClose}>
+          <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
         </>
       }
     >
-      {error && <p className="banner banner-bad">{error}</p>}
+      {error && <p className="notice is-bad">{error}</p>}
       {backups && backups.length === 0 && (
         <p className="muted">No backups yet. One is taken automatically before every apply.</p>
       )}
@@ -70,7 +70,7 @@ export function RestoreDialog({ busy, onClose, onRestore, onOpenFolder }: Restor
                   {b.reason} · {contents(b)}
                 </span>
               </div>
-              <button className="btn btn-ghost" disabled={busy} onClick={() => onRestore(b)}>
+              <button className="btn btn-quiet" disabled={busy} onClick={() => onRestore(b)}>
                 Restore
               </button>
             </li>

@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { ExternalIcon, PlusIcon } from "./icons";
 
 /** Well-known pack repos offered as one-click suggestions. They are never linked automatically. */
 const POPULAR_REPOS: { repo: string; note: string }[] = [
@@ -42,9 +43,7 @@ export function AddRepo({ linked, onAdd, onOpenGithub }: AddRepoProps) {
   return (
     <form className="add-repo" onSubmit={submit}>
       <div className="add-row">
-        <span className="add-plus" aria-hidden>
-          +
-        </span>
+        <PlusIcon size={14} className="add-plus" />
         <input
           value={value}
           onChange={(e) => {
@@ -56,7 +55,7 @@ export function AddRepo({ linked, onAdd, onOpenGithub }: AddRepoProps) {
           aria-invalid={!!error}
           spellCheck={false}
         />
-        <button className="btn" type="submit" disabled={!!adding}>
+        <button className="btn btn-secondary" type="submit" disabled={!!adding}>
           {adding === value.trim() && adding ? "Checking…" : "Add repo"}
         </button>
       </div>
@@ -64,11 +63,11 @@ export function AddRepo({ linked, onAdd, onOpenGithub }: AddRepoProps) {
 
       {suggestions.length > 0 && (
         <div className="suggest">
-          <span className="suggest-label">Popular repos:</span>
+          <span className="suggest-label">Popular:</span>
           {suggestions.map((s) => (
             <span key={s.repo} className="suggest-chip" title={s.note}>
               <button type="button" className="suggest-add" onClick={() => void add(s.repo)} disabled={!!adding}>
-                {adding === s.repo ? "Adding…" : `+ ${s.repo}`}
+                {adding === s.repo ? "Adding…" : s.repo}
               </button>
               <button
                 type="button"
@@ -77,7 +76,7 @@ export function AddRepo({ linked, onAdd, onOpenGithub }: AddRepoProps) {
                 aria-label={`View ${s.repo} on GitHub`}
                 title="View on GitHub"
               >
-                ↗
+                <ExternalIcon size={12} />
               </button>
             </span>
           ))}
