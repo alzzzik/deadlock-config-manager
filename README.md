@@ -1,114 +1,131 @@
+<div align="center">
+
+<img src="src-tauri/icons/128x128.png" width="88" alt="Deadlock Config Manager icon" />
+
 # Deadlock Config Manager
 
-A small Windows app that installs **Deadlock FPS config packs** (`gameinfo.gi` + `video.txt`) from GitHub
-with one click, keeps your own GPU and resolution lines, backs everything up first, and can put your
-original files back at any time.
+**Install Deadlock FPS configs in one click. Keep your own settings. Undo anytime.**
 
-> Not affiliated with or endorsed by Valve. Deadlock is a trademark of Valve Corporation.
+[![Latest release](https://img.shields.io/github/v/release/alzzzik/deadlock-config-manager?label=release&color=9b87f5)](https://github.com/alzzzik/deadlock-config-manager/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/alzzzik/deadlock-config-manager/total?color=9b87f5)](https://github.com/alzzzik/deadlock-config-manager/releases)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-2b2f36)](#install)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2b2f36)](LICENSE)
 
-## Features
+<a href="https://github.com/alzzzik/deadlock-config-manager/releases/latest">
+  <img src="https://img.shields.io/badge/Download%20for%20Windows-9b87f5?style=for-the-badge&logoColor=white" alt="Download for Windows" height="36" />
+</a>
 
-- **One-click apply** from any linked GitHub pack repo, with a preview of every setting that will change.
-- **Keeps your hardware lines**: `Version`, `VendorID`, `DeviceID` are always kept from your own `video.txt`;
-  resolution, refresh rate, monitor and window mode are kept too unless you untick them in Settings.
-- **Safe**: a backup is taken before every write, the first one is kept forever as your *Original*, and
-  Restore puts any backup back exactly as it was.
-- **Game-update aware**: notices when a Deadlock update replaces `gameinfo.gi` and offers *Re-apply*.
-  Edits made by Deadlock Mod Manager are recognised and left alone.
-- **Linked repos**: add any pack repo (popular ones are suggested under the add field, never linked automatically) (`owner/repo` or a GitHub link). Each pack shows its latest change and
-  how long ago its folder was updated, and packs that haven't changed in months are flagged.
-- **Pins, search, update checks**: pin favourite packs, search across repos, and get a heads-up when the pack
-  you applied has a new version.
-- **Mod-manager friendly**: keeps the `Mod`/`Write` search paths the game needs without removing extra
-  paths that mod managers (Deadlock Mod Manager, Grimoire) add, and never makes files read-only.
+<br /><br />
+
+<img src="docs/images/home.png" width="760" alt="Deadlock Config Manager: status at the top, config packs grouped by GitHub repo below" />
+
+</div>
+
+<br />
+
+Community FPS configs for Deadlock usually mean copying `gameinfo.gi` into the game folder, then hand-editing
+`video.txt` without breaking your GPU lines, and redoing it all after every patch. This app does it for you,
+safely.
+
+## Why use it
+
+- **See before you apply.** A preview lists every setting that will change, old → new. Nothing is written
+  until you confirm.
+- **Your PC stays yours.** Your GPU IDs, resolution, refresh rate and window mode are kept from your own
+  `video.txt`.
+- **Undo anytime.** A backup is taken before every change, and *Restore original* puts your files back
+  exactly as they were.
+- **Survives game updates.** When a Deadlock patch replaces `gameinfo.gi`, the app notices and offers
+  *Re-apply*.
+- **Any pack, any repo.** Pick from popular config repos or paste any GitHub link. Each pack shows when it was
+  last updated, so you can spot outdated ones.
+- **Plays nice with mods.** Works alongside Deadlock Mod Manager and Grimoire, and keeps the search paths the
+  game needs to start.
+
+## Your settings, kept
+
+<img src="docs/images/settings.png" width="380" align="right" alt="Settings: linked pack repos and the video.txt values the app keeps from your PC" />
+
+Packs are made on someone else's PC. The app always keeps your `Version`, `VendorID` and `DeviceID`, and by
+default also your resolution, refresh rate, monitor and window mode. Untick anything in **Settings** to take
+the pack's value instead.
+
+Settings is also where you manage linked repos: add one by pasting a GitHub link, reorder or remove them, or
+pick from the popular ones.
+
+<br clear="right" />
 
 ## Install
 
-1. Download `Deadlock.Config.Manager_x.y.z_x64-setup.exe` from [Releases](../../releases).
-2. Run it. It installs for your Windows user only and doesn't need admin rights.
-3. Windows may show **"Windows protected your PC"** because the app isn't code-signed yet.
-   Click **More info → Run anyway**.
+1. Download **`Deadlock.Config.Manager_x.y.z_x64-setup.exe`** from the
+   [latest release](https://github.com/alzzzik/deadlock-config-manager/releases/latest).
+2. Run it. It installs for your Windows user only, so no admin rights are needed.
+3. If Windows says *"Windows protected your PC"*, click **More info → Run anyway**. That appears because the
+   app isn't code-signed yet; the installer is built from this repo by
+   [GitHub Actions](https://github.com/alzzzik/deadlock-config-manager/actions).
 
-Windows 10/11, 64-bit. Close Deadlock before applying or restoring.
+## How it works
 
-## Using it
+1. **Open the app.** It finds Deadlock, your `video.txt` and your Steam account on its own.
+2. **Pick a pack** and click **Apply**. Check the list of changes, then confirm.
+3. **Launch Deadlock.** To undo, use **Restore… → Restore original**.
 
-1. Check the **files panel** at the top: `gameinfo.gi`, `video.txt` and your Steam account are detected
-   automatically. Use **Locate…** to pick a folder by hand, **Auto** to detect again. The **?** next to
-   *Steam account* explains how to find yours.
-2. Pick a pack and click **Apply**. Review the list of changes, then confirm.
-3. Launch Deadlock. To undo, use **Restore… → Restore original**.
+## Config packs
 
-If your account has no `video.txt` yet (Deadlock never launched on it), Apply creates one from the pack
-without the GPU lines; the game fills those in on first launch.
-
-`gameinfo.gi` usually lives in `Program Files (x86)`. Windows normally lets your account write there; if it
-doesn't, you'll see one administrator prompt for the write step only.
-
-## Pack repos
-
-Linked by default: [alzzzik/alz-deadlock-cfg](https://github.com/alzzzik/alz-deadlock-cfg). Also tested with
-[dacooderr/OptiLock](https://github.com/dacooderr/OptiLock),
-[Sqooky/OptimizationLock](https://github.com/Sqooky/OptimizationLock) and
-[7liv/compylock](https://github.com/7liv/compylock).
-
-A repo works if each pack is a folder (or the repo root) with a `gameinfo.gi` and a `video*.txt`:
-
-- `video.txt` can be a full file or just the setting lines to paste under `DeviceID`.
-- Several video files in one folder (e.g. `video(Shadows).txt`, `video(No Shadows).txt`) become separate packs.
-- Pack authors can add a `packs.json` at the repo root for exact names and descriptions:
-
-```json
-{ "packs": [
-  { "id": "stable", "name": "Stable", "description": "Safe FPS baseline", "folder": "stable" },
-  { "id": "experimental", "name": "Experimental", "description": "Research tweaks", "folder": "experimental" }
-] }
-```
-
-## Privacy
-
-No accounts, no telemetry, no background service. The app only talks to GitHub (`github.com`,
-`api.github.com`, `raw.githubusercontent.com`) to list and download packs. Settings, backups and the download
-cache live in `%APPDATA%\DeadlockConfigManager\`.
-
-## Building from source
-
-Needs Node 18+, Rust (MSVC toolchain), and Visual Studio Build Tools with the Windows SDK.
-
-```
-npm install
-npx tauri build      # installer: src-tauri/target/release/bundle/nsis/
-```
-
-Run from a Developer PowerShell (or after `vcvars64.bat`) so the MSVC linker is on `PATH`.
-
-Tests:
-
-```
-cd src-tauri
-cargo test                                      # unit tests with fixtures
-cargo test --test smoke_github -- --ignored     # live checks against real pack repos
-```
-
-Releases: push a tag like `v0.1.0` and the GitHub Actions workflow builds the installer and drafts a release.
-
-### Source map (`src-tauri/src`)
-
-| File | Role |
+| Repo | Packs |
 | --- | --- |
-| `kv.rs` | Valve KeyValues tokenizer/parser with byte offsets |
-| `gameinfo.rs` | SearchPaths checks, PGIVersion, Mod Manager-aware comparison |
-| `video.rs` | `video.txt` merge (full files and fragments) |
-| `diff.rs` | "What will change" preview |
-| `paths.rs` | Steam, library and account detection |
-| `github.rs` | GitHub HTTP: ETag cache, commit feeds |
-| `packs.rs` | Pack discovery, download and cache |
-| `repos.rs` | Linked repo list and pins |
-| `backup.rs` | Backups, pruning, restore |
-| `writer.rs` | Atomic writes and the elevated write helper |
-| `apply.rs` | Build, verify, roll back, status |
-| `overview.rs`, `commands.rs` | Tauri commands used by the UI |
+| [alzzzik/alz-deadlock-cfg](https://github.com/alzzzik/alz-deadlock-cfg) | Stable, Experimental (linked by default) |
+| [Sqooky/OptimizationLock](https://github.com/Sqooky/OptimizationLock) | Many community presets |
+| [dacooderr/OptiLock](https://github.com/dacooderr/OptiLock) | Recommended, Potato, Ultra Potato |
+| [7liv/compylock](https://github.com/7liv/compylock) | Competitive-focused config |
 
-## License
+Add any other repo by pasting its GitHub link. Pack authors: see
+[the pack format](docs/DEVELOPMENT.md#for-pack-authors).
 
-[MIT](LICENSE)
+## FAQ
+
+<details>
+<summary><b>Can this get me banned?</b></summary>
+
+The app only edits the same two text files people edit by hand (`gameinfo.gi` and `video.txt`). It doesn't
+touch the game's code or memory. There are no known bans for config edits. Note that Valve's matchmaking
+refuses to queue if `gameinfo.gi` changes certain engine sections, and some packs do; if you can't queue,
+switch to a different pack or use *Restore original*.
+</details>
+
+<details>
+<summary><b>How do I undo everything?</b></summary>
+
+**Restore… → Restore original** puts back the exact files from before your first apply. You can also verify
+the game files in Steam (Deadlock → Properties → Installed Files) to get Valve's stock `gameinfo.gi`.
+</details>
+
+<details>
+<summary><b>A Deadlock update reset my config.</b></summary>
+
+Game updates replace `gameinfo.gi`. Open the app; it shows *Game updated* with a **Re-apply** button.
+</details>
+
+<details>
+<summary><b>I use Deadlock Mod Manager or Grimoire.</b></summary>
+
+That's fine. The app keeps the extra search paths those tools add, never makes files read-only, and
+recognises Deadlock Mod Manager's edits so it doesn't report them as a problem.
+</details>
+
+<details>
+<summary><b>What does the app send over the internet?</b></summary>
+
+Only requests to GitHub, to list and download packs. No accounts, no telemetry, no background service.
+Settings and backups stay in `%APPDATA%\DeadlockConfigManager\`.
+</details>
+
+## Contributing
+
+Bug reports and pack-repo suggestions are welcome in
+[Issues](https://github.com/alzzzik/deadlock-config-manager/issues). Building from source, tests and the
+code layout are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md); plans are in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+---
+
+<sub>Not affiliated with or endorsed by Valve. Deadlock is a trademark of Valve Corporation. MIT licensed.</sub>
