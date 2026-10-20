@@ -15,7 +15,7 @@ original files back at any time.
   Restore puts any backup back exactly as it was.
 - **Game-update aware**: notices when a Deadlock update replaces `gameinfo.gi` and offers *Re-apply*.
   Edits made by Deadlock Mod Manager are recognised and left alone.
-- **Linked repos**: add any pack repo (`owner/repo` or a GitHub link). Each pack shows its latest change and
+- **Linked repos**: add any pack repo (popular ones are suggested under the add field, never linked automatically) (`owner/repo` or a GitHub link). Each pack shows its latest change and
   how long ago its folder was updated, and packs that haven't changed in months are flagged.
 - **Pins, search, update checks**: pin favourite packs, search across repos, and get a heads-up when the pack
   you applied has a new version.
@@ -24,7 +24,7 @@ original files back at any time.
 
 ## Install
 
-1. Download `Deadlock Config Manager_x.y.z_x64-setup.exe` from [Releases](../../releases).
+1. Download `Deadlock.Config.Manager_x.y.z_x64-setup.exe` from [Releases](../../releases).
 2. Run it. It installs for your Windows user only and doesn't need admin rights.
 3. Windows may show **"Windows protected your PC"** because the app isn't code-signed yet.
    Click **More info → Run anyway**.

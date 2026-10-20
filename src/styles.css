@@ -372,3 +372,15 @@ input::placeholder { color: var(--text-faint); }
 .pack-updated::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); box-shadow: 0 0 6px var(--good); }
 .pack-updated.is-stale::before { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
 .pack-updated:has(.muted)::before { background: var(--text-faint); box-shadow: none; }
+
+/* popular repo suggestions */
+.suggest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; padding-left: 4px; font-size: 12px; }
+.suggest-label { color: var(--text-faint); margin-right: 2px; }
+.suggest-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 999px; overflow: hidden; transition: border-color var(--fast) var(--ease); }
+.suggest-chip:hover { border-color: var(--brass); }
+.suggest-chip button { border: 0; background: transparent; color: var(--text-dim); font: 12px var(--font-mono); cursor: pointer; padding: 4px 10px; }
+.suggest-add:hover:not(:disabled) { color: var(--brass-hi); background: var(--brass-wash); }
+.suggest-view { border-left: 1px solid var(--line-strong) !important; padding: 4px 8px !important; }
+.suggest-view:hover { color: var(--brass-hi); }
+.suggest-chip button:disabled { cursor: wait; }
+.suggest-chip button:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: -2px; }

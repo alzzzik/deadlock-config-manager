@@ -45,7 +45,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Deadlock Config Manager ${{ github.ref_name }}
           releaseBody: |
-            Download **Deadlock Config Manager_*_x64-setup.exe** below and run it.
+            Download **Deadlock.Config.Manager_*_x64-setup.exe** below and run it.
             Windows may say "Windows protected your PC" because the app isn't code-signed yet: click **More info → Run anyway**.
           releaseDraft: true
           prerelease: false

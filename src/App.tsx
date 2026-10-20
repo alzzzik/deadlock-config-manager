@@ -331,7 +331,7 @@ export default function App() {
             />
           ))}
 
-          <AddRepo onAdd={addRepo} />
+          <AddRepo linked={overview?.repos ?? []} onAdd={addRepo} onOpenGithub={openGithub} />
         </div>
       </main>
 
@@ -366,6 +366,7 @@ export default function App() {
           onMoveRepo={moveRepo}
           onRemoveRepo={removeRepo}
           onOpenBackups={() => openLocation("backups")}
+          onOpenGithub={openGithub}
         />
       )}
       {dialog.kind === "preview" && (

@@ -11,6 +11,7 @@ interface SettingsDialogProps {
   onMoveRepo: (repo: string, delta: number) => void;
   onRemoveRepo: (repo: string) => void;
   onOpenBackups: () => void;
+  onOpenGithub: (url: string) => void;
 }
 
 const KEY_LABELS: Record<string, string> = {
@@ -25,7 +26,7 @@ const KEY_LABELS: Record<string, string> = {
   "setting.aspectratiomode": "Aspect ratio mode",
 };
 
-export function SettingsDialog({ overview, onClose, onSaveKeys, onAddRepo, onMoveRepo, onRemoveRepo, onOpenBackups }: SettingsDialogProps) {
+export function SettingsDialog({ overview, onClose, onSaveKeys, onAddRepo, onMoveRepo, onRemoveRepo, onOpenBackups, onOpenGithub }: SettingsDialogProps) {
   const [keys, setKeys] = useState<string[]>(overview.preservedKeys);
   const toggle = (k: string) => setKeys((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
   const repos = overview.repos;
@@ -69,7 +70,7 @@ export function SettingsDialog({ overview, onClose, onSaveKeys, onAddRepo, onMov
             </li>
           ))}
         </ul>
-        <AddRepo onAdd={onAddRepo} />
+        <AddRepo linked={repos} onAdd={onAddRepo} onOpenGithub={onOpenGithub} />
       </section>
 
       <fieldset className="field">
