@@ -24,8 +24,6 @@ cargo test --test smoke_github -- --ignored     # live checks against real pack 
 npx tsc --noEmit                                # UI type-check (from the repo root)
 ```
 
-Manual release checks: [TESTING.md](TESTING.md).
-
 ## Releasing
 
 1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`
