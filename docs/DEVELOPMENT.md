@@ -24,7 +24,7 @@ cargo test --test smoke_github -- --ignored     # live checks against real pack 
 npx tsc --noEmit                                # UI type-check (from the repo root)
 ```
 
-Manual release checks: [TESTING.md](TESTING.md). Plans: [ROADMAP.md](ROADMAP.md).
+Manual release checks: [TESTING.md](TESTING.md).
 
 ## Releasing
 

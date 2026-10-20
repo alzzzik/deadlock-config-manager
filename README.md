@@ -117,7 +117,7 @@ backups are stored in `%APPDATA%\DeadlockConfigManager\`.
 
 Bug reports and repo suggestions go in
 [Issues](https://github.com/alzzzik/deadlock-config-manager/issues). Build instructions and code layout are in
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), plans in [docs/ROADMAP.md](docs/ROADMAP.md).
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ---
 
