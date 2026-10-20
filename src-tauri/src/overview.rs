@@ -162,6 +162,12 @@ pub async fn list_packs(state: State<'_, AppState>) -> Result<Vec<RepoGroup>, St
         .map_err(|e| e.to_string())
 }
 
+/// Packs from the on-disk cache only; instant, used to fill the list before the network refresh.
+#[tauri::command]
+pub fn cached_packs(state: State<AppState>) -> Vec<RepoGroup> {
+    packs::cached_all(&state.snapshot().effective_repos(), &state.dir.join("cache"))
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddedRepo {

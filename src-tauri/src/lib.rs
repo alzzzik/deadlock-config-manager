@@ -28,6 +28,7 @@ pub fn run() {
             overview::set_path,
             overview::save_settings,
             overview::list_packs,
+            overview::cached_packs,
             overview::add_repo,
             overview::remove_repo,
             overview::move_repo,

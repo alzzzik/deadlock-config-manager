@@ -437,6 +437,20 @@ pub fn list_packs(repo_input: &str, cache_root: &Path) -> RepoGroup {
 }
 
 /// Loads every repo in parallel, keeping the given order.
+/// The last saved pack list for each repo, read from disk only (no network), so the UI can show
+/// packs immediately on startup and refresh them in the background. Repos never loaded are skipped.
+pub fn cached_all(repos: &[String], cache_root: &Path) -> Vec<RepoGroup> {
+    repos
+        .iter()
+        .filter_map(|r| parse_repo(r).ok())
+        .filter_map(|repo| {
+            let bytes = fs::read(repo_cache(cache_root, &repo).join("index.json")).ok()?;
+            let packs: Vec<PackInfo> = serde_json::from_slice(&bytes).ok()?;
+            Some(group(&repo, with_repo_fields(&repo, packs), false, None))
+        })
+        .collect()
+}
+
 pub fn list_all(repos: &[String], cache_root: &Path) -> Vec<RepoGroup> {
     std::thread::scope(|s| {
         let handles: Vec<_> = repos.iter().map(|r| s.spawn(move || list_packs(r, cache_root))).collect();
@@ -590,6 +604,20 @@ mod tests {
         assert_eq!(folder_url("o/r", "A B"), "https://github.com/o/r/tree/HEAD/A%20B");
         assert!(is_safe_folder("OptiLock FPS Config (Recommended)"));
         assert!(!is_safe_folder("../etc") && !is_safe_folder("a\\b"));
+    }
+
+    #[test]
+    fn cached_list_reads_saved_index_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("o__r");
+        fs::create_dir_all(&dir).unwrap();
+        let json = r#"[{"id":"stable","name":"Stable","folder":"stable","lastCommitDate":"2026-10-19T00:00:00Z"}]"#;
+        fs::write(dir.join("index.json"), json).unwrap();
+        let groups = cached_all(&["o/r".to_string(), "never/loaded".to_string()], tmp.path());
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].repo, "o/r");
+        assert_eq!(groups[0].packs[0].repo, "o/r");
+        assert_eq!(groups[0].updated_at.as_deref(), Some("2026-10-19T00:00:00Z"));
     }
 
     #[test]

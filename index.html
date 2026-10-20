@@ -4,8 +4,41 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Deadlock Config Manager</title>
+    <!-- Splash: plain HTML/CSS so it paints the instant the window opens, before any script runs. -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #0f1012; }
+      #root { opacity: 0; transition: opacity 220ms ease; }
+      body.app-ready #root { opacity: 1; }
+      #splash {
+        position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+        background: #0f1012; color: #e8e9ec; font: 600 14px "Segoe UI Variable Text", "Segoe UI", sans-serif;
+        transition: opacity 220ms ease;
+      }
+      body.app-ready #splash { opacity: 0; pointer-events: none; }
+      .splash-inner { display: grid; justify-items: center; gap: 14px; }
+      .splash-mark { width: 40px; height: 40px; border-radius: 10px; background: #1b1d21; display: grid; place-items: center; }
+      .splash-mark svg { width: 22px; height: 22px; }
+      .splash-bar { width: 120px; height: 2px; border-radius: 2px; background: #24272c; overflow: hidden; }
+      .splash-bar::after {
+        content: ""; display: block; width: 40%; height: 100%; border-radius: 2px; background: #9b87f5;
+        animation: splash-slide 1s ease-in-out infinite;
+      }
+      @keyframes splash-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @media (prefers-reduced-motion: reduce) { .splash-bar::after { animation: none; width: 100%; } }
+    </style>
   </head>
   <body>
+    <div id="splash" role="status" aria-label="Loading Deadlock Config Manager">
+      <div class="splash-inner">
+        <div class="splash-mark" aria-hidden="true">
+          <svg viewBox="0 0 22 22" fill="none" stroke="#9b87f5" stroke-width="2.4" stroke-linecap="round">
+            <path d="M4 6h14M4 11h9M4 16h14" />
+          </svg>
+        </div>
+        <div>Deadlock Config Manager</div>
+        <div class="splash-bar"></div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -34,6 +34,10 @@ type ApplyCall = (confirmed: boolean) => Promise<ApplyResponse>;
 
 /** How often linked repos are re-checked while the app is open. */
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
+/** Longest the startup splash stays up while waiting for data. */
+const SPLASH_MAX_MS = 2500;
+/** Matches the fade duration in index.html. */
+const SPLASH_FADE_MS = 250;
 /** The search box appears once there are more packs than this. */
 const SEARCH_MIN_PACKS = 3;
 
@@ -52,6 +56,9 @@ export default function App() {
   const [query, setQuery] = useState("");
   const notifiedRevision = useRef<string | null>(null);
   const seenFirstLoad = useRef(false);
+  /** True once packs have come from GitHub this session (not just the disk cache). */
+  const [fresh, setFresh] = useState(false);
+  const [ready, setReady] = useState(false);
   const { toasts, push, dismiss } = useToasts();
   const fail = useCallback((e: unknown) => push("error", errorText(e)), [push]);
 
@@ -64,13 +71,21 @@ export default function App() {
     api
       .listPacks()
       // Offline repos are flagged in their own header, so no toast here.
-      .then(setGroups)
+      .then((list) => {
+        setGroups(list);
+        setFresh(true);
+      })
       .catch((e) => !silent && fail(e))
       .finally(() => setLoading(false));
   }, [fail]);
 
   useEffect(() => {
     refreshOverview();
+    // Show last session's packs immediately, then refresh them from GitHub.
+    api
+      .cachedPacks()
+      .then((cached) => cached.length > 0 && setGroups((cur) => cur ?? cached))
+      .catch(() => undefined);
     refreshPacks();
     // Re-check gameinfo.gi whenever the window regains focus (e.g. after a Steam update).
     window.addEventListener("focus", refreshOverview);
@@ -82,6 +97,21 @@ export default function App() {
     };
   }, [refreshOverview, refreshPacks]);
 
+  // Fade the splash out once status and some packs are in, or after SPLASH_MAX_MS regardless.
+  useEffect(() => {
+    if (!ready && overview && groups) setReady(true);
+  }, [ready, overview, groups]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setReady(true), SPLASH_MAX_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    document.body.classList.add("app-ready");
+    const timer = window.setTimeout(() => document.getElementById("splash")?.remove(), SPLASH_FADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
+
   const firstRepo = overview?.repos[0];
   const appliedPack = useMemo(
     () => groups?.flatMap((g) => g.packs).find((p) => isSamePack(overview?.applied ?? null, p, firstRepo)),
@@ -92,7 +122,7 @@ export default function App() {
   // Toast once when a background check finds a new revision of the applied pack. On startup the
   // status strip already says "Update available", so the first load is recorded silently.
   useEffect(() => {
-    if (!groups || !overview) return;
+    if (!fresh || !groups || !overview) return;
     const rev = appliedPack?.revision ?? null;
     if (!seenFirstLoad.current) {
       seenFirstLoad.current = true;
@@ -104,7 +134,7 @@ export default function App() {
       const what = appliedPack.commitMessage ? `: "${appliedPack.commitMessage}"` : "";
       push("info", `${appliedPack.name} has an update${what}. Re-apply to get it.`);
     }
-  }, [groups, overview, updateAvailable, appliedPack, push]);
+  }, [fresh, groups, overview, updateAvailable, appliedPack, push]);
 
   const allPacks = useMemo(() => groups?.flatMap((g) => g.packs) ?? [], [groups]);
   const pinnedPacks = useMemo(

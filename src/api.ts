@@ -86,6 +86,8 @@ export const api = {
   setPath: (kind: PathKind, path: string | null) => invoke<Overview>("set_path", { kind, path }),
   saveSettings: (preservedKeys: string[]) => invoke<Overview>("save_settings", { preservedKeys }),
   listPacks: () => invoke<RepoGroup[]>("list_packs"),
+  /** Last saved pack lists from disk; instant, no network. */
+  cachedPacks: () => invoke<RepoGroup[]>("cached_packs"),
   addRepo: (input: string) => invoke<{ overview: Overview; group: RepoGroup }>("add_repo", { input }),
   removeRepo: (repo: string) => invoke<Overview>("remove_repo", { repo }),
   moveRepo: (repo: string, delta: number) => invoke<Overview>("move_repo", { repo, delta }),
