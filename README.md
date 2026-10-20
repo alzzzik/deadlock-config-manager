@@ -54,7 +54,13 @@ You can also add, reorder and remove config repos here.
 2. Run it. It installs for your user only and doesn't need admin rights.
 3. Windows may show "Windows protected your PC" because the app isn't code-signed yet. Click
    **More info**, then **Run anyway**. The installer is built from this repo by
-   [GitHub Actions](https://github.com/alzzzik/deadlock-config-manager/actions).
+   [GitHub Actions](https://github.com/alzzzik/deadlock-config-manager/actions); see the
+   [code signing policy](#code-signing-policy).
+
+To uninstall, go to Windows **Settings → Apps → Installed apps**, find Deadlock Config Manager and click
+**Uninstall**. Your game files stay as they are; use **Restore original** first if you want them back.
+Settings and backups in `%APPDATA%\DeadlockConfigManager\` are kept, so delete that folder too if you want
+everything gone.
 
 ## Usage
 
@@ -109,9 +115,38 @@ Yes. It keeps the search paths those tools add and doesn't make files read-only,
 <details>
 <summary><b>What does it connect to?</b></summary>
 
-Only GitHub, to list and download configs. There's no account, telemetry or background service. Settings and
-backups are stored in `%APPDATA%\DeadlockConfigManager\`.
+Only GitHub, to list and download configs. See the [privacy policy](#privacy-policy).
 </details>
+
+## Privacy policy
+
+Deadlock Config Manager doesn't collect, store or send personal data, and has no telemetry, accounts or
+background service.
+
+To list and download configs, the app connects to GitHub (`github.com`, `api.github.com` and
+`raw.githubusercontent.com`) for the config repos linked in the app. `alzzzik/alz-deadlock-cfg` is linked by
+default and can be removed in Settings. These requests are covered by
+[GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
+The app makes no other network connections.
+
+Everything else stays on your PC: settings, backups and downloaded configs are stored in
+`%APPDATA%\DeadlockConfigManager\`, and the only files it changes are Deadlock's `gameinfo.gi` and
+`video.txt`, after showing you the changes.
+
+## Code signing policy
+
+Windows installers are built from the source in this repository by
+[GitHub Actions](.github/workflows/release.yml) and published on the
+[Releases](https://github.com/alzzzik/deadlock-config-manager/releases) page. Every release is approved by
+hand before it's published.
+
+Releases are not code-signed yet. An application for free code signing from
+[SignPath Foundation](https://signpath.org) is in progress.
+
+Team roles:
+
+- Committers and reviewers: [alzzzik](https://github.com/alzzzik)
+- Approvers: [alzzzik](https://github.com/alzzzik)
 
 ## Contributing
 

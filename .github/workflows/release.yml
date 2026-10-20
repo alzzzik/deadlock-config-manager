@@ -47,5 +47,6 @@ jobs:
           releaseBody: |
             Download **Deadlock.Config.Manager_*_x64-setup.exe** below and run it.
             Windows may say "Windows protected your PC" because the app isn't code-signed yet: click **More info → Run anyway**.
+            [Code signing policy](https://github.com/alzzzik/deadlock-config-manager#code-signing-policy) · [Privacy policy](https://github.com/alzzzik/deadlock-config-manager#privacy-policy)
           releaseDraft: true
           prerelease: false

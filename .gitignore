@@ -9,5 +9,6 @@ outputs/
 # Internal docs and assets (kept local, not part of the open-source repo)
 docs/ROADMAP.md
 docs/TESTING.md
+docs/SIGNING.md
 docs/superpowers/
 docs/images/social-preview.png
