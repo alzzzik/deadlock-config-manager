@@ -114,6 +114,27 @@ The most valuable work, because it addresses what actually hurts players today.
 15. **Share codes or profile export (S).** Export the chosen pack plus overrides as a short code or file;
     consider reading DMM's `dmm-perf:` codes.
 
+16. **Saved configs: a local library (M).** Configs that don't live in any repo.
+    - **Save current**: store the `gameinfo.gi` and `video.txt` that are currently installed (without the
+      hardware lines) as a named config inside the app, with optional notes.
+    - Import from a file, folder or zip. Export as a zip or a share code.
+    - Saved configs show up as a "My configs" group and get the same preview, apply, pin and restore as repo
+      configs.
+    - Stored in `%APPDATA%\DeadlockConfigManager\library\<id>\`.
+17. **Config store (L).** One place in the app to browse configs: the popular repos plus configs people
+    publish from their saved library.
+    - **Start without a backend:** a public GitHub repo (e.g. `deadlock-config-index`) holding an
+      `index.json` of curated repos and published configs. People add entries by pull request. The app reads it
+      through jsDelivr, so there's no server to run and no rate-limit problem.
+    - **Publishing from the app:** sign in with GitHub (device flow, already planned in item 8), then the app
+      opens a pull request or creates a gist with the saved config.
+    - **Later, if it grows:** a real backend for ratings, download counts, reports and moderation.
+    - **Things to get right:**
+      - Only accept `gameinfo.gi`/`video.txt` text, validated, with a deny list (e.g. `sv_cheats`).
+      - Flag configs that would block ranked matchmaking (item 1).
+      - Respect authors' licences; some configs don't allow redistribution, so link to them instead.
+      - Add a privacy note once anything is uploaded.
+
 ## Exploratory
 
 - **Built-in benchmark (L).** Play a replay, capture frame times with PresentMon, and compare packs on the
