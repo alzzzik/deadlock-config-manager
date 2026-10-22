@@ -64,6 +64,8 @@ pub struct Preview {
     pub convar_build: String,
     /// Number of personal tweaks applied on top of the pack.
     pub tweaks: usize,
+    /// Overlay mode: settings and sections added from Valve's current file. None when overlay is off.
+    pub overlay_added: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -82,10 +84,19 @@ struct Source {
     files: PackFiles,
     notes: Vec<String>,
     ranked_safe: bool,
+    /// Background re-apply: no UAC prompt.
+    quiet: bool,
 }
 
-fn real_writer(jobs: PathBuf) -> impl Fn(&[FileWrite]) -> Result<WriteOutcome, String> {
-    move |files| writer::write_files(files, &|rest| writer::elevate_via_runas(&jobs, rest))
+/// `quiet` writes never show a UAC prompt (background re-apply); access denied is an error instead.
+fn real_writer(jobs: PathBuf, quiet: bool) -> impl Fn(&[FileWrite]) -> Result<WriteOutcome, String> {
+    move |files| {
+        if quiet {
+            writer::write_files(files, &|_| Err("Windows needs admin rights to change these files. Open the app and re-apply.".into()))
+        } else {
+            writer::write_files(files, &|rest| writer::elevate_via_runas(&jobs, rest))
+        }
+    }
 }
 
 fn ensure_closed() -> Result<(), String> {
@@ -125,9 +136,15 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
 
     let stock = stock::load(&state.dir.join("cache"), installed.as_deref());
     let safe_gameinfo = if src.ranked_safe { ranked::make_safe(&stock, &src.files.gameinfo)? } else { src.files.gameinfo.clone() };
+    let (merged, added) = if s.overlay {
+        let (text, added) = crate::overlay::merge(&stock, &safe_gameinfo)?;
+        (text, Some(added))
+    } else {
+        (safe_gameinfo, None)
+    };
     let tweaks = s.overrides.effective();
     let files = PackFiles {
-        gameinfo: overrides::apply(&safe_gameinfo, &tweaks).map_err(|e| format!("Your tweaks couldn't be applied: {e}"))?,
+        gameinfo: overrides::apply(&merged, &tweaks).map_err(|e| format!("Your tweaks couldn't be applied: {e}"))?,
         video: src.files.video.clone(),
     };
     let plan = apply::build_plan(&files, installed.as_deref(), video_in, &s.preserved_keys)?;
@@ -147,6 +164,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
             convars,
             convar_build: crate::convars::build().to_string(),
             tweaks: tweaks.len(),
+            overlay_added: added.map(|a| a.convars + a.sections.len()),
         };
         return Ok(ApplyResponse::Preview { preview });
     }
@@ -155,7 +173,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
     let sources = Sources { gameinfo: &gi_path, video: video_path.as_deref() };
     let meta = backup::create(&backups, &sources, Some(&src.name), &format!("Before applying {}", src.name))?;
     let writes = apply::plan_writes(&plan, &gi_path, video_path.as_deref());
-    let write = real_writer(state.dir.join("jobs"));
+    let write = real_writer(state.dir.join("jobs"), src.quiet);
     let rollback = || backup::restore(&backups, &meta, &|files| write(files).map(|_| ()));
     let outcome = apply::write_verified(&writes, &write, &|| apply::verify(&gi_path, video_path.as_deref(), &plan), &rollback)?;
 
@@ -172,6 +190,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         game_build: crate::paths::game_build(&gi_path),
     };
     state.update(|s| Settings { applied: Some(record), onboarded: true, ..s })?;
+    save_applied_source(&state.dir, &src.files);
 
     let notes = src
         .notes
@@ -205,6 +224,7 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
         files: fetched.files,
         notes,
         ranked_safe,
+        quiet: false,
     };
     let label = format!("apply {}#{}", src.repo.as_deref().unwrap_or("?"), src.id);
     logged_apply(&label, apply_source(&state, src, confirmed))
@@ -215,7 +235,7 @@ pub fn apply_local(state: State<AppState>, folder: String, confirmed: bool, rank
     let dir = PathBuf::from(&folder);
     let files = diag::logged("read local folder", packs::read_local(&dir))?;
     let name = dir.file_name().map(|n| format!("Local: {}", n.to_string_lossy())).unwrap_or_else(|| "Local folder".into());
-    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![], ranked_safe };
+    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![], ranked_safe, quiet: false };
     logged_apply("apply local folder", apply_source(&state, src, confirmed))
 }
 
@@ -259,7 +279,7 @@ fn restore_inner(state: &AppState, id: &str) -> Result<String, String> {
     let current = Sources { gameinfo: gi.map_or(Path::new(""), PathBuf::as_path), video: vid.map(PathBuf::as_path) };
     let safety = backup::create(&backups, &current, None, &format!("Before restoring {}", meta.id))?;
 
-    let write = real_writer(state.dir.join("jobs"));
+    let write = real_writer(state.dir.join("jobs"), false);
     let write_unit = |files: &[FileWrite]| write(files).map(|_| ());
     if let Err(e) = backup::restore(&backups, &meta, &write_unit) {
         let undo = backup::restore(&backups, &safety, &write_unit);
@@ -273,6 +293,7 @@ fn restore_inner(state: &AppState, id: &str) -> Result<String, String> {
         return Err("The restored files don't match the backup, so the previous files were put back.".into());
     }
     state.update(|s| Settings { applied: None, ..s })?;
+    let _ = fs::remove_dir_all(state.dir.join(APPLIED_DIR));
     let label = if meta.original { "your original files".to_string() } else { format!("the backup from {}", meta.id) };
     Ok(format!("Restored {label}."))
 }
@@ -381,6 +402,7 @@ pub fn make_ranked_safe(state: State<AppState>, confirmed: bool) -> Result<Apply
         files: PackFiles { gameinfo: installed, video: None },
         notes: vec![],
         ranked_safe: true,
+        quiet: false,
     };
     logged_apply("make ranked-safe", apply_source(&state, src, confirmed))
 }
@@ -573,6 +595,7 @@ pub fn apply_library(state: State<AppState>, id: String, confirmed: bool, ranked
         files,
         notes: vec![],
         ranked_safe,
+        quiet: false,
     };
     logged_apply(&format!("apply saved config {id}"), apply_source(&state, src, confirmed))
 }
@@ -652,4 +675,75 @@ pub async fn import_code(state: State<'_, AppState>, text: String) -> Result<cra
     .await
     .map_err(|e| e.to_string())?;
     diag::logged("import share code", result)
+}
+
+/// The applied pack's own files (before ranked-safe, overlay and tweaks), kept so the app can
+/// re-apply after a game update without the network or the original repo.
+const APPLIED_DIR: &str = "applied";
+
+fn save_applied_source(app_dir: &Path, files: &PackFiles) {
+    let dir = app_dir.join(APPLIED_DIR);
+    let _ = fs::remove_dir_all(&dir);
+    if fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let _ = crate::fsops::atomic_write(&dir.join("gameinfo.gi"), files.gameinfo.as_bytes());
+    if let Some(v) = &files.video {
+        let _ = crate::fsops::atomic_write(&dir.join("video.txt"), v.as_bytes());
+    }
+}
+
+pub fn applied_source(app_dir: &Path) -> Option<PackFiles> {
+    let dir = app_dir.join(APPLIED_DIR);
+    Some(PackFiles { gameinfo: fs::read_to_string(dir.join("gameinfo.gi")).ok()?, video: fs::read_to_string(dir.join("video.txt")).ok() })
+}
+
+/// Re-applies the last applied config from its saved files, with the same ranked-safe choice and the
+/// current tweaks and overlay setting. `quiet` = background: no UAC prompt.
+pub fn reapply_saved(state: &AppState, quiet: bool) -> Result<String, String> {
+    let rec = state.snapshot().applied.ok_or("Nothing has been applied yet.")?;
+    let files = applied_source(&state.dir).ok_or("The applied config's files weren't saved (applied with an older version). Re-apply it once by hand.")?;
+    let src = Source {
+        repo: rec.repo,
+        id: rec.pack_id,
+        name: rec.pack_name,
+        revision: rec.revision,
+        files,
+        notes: vec![],
+        ranked_safe: rec.ranked_safe,
+        quiet,
+    };
+    match apply_source(state, src, true)? {
+        ApplyResponse::Done { message, .. } => Ok(message),
+        ApplyResponse::Preview { .. } => Err("Unexpected preview.".into()),
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationSettings {
+    pub overlay: bool,
+    pub auto_reapply: bool,
+    pub start_with_windows: bool,
+}
+
+#[tauri::command]
+pub fn get_automation(state: State<AppState>) -> AutomationSettings {
+    let s = state.snapshot();
+    AutomationSettings { overlay: s.overlay, auto_reapply: s.auto_reapply, start_with_windows: s.start_with_windows }
+}
+
+#[tauri::command]
+pub fn set_automation(app: tauri::AppHandle, state: State<AppState>, overlay: bool, auto_reapply: bool, start_with_windows: bool) -> Result<AutomationSettings, String> {
+    let start = auto_reapply && start_with_windows;
+    let s = state.update(|s| Settings { overlay, auto_reapply, start_with_windows: start, ..s })?;
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        let launcher = app.autolaunch();
+        let result = if start { launcher.enable() } else { launcher.disable() };
+        if let Err(e) = result {
+            diag::error(&format!("autostart: {e}"));
+        }
+    }
+    Ok(AutomationSettings { overlay: s.overlay, auto_reapply: s.auto_reapply, start_with_windows: s.start_with_windows })
 }

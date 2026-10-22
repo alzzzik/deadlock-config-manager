@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { getCurrent as getDeepLinks, onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { listen } from "@tauri-apps/api/event";
 import {
   ApplyResponse,
   BackupMeta,
@@ -107,12 +108,16 @@ export default function App() {
       .then((cached) => cached.length > 0 && setGroups((cur) => cur ?? cached))
       .catch(() => undefined);
     refreshPacks();
-    // Re-check gameinfo.gi whenever the window regains focus (e.g. after a Steam update).
+    // Re-check gameinfo.gi whenever the window regains focus (e.g. after a Steam update),
+    // and when the background watcher re-applies after a game update.
     window.addEventListener("focus", refreshOverview);
+    let unlistenFiles: (() => void) | undefined;
+    listen("files-changed", refreshOverview).then((u) => (unlistenFiles = u), () => undefined);
     // Background check for pack updates while the app stays open.
     const timer = window.setInterval(() => refreshPacks(true), UPDATE_CHECK_MS);
     return () => {
       window.removeEventListener("focus", refreshOverview);
+      unlistenFiles?.();
       window.clearInterval(timer);
     };
   }, [refreshOverview, refreshPacks]);

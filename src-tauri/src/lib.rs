@@ -10,6 +10,7 @@ pub mod gameinfo;
 pub mod kv;
 pub mod library;
 mod overview;
+pub mod overlay;
 pub mod overrides;
 pub mod packs;
 pub mod paths;
@@ -19,10 +20,50 @@ pub mod settings;
 pub mod share;
 pub mod stock;
 pub mod video;
+mod watch;
 pub mod writer;
 
 use std::sync::Mutex;
 use tauri::Manager;
+
+/// Command-line flag used by "Start with Windows": start hidden in the tray.
+const BACKGROUND_FLAG: &str = "--background";
+
+fn show_main(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+/// Tray icon with Open and Quit; a left click opens the window.
+fn build_tray(app: &tauri::App) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+    let open = MenuItem::with_id(app, "open", "Open Deadlock Config Manager", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &quit])?;
+    let mut tray = TrayIconBuilder::with_id("main")
+        .tooltip("Deadlock Config Manager")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open" => show_main(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                show_main(tray.app_handle());
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.build(app)?;
+    Ok(())
+}
 
 pub fn run() {
     let dir = settings::app_dir();
@@ -31,16 +72,13 @@ pub fn run() {
     tauri::Builder::default()
         // A second launch (e.g. from a deadlockcfg:// link) focuses this window; the deep-link
         // plugin forwards the link to the running app.
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.unminimize();
-                let _ = w.set_focus();
-            }
-        }))
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| show_main(app)))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![BACKGROUND_FLAG])))
         .manage(state)
         .setup(|app| {
             // Registers deadlockcfg:// for this user (the installer does too; this covers portable copies).
@@ -48,7 +86,26 @@ pub fn run() {
             if let Err(e) = app.deep_link().register_all() {
                 diag::error(&format!("deep link registration: {e}"));
             }
+            if let Err(e) = build_tray(app) {
+                diag::error(&format!("tray icon: {e}"));
+            }
+            // The window starts hidden (tauri.conf.json) so a Windows-start launch can stay in the tray.
+            let background = std::env::args().any(|a| a == BACKGROUND_FLAG);
+            let auto = app.state::<commands::AppState>().snapshot().auto_reapply;
+            if !(background && auto) {
+                show_main(app.handle());
+            }
+            watch::start(app.handle().clone());
             Ok(())
+        })
+        // With auto re-apply on, closing the window keeps the app in the tray so it can watch for updates.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.app_handle().state::<commands::AppState>().snapshot().auto_reapply {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             overview::get_overview,
@@ -86,6 +143,8 @@ pub fn run() {
             commands::share_pack,
             commands::share_config,
             commands::import_code,
+            commands::get_automation,
+            commands::set_automation,
             overview::toggle_pin,
             overview::finish_guide,
         ])

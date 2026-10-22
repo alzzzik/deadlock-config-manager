@@ -144,6 +144,12 @@ export function PreviewDialog({ preview, onCancel, onConfirm, onConfirmSafe }: P
         </ul>
       )}
       <RankedNotice preview={preview} />
+      {preview.overlayAdded !== null && preview.overlayAdded > 0 && (
+        <p className="muted small">
+          Overlay mode: {preview.overlayAdded} setting{preview.overlayAdded === 1 ? "" : "s"} from Valve's current gameinfo.gi
+          that this config doesn't have {preview.overlayAdded === 1 ? "is" : "are"} kept.
+        </p>
+      )}
       {preview.tweaks > 0 && (
         <p className="muted small">
           Includes your {preview.tweaks} tweak{preview.tweaks === 1 ? "" : "s"} on top of the pack.

@@ -176,6 +176,14 @@ pub fn to_file(entries: &[Entry]) -> String {
 const BLOCK_START: &str = "// Deadlock Config Manager overrides - start";
 const BLOCK_END: &str = "// Deadlock Config Manager overrides - end";
 
+/// Markers around a block of added lines, so re-applying replaces it instead of stacking copies.
+pub struct Markers {
+    pub start: &'static str,
+    pub end: &'static str,
+}
+
+const TWEAK_MARKERS: Markers = Markers { start: BLOCK_START, end: BLOCK_END };
+
 /// Splits a ConVars body line into (indent, commented, name, rest-after-name).
 fn split_line(line: &str) -> Option<(&str, bool, &str, &str)> {
     let indent_len = line.len() - line.trim_start().len();
@@ -211,8 +219,8 @@ fn trailing_comment(rest: &str) -> &str {
     ""
 }
 
-fn strip_managed_block(src: &str) -> String {
-    let (Some(s), Some(e)) = (src.find(BLOCK_START), src.find(BLOCK_END)) else { return src.to_string() };
+pub fn strip_managed_block(src: &str, m: &Markers) -> String {
+    let (Some(s), Some(e)) = (src.find(m.start), src.find(m.end)) else { return src.to_string() };
     if e < s {
         return src.to_string();
     }
@@ -224,8 +232,32 @@ fn strip_managed_block(src: &str) -> String {
 /// Applies the entries to the ConVars block of `src`. Matching lines are edited in place (and
 /// uncommented when set); entries with no line are added in a marked block at the top of ConVars.
 pub fn apply(src: &str, entries: &[Entry]) -> Result<String, String> {
+    apply_marked(src, entries, &TWEAK_MARKERS)
+}
+
+/// Names set in the ConVars block, and names that are there but commented out.
+pub fn convar_names(src: &str) -> (Vec<String>, Vec<String>) {
+    let Ok(nodes) = kv::parse_document(src) else { return (vec![], vec![]) };
+    let Some(Value::Block { open, close, .. }) = kv::get(&nodes, "GameInfo").and_then(|gi| kv::get(gi.children(), "ConVars")).map(|c| c.value.clone()) else {
+        return (vec![], vec![]);
+    };
+    let (mut set, mut commented) = (Vec::new(), Vec::new());
+    let mut depth = 0i32;
+    for line in src[open + 1..close].lines() {
+        let code = line.split("//").next().unwrap_or("");
+        let at_top = depth == 0;
+        depth += code.matches('{').count() as i32 - code.matches('}').count() as i32;
+        if let Some((_, is_commented, name, _)) = at_top.then(|| split_line(line)).flatten() {
+            if is_commented { commented.push(name.to_ascii_lowercase()) } else { set.push(name.to_ascii_lowercase()) }
+        }
+    }
+    (set, commented)
+}
+
+/// [`apply`] with its own block markers.
+pub fn apply_marked(src: &str, entries: &[Entry], markers: &Markers) -> Result<String, String> {
     validate(entries)?;
-    let src = strip_managed_block(src);
+    let src = strip_managed_block(src, markers);
     if entries.is_empty() {
         return Ok(src);
     }
@@ -235,7 +267,7 @@ pub fn apply(src: &str, entries: &[Entry]) -> Result<String, String> {
     let Some(convars) = kv::get(gi.children(), "ConVars") else {
         let Value::Block { close, .. } = gi.value else { return Err("GameInfo is not a block".into()) };
         let block = format!("\tConVars{nl}\t{{{nl}\t}}{nl}");
-        return apply(&format!("{}{block}{}", &src[..close], &src[close..]), entries);
+        return apply_marked(&format!("{}{block}{}", &src[..close], &src[close..]), entries, markers);
     };
     let Value::Block { open, close, .. } = convars.value else { return Err("ConVars is not a block".into()) };
 
@@ -275,7 +307,7 @@ pub fn apply(src: &str, entries: &[Entry]) -> Result<String, String> {
         .filter(|(e, m)| !**m && e.value.is_some())
         .map(|(e, _)| format!("\t\t\"{}\" \"{}\"{nl}", e.name, e.value.as_deref().unwrap_or_default()))
         .collect();
-    let managed = if added.is_empty() { String::new() } else { format!("\t\t{BLOCK_START}{nl}{added}\t\t{BLOCK_END}{nl}") };
+    let managed = if added.is_empty() { String::new() } else { format!("\t\t{}{nl}{added}\t\t{}{nl}", markers.start, markers.end) };
     Ok(format!("{}{managed}{out}{}", &src[..body_start.min(close)], &src[close..]))
 }
 

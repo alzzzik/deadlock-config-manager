@@ -78,7 +78,11 @@ export type Preview = {
   convarBuild: string;
   /** Personal tweaks added on top of the pack. */
   tweaks: number;
+  /** Overlay mode: settings and sections added from Valve's current file; null when overlay is off. */
+  overlayAdded: number | null;
 };
+
+export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean };
 
 export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
 
@@ -170,6 +174,8 @@ export const api = {
   sharePack: (pack: PackInfo, rankedSafe: boolean) => invoke<string>("share_pack", { pack, rankedSafe }),
   shareConfig: (id: string) => invoke<string>("share_config", { id }),
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
+  getAutomation: () => invoke<Automation>("get_automation"),
+  setAutomation: (a: Automation) => invoke<Automation>("set_automation", a),
   installKind: () => invoke<InstallKind>("install_kind"),
 };
 

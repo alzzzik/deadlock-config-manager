@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { ISSUES_URL, InstallKind, Overview, api, errorText } from "../api";
+import { Automation, ISSUES_URL, InstallKind, Overview, api, errorText } from "../api";
 import { AddRepo } from "./AddRepo";
 import { ChevronIcon, CloseIcon } from "./icons";
 import { Modal } from "./Modal";
@@ -112,6 +112,8 @@ export function SettingsDialog({
         </div>
       </fieldset>
 
+      <GameUpdatesSection onNotify={onNotify} />
+
       <AboutSection onOpenGithub={onOpenGithub} onCheckUpdate={onCheckUpdate} onNotify={onNotify} installKind={installKind} />
     </Modal>
   );
@@ -183,5 +185,58 @@ function AboutSection({ onOpenGithub, onCheckUpdate, onNotify, installKind }: Ab
         </button>
       </div>
     </section>
+  );
+}
+
+/** Overlay mode and hands-off re-apply; changes save right away. */
+function GameUpdatesSection({ onNotify }: { onNotify: (kind: "ok" | "error" | "info", text: string) => void }) {
+  const [a, setA] = useState<Automation | null>(null);
+
+  useEffect(() => {
+    api.getAutomation().then(setA, () => setA(null));
+  }, []);
+
+  const change = (next: Automation) => {
+    setA(next);
+    api.setAutomation(next).then(setA, (e) => onNotify("error", errorText(e)));
+  };
+
+  if (!a) return null;
+  return (
+    <fieldset className="field">
+      <legend className="field-title">Game updates</legend>
+      <label className="tweak-row">
+        <input type="checkbox" checked={a.autoReapply} onChange={(e) => change({ ...a, autoReapply: e.target.checked })} />
+        <span className="tweak-text">
+          <span>Re-apply my config after game updates</span>
+          <small className="muted">
+            When an update replaces gameinfo.gi, the app applies your config again by itself (while Deadlock is closed) and
+            shows a notification. Closing the window keeps the app in the tray so it can do this.
+          </small>
+        </span>
+      </label>
+      <label className="tweak-row">
+        <input
+          type="checkbox"
+          checked={a.startWithWindows}
+          disabled={!a.autoReapply}
+          onChange={(e) => change({ ...a, startWithWindows: e.target.checked })}
+        />
+        <span className="tweak-text">
+          <span>Start with Windows in the tray</span>
+          <small className="muted">So updates are handled even if you never open the app.</small>
+        </span>
+      </label>
+      <label className="tweak-row">
+        <input type="checkbox" checked={a.overlay} onChange={(e) => change({ ...a, overlay: e.target.checked })} />
+        <span className="tweak-text">
+          <span>Keep settings Valve adds in updates (overlay)</span>
+          <small className="muted">
+            Applies configs on top of Valve's current gameinfo.gi, so settings a newer game version added aren't removed. The
+            config still wins for everything it sets. Off applies the config's file exactly.
+          </small>
+        </span>
+      </label>
+    </fieldset>
   );
 }

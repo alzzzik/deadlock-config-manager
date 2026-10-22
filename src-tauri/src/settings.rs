@@ -51,6 +51,12 @@ pub struct Settings {
     pub onboarded: bool,
     /// Personal tweaks applied on top of every pack.
     pub overrides: crate::overrides::Overrides,
+    /// Apply packs on top of Valve's current gameinfo.gi, keeping settings a game update added.
+    pub overlay: bool,
+    /// Re-apply the last config by itself after a game update replaces gameinfo.gi.
+    pub auto_reapply: bool,
+    /// Start hidden in the tray when Windows starts (only used with `auto_reapply`).
+    pub start_with_windows: bool,
 }
 
 impl Default for Settings {
@@ -67,6 +73,9 @@ impl Default for Settings {
             pinned: Vec::new(),
             onboarded: false,
             overrides: Default::default(),
+            overlay: false,
+            auto_reapply: false,
+            start_with_windows: false,
         }
     }
 }
