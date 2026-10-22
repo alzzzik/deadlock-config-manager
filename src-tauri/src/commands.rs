@@ -57,6 +57,10 @@ pub struct Preview {
     pub ranked_changes: Vec<diff::Change>,
     /// This preview is for the ranked-safe variant of the pack.
     pub ranked_safe: bool,
+    /// Descriptions and "ignored by the game" flags for changed convars, keyed by change path.
+    pub convars: std::collections::BTreeMap<String, crate::convars::ConvarInfo>,
+    /// Game build the convar data comes from.
+    pub convar_build: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -124,11 +128,21 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
     };
     let plan = apply::build_plan(&files, installed.as_deref(), video_in, &s.preserved_keys)?;
     if !confirmed {
-        let files = std::iter::once(diff::diff_file("gameinfo.gi", installed.as_deref(), &plan.gameinfo_out))
+        let gameinfo_diff = diff::diff_file("gameinfo.gi", installed.as_deref(), &plan.gameinfo_out);
+        let convars = crate::convars::infos_for(&gameinfo_diff.changes);
+        let files = std::iter::once(gameinfo_diff)
             .chain(plan.video_out.as_deref().map(|v| diff::diff_file("video.txt", user_video.as_deref(), v)))
             .collect();
         let ranked_changes = ranked::guarded_changes(&stock, &plan.gameinfo_out).unwrap_or_default();
-        let preview = Preview { pack_name: src.name, files, warnings: plan.warnings, ranked_changes, ranked_safe: src.ranked_safe };
+        let preview = Preview {
+            pack_name: src.name,
+            files,
+            warnings: plan.warnings,
+            ranked_changes,
+            ranked_safe: src.ranked_safe,
+            convars,
+            convar_build: crate::convars::build().to_string(),
+        };
         return Ok(ApplyResponse::Preview { preview });
     }
 

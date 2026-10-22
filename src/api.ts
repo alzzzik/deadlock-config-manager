@@ -70,7 +70,12 @@ export type Preview = {
   /** Engine-section entries that differ from Valve's file after applying. */
   rankedChanges: Change[];
   rankedSafe: boolean;
+  /** Keyed by change path ("ConVars › r_ssao"). */
+  convars: Record<string, ConvarInfo>;
+  convarBuild: string;
 };
+
+export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
 
 export type PackCheck = { key: string; rankedChanges: number | null };
 

@@ -1,0 +1,2779 @@
+{
+ "build": "6812",
+ "commit": "0abfe676c6",
+ "convars": {
+  "ai_async_queue_max_jobs": {
+   "default": "-1",
+   "valve": "Limit on number of jobs that will be run(serially) in a frame. - 1 = no limit"
+  },
+  "ai_foot_sweep_enable": {
+   "default": "true"
+  },
+  "ai_gather_conditions_async": {
+   "default": "false",
+   "valve": "Allow gathering of conditions to be done asynchronously."
+  },
+  "ai_lod_auto_enabled": {
+   "default": "false"
+  },
+  "ai_strong_optimizations_no_checkstand": {
+   "default": "false"
+  },
+  "ai_think_interval": {
+   "default": "0.1",
+   "valve": "Time interval between NPC thinks"
+  },
+  "ai_think_interval_lod_low": {
+   "default": "0.5",
+   "valve": "Time interval between NPC thinks when set to AI LOD low."
+  },
+  "ai_think_interval_lod_med": {
+   "default": "0.25",
+   "valve": "Time interval between NPC thinks when set to AI LOD medium."
+  },
+  "ai_think_interval_lod_very_low": {
+   "default": "1",
+   "valve": "Time interval between NPC thinks when set to AI LOD very low."
+  },
+  "ai_use_async_ragdoll_fixup": {
+   "default": "false"
+  },
+  "always_perform_full_spatial_partition_update": {
+   "default": "false"
+  },
+  "anim_decode_forcewritealltransforms": {
+   "default": "false",
+   "valve": "Force BatchAnimationDecode to write transformations for all bones"
+  },
+  "anim_disable": {
+   "default": "false"
+  },
+  "anim_resource_validate_on_load": {
+   "default": "true",
+   "valve": "Validates the animation group channel list against the animations on load for every animation"
+  },
+  "animated_material_attributes": {
+   "default": "true"
+  },
+  "animgraph_enable_dirty_netvar_optimization": {
+   "default": "true"
+  },
+  "animgraph_footlock_auto_ledge_detection": {
+   "default": "true",
+   "valve": "Attempt to detect when the foot is partially hanging off a ledge and stop it tilting to reach the bottom"
+  },
+  "animgraph_footlock_auto_stair_detection": {
+   "default": "true",
+   "valve": "Attempt to detect when the foot is on a stair and will stop it from tilting to reach the next step"
+  },
+  "animgraph_footlock_calculate_tilt": {
+   "default": "true"
+  },
+  "animgraph_footlock_enabled": {
+   "default": "true",
+   "valve": "A master convar that effectively disables the entire footlock node."
+  },
+  "animgraph_footlock_ground_roll": {
+   "default": "true"
+  },
+  "animgraph_footlock_hip_offset_enable": {
+   "default": "true"
+  },
+  "animgraph_footlock_ik_enable": {
+   "default": "true",
+   "valve": "Enable IK."
+  },
+  "animgraph_footlock_trace_ground_enabled": {
+   "default": "true",
+   "valve": "Convar for toggling foot lock ground tracking."
+  },
+  "animgraph_footlock_use_hip_shift": {
+   "default": "true"
+  },
+  "animgraph_slowdownonslopes_enabled": {
+   "default": "true"
+  },
+  "audio_enable_spawn_mask_mix_layer": {
+   "default": "true",
+   "valve": "Enables the mix layer which mutes certain sounds at map load boundaries."
+  },
+  "audio_enable_vmix_mastering": {
+   "default": "true",
+   "valve": "Enables mastering DSP in vmix."
+  },
+  "audio_enclosure_calc_enabled": {
+   "default": "true",
+   "valve": "Enables/disabled calculations that determine entity interior vs exterior."
+  },
+  "cam_idealdelta": {
+   "default": "4",
+   "valve": "Controls the speed when matching offset to ideal angles in thirdperson view"
+  },
+  "cam_ideallag": {
+   "default": "4",
+   "valve": "Amount of lag used when matching offset to ideal angles in thirdperson view"
+  },
+  "cc_captiontrace": {
+   "default": "1",
+   "valve": "Show missing closecaptions (0 = no, 1 = devconsole, 2 = show in hud)"
+  },
+  "citadel_boss_glow_disabled": {
+   "default": "false",
+   "note": "Turns off the glow on bosses and objectives."
+  },
+  "citadel_bullet_shot_offset_fade_time": {
+   "default": "0.5"
+  },
+  "citadel_camera_height": {
+   "default": "63",
+   "valve": "The look at point of the camera is vertically offset by this distance."
+  },
+  "citadel_camera_hero_fov": {
+   "default": "90",
+   "valve": "The field of view angle of the camera when following a hero.",
+   "note": "Field of view for the hero camera."
+  },
+  "citadel_camera_listening_offset": {
+   "default": "0"
+  },
+  "citadel_camera_pitch_default": {
+   "default": "20",
+   "valve": "The default camera pitch."
+  },
+  "citadel_camera_see_distance_max": {
+   "default": "20000",
+   "valve": "Max Distance the camera can 'see' an entity"
+  },
+  "citadel_camera_soft_collision": {
+   "default": "1",
+   "valve": "Soften the camera to wall collision distance by using the gaussian weight of fibbonnaci cone of line traces. 2: Use soft collision system to inform hole punch."
+  },
+  "citadel_camera_soft_collision_angle": {
+   "default": "75",
+   "valve": "Soft camera collision cone arc angle in degrees. Larger cone angle results in earlier softening."
+  },
+  "citadel_camera_use_vmdl_flatten_horizontal": {
+   "default": "true",
+   "valve": "For each camera pose set, use the average of X positions. This is a motion sickness reducing action."
+  },
+  "citadel_camera_use_vmdl_flatten_vertical": {
+   "default": "true",
+   "valve": "Zero the relative Z axis of the camera to reduce motion sickness."
+  },
+  "citadel_camera_wobble_disable": {
+   "default": "false",
+   "note": "Turns off camera wobble."
+  },
+  "citadel_cinematic_intro_duration_npc": {
+   "default": "7.5",
+   "valve": "How long is the cinematic intro applied to npcs (shrine/patron)"
+  },
+  "citadel_cinematic_intro_duration_player": {
+   "default": "9.5",
+   "valve": "How long is the cinematic intro applied to the player"
+  },
+  "citadel_cinematic_intro_enabled": {
+   "default": "0",
+   "valve": "-1 = force disabled, 0 = default, 1 = force enabled",
+   "note": "Plays the short intro camera at the start of a match."
+  },
+  "citadel_commend_toast_enemy_seconds": {
+   "default": "3",
+   "valve": "Number of seconds to show enemy commend toasts"
+  },
+  "citadel_commend_toast_seconds": {
+   "default": "5",
+   "valve": "Number of seconds to show commend toasts"
+  },
+  "citadel_crosshair_hit_marker_duration": {
+   "default": "0.1"
+  },
+  "citadel_custom_ui_colors": {
+   "default": "false",
+   "valve": "Enable colorblind-friendly colors and the player's custom UI colors."
+  },
+  "citadel_damage_indicator_enemy_display_time": {
+   "default": "2",
+   "ignored": true
+  },
+  "citadel_damage_indicator_height": {
+   "default": "120"
+  },
+  "citadel_damage_indicator_radius": {
+   "default": "300"
+  },
+  "citadel_damage_indicator_width": {
+   "default": "120"
+  },
+  "citadel_damage_offscreen_indicator_disabled": {
+   "default": "true"
+  },
+  "citadel_damage_radar_enemy_display_time": {
+   "default": "2",
+   "ignored": true
+  },
+  "citadel_damage_report_enable": {
+   "default": "true",
+   "valve": "If enabled, show damage report"
+  },
+  "citadel_damage_text_lifetime_new": {
+   "default": "1.5",
+   "valve": "How long do accumulated numbers live."
+  },
+  "citadel_damage_text_show_effectiveness": {
+   "default": "false",
+   "valve": "Show the damage effectiveness on every damage number"
+  },
+  "citadel_death_ragdoll_duration": {
+   "default": "5",
+   "valve": "How long a dead hero's ragdoll exists for before it despawns. Can outlive the death camera ( citadel_death_return_to_spawn_delay ) so that other players still see the body.",
+   "note": "How long dead heroes stay on the ground."
+  },
+  "citadel_enable_vdata_sound_preload": {
+   "default": "true"
+  },
+  "citadel_enemy_visible_upon_reveal_duration": {
+   "default": "0.7",
+   "valve": "How long an enemy appears through walls (outline or ui icon) after taking damage. Must also have fog of war visibility.",
+   "ignored": true
+  },
+  "citadel_fibonnaci_sphere_trace_los_max": {
+   "default": "160",
+   "valve": "How big to cap the size of the sphere when checking for really large explosion/effects"
+  },
+  "citadel_hideout_ball_show_juggle_count": {
+   "default": "0",
+   "valve": "WIP Show juggle count on ball."
+  },
+  "citadel_hideout_ball_show_juggle_fx": {
+   "default": "0",
+   "valve": "WIP Show fx when hitting apex/landing on floor."
+  },
+  "citadel_hideout_enable_testing_tools": {
+   "default": "false"
+  },
+  "citadel_hud_objective_health_debug_show_midboss": {
+   "default": "false"
+  },
+  "citadel_hud_objective_health_enabled": {
+   "default": "2",
+   "valve": "Enable/Disable HUD-level objective health bars.  0=Off. 1=Shrines, Patron, Midboss. 2=T1s and T2s. 3=Barracks"
+  },
+  "citadel_hud_objective_health_idle_timeout": {
+   "default": "7",
+   "valve": "After how many seconds of an objective is damage to hide its health on the HUD"
+  },
+  "citadel_hud_unit_indicators_v2_show_distance": {
+   "default": "true"
+  },
+  "citadel_in_world_item_panel_dpi": {
+   "default": "2",
+   "valve": "In-world texture resolution scale"
+  },
+  "citadel_match_details_lane_stats_time": {
+   "default": "540"
+  },
+  "citadel_melee_shake_amplitude": {
+   "default": "0.55",
+   "note": "Strength of the screen shake on melee hits."
+  },
+  "citadel_melee_shake_duration": {
+   "default": "0.1"
+  },
+  "citadel_minimap_overlap_scan_distance": {
+   "default": "12.5"
+  },
+  "citadel_minimap_trooper_size": {
+   "default": "3"
+  },
+  "citadel_npc_disable_cockroaches": {
+   "default": "false",
+   "valve": "Disable Cockroaches"
+  },
+  "citadel_orb_debug_draw_state": {
+   "default": "-1",
+   "valve": "Set to non-zero to draw state of orb. Value will be duration for state to linger after orb expires."
+  },
+  "citadel_per_weapon_per_surface_impact_effects": {
+   "default": "true"
+  },
+  "citadel_player_glow_disabled": {
+   "default": "false",
+   "ignored": true
+  },
+  "citadel_player_glow_from_teammate_vision_max_range": {
+   "default": "2000",
+   "ignored": true
+  },
+  "citadel_player_model_force_highest_lod": {
+   "default": "true",
+   "valve": "Forces the local player pawn to render using the highest LOD level.",
+   "note": "Always draws heroes at full detail, even far away. Slower."
+  },
+  "citadel_player_outline_allies": {
+   "default": "false",
+   "ignored": true
+  },
+  "citadel_player_outline_enemies": {
+   "default": "true",
+   "ignored": true
+  },
+  "citadel_player_outline_fade_at_min": {
+   "default": "0",
+   "ignored": true
+  },
+  "citadel_player_outline_fade_range_max": {
+   "default": "1400",
+   "ignored": true
+  },
+  "citadel_player_outline_fade_range_min": {
+   "default": "400",
+   "ignored": true
+  },
+  "citadel_portrait_world_renderer_off": {
+   "default": "false"
+  },
+  "citadel_shoot_forward_offset": {
+   "default": "35",
+   "valve": "How far forward from the plane of hero and camera forward to move the shoot position"
+  },
+  "citadel_show_minimap_reveal_indicators": {
+   "default": "false"
+  },
+  "citadel_show_old_neutral_camp_icons": {
+   "default": "true",
+   "valve": "Show the old neutral camp icons on the minimap"
+  },
+  "citadel_show_survey": {
+   "default": "false",
+   "valve": "A way to force the survey UI on even outside of matchmaking"
+  },
+  "citadel_stuck_camera_trace_extra_length": {
+   "default": "100"
+  },
+  "citadel_tightcamera_alternative": {
+   "default": "1.3",
+   "valve": "Tight-camera test mode alternative."
+  },
+  "citadel_trooper_friendly_glow_disabled": {
+   "default": "true",
+   "valve": "Disable glow on friendly troopers except for through walls during laning"
+  },
+  "citadel_trooper_glow_disabled": {
+   "default": "false",
+   "note": "Turns off the glow on troopers."
+  },
+  "citadel_trooper_outline_enabled": {
+   "default": "false"
+  },
+  "citadel_unit_status_allies_see_thru_walls": {
+   "default": "true"
+  },
+  "citadel_unit_status_delta_decay_delay": {
+   "default": "0.3"
+  },
+  "citadel_unit_status_delta_decay_rate": {
+   "default": "3"
+  },
+  "citadel_unit_status_healthbar_highlight_speed": {
+   "default": "2"
+  },
+  "citadel_unit_status_hide_names": {
+   "default": "false"
+  },
+  "citadel_use_pvs_for_players": {
+   "default": "false"
+  },
+  "citadel_use_spectator_team_colors": {
+   "default": "false",
+   "valve": "Forces HUD and game to draw team colors as if you are a spectator"
+  },
+  "citadel_video_preset": {
+   "default": "3",
+   "valve": "Rendering performance level."
+  },
+  "citadel_visibility_queue_rate": {
+   "default": "2"
+  },
+  "citadel_world_bullet_impacts_for_npcs": {
+   "default": "false",
+   "valve": "Turns on bullet impacts and decals on world from troopers and neutrals shooting"
+  },
+  "citadel_zipline_render_mode": {
+   "default": "0",
+   "valve": "0=Model, 1=Particle, 2=Model+Particle"
+  },
+  "cl_aggregate_particles": {
+   "default": "false"
+  },
+  "cl_async_usercmd_send": {
+   "default": "true"
+  },
+  "cl_batch_entity_list_ops_during_latch": {
+   "default": "false",
+   "valve": "Batch entity list adds / removes while latching interpolated variables to avoid mutex contention."
+  },
+  "cl_bone_cache_optimization": {
+   "default": "true"
+  },
+  "cl_clock_buffer_ticks": {
+   "default": "0",
+   "valve": "Clock sync will try to maintain an additional margin of N ticks.  This is intended to smooth over packet loss, and is a replacement for cl_interp_ratio / cl_interp.  This value is simply added to cl_clock_recvmargin_desired"
+  },
+  "cl_disable_ragdolls": {
+   "default": "false",
+   "note": "Turns off ragdoll physics for dead units."
+  },
+  "cl_disconnect_soundevent": {
+   "default": "\"core.stop_all_soundevents\"",
+   "valve": "This soundevent is called to stop the desired soundevents when the game is disconnected."
+  },
+  "cl_fasttempentcollision": {
+   "default": "5"
+  },
+  "cl_glow_brightness": {
+   "default": "1",
+   "valve": "Brightness of player halos",
+   "note": "Brightness of glow outlines."
+  },
+  "cl_hud_telemetry_frametime_show": {
+   "default": "1",
+   "valve": "Show frame time (FPS) in the HUD.  0=never, 1=only if poor, 2=always"
+  },
+  "cl_impacteffects": {
+   "default": "true",
+   "note": "Effects where bullets hit."
+  },
+  "cl_input_enable_raw_keyboard": {
+   "default": "false",
+   "valve": "Enable raw keyboard input",
+   "note": "Reads the keyboard directly (raw input)."
+  },
+  "cl_interp_parallel": {
+   "default": "false",
+   "valve": "Run interpolation in parallel for entities with no children."
+  },
+  "cl_interp_ratio": {
+   "default": "2",
+   "valve": "Sets the client simulation interpolation amount, in terms of server updates (final amount is cl_interp_ratio / cl_updaterate).",
+   "note": "Network interpolation buffer, in ticks. Lower shows enemies more up to date but can stutter on bad connections."
+  },
+  "cl_joystick_enabled": {
+   "default": "true",
+   "valve": "Enable joystick input"
+  },
+  "cl_max_particle_pvs_aabb_edge_length": {
+   "default": "0"
+  },
+  "cl_modifier_parallel_gather_status_effect_updates": {
+   "default": "false"
+  },
+  "cl_parallel_readpacketentities": {
+   "default": "true",
+   "valve": "Set to 1 to use threading snapshot reading (if game supports and server is sending bitcounts)."
+  },
+  "cl_parallel_readpacketentities_threshold": {
+   "default": "2",
+   "valve": "Use parallel processing of snapshot reading if above this many entries."
+  },
+  "cl_particle_batch_mode": {
+   "default": "1"
+  },
+  "cl_particle_fallback_base": {
+   "default": "0",
+   "valve": "Base for falling back to cheaper effects under load."
+  },
+  "cl_particle_fallback_multiplier": {
+   "default": "0",
+   "valve": "Multiplier for falling back to cheaper effects under load."
+  },
+  "cl_particle_max_count": {
+   "default": "0",
+   "note": "Maximum number of particles alive at once."
+  },
+  "cl_particle_newinit": {
+   "default": "true",
+   "valve": "turn on optimized particle init"
+  },
+  "cl_particle_sim_fallback_base_multiplier": {
+   "default": "5",
+   "valve": "How aggressive the switch to fallbacks will be depending on how far over the cl_particle_sim_fallback_threshold_ms the sim time is.  Higher numbers are more aggressive."
+  },
+  "cl_particle_sim_fallback_threshold_ms": {
+   "default": "6",
+   "valve": "Amount of simulation time that can elapse before new systems start falling back to cheaper versions"
+  },
+  "cl_phys_animated_hierarchy": {
+   "default": "true"
+  },
+  "cl_phys_assume_fixed_tick_interval": {
+   "default": "true",
+   "valve": "If true, we assume the client uses a fixed tickrate like the server (which may not always be true). If false, we recalculate the number of physics substeps in each client tick based on the actual elapsed time in the tick."
+  },
+  "cl_phys_enabled": {
+   "default": "true",
+   "valve": "Enable all physics simulation"
+  },
+  "cl_phys_networked_start_sleep": {
+   "default": "false"
+  },
+  "cl_phys_sleep_enable": {
+   "default": "true",
+   "valve": "Enable sleeping for dynamic physics bodies."
+  },
+  "cl_phys_timescale": {
+   "default": "1",
+   "valve": "Scale time for physics"
+  },
+  "cl_poll_network_early": {
+   "default": "true",
+   "valve": "Enable polling for network messages every frame, instead of every tick"
+  },
+  "cl_pred_optimize": {
+   "default": "true",
+   "valve": "Optimize for not repredicting if there were no errors"
+  },
+  "cl_pred_parallel_postnetwork": {
+   "default": "true"
+  },
+  "cl_prediction_savedata_postentitypacketreceived": {
+   "default": "false",
+   "valve": "Experimental optimization.  If you are reading this in 2026, please delete this convar."
+  },
+  "cl_ragdoll_default_scale": {
+   "default": "1"
+  },
+  "cl_ragdoll_limit": {
+   "default": "20",
+   "valve": "Maximum number of ragdolls to show (-1 disables limit)",
+   "note": "Maximum number of ragdolls at once."
+  },
+  "cl_resend": {
+   "default": "0.5",
+   "valve": "Delay in seconds before the client will resend the 'connect' attempt"
+  },
+  "cl_retire_low_priority_lights": {
+   "default": "false",
+   "valve": "Low priority dlights are replaced by high priority ones"
+  },
+  "cl_show_splashes": {
+   "default": "true",
+   "note": "Water splash effects."
+  },
+  "cl_simulate_dormant_entities": {
+   "default": "true"
+  },
+  "cl_skip_hierarchy_update_for_unchanged_entities": {
+   "default": "true",
+   "valve": "Skip updating hierarchy information in PostDataUpdate for entities that have not changed"
+  },
+  "cl_smooth": {
+   "default": "true",
+   "valve": "Smooth view/eye origin after prediction errors"
+  },
+  "cl_smooth_draw_debug": {
+   "default": "false"
+  },
+  "cl_smoothtime": {
+   "default": "0.2",
+   "valve": "Smooth client's view after prediction error over this many seconds"
+  },
+  "cl_tickpacket_desired_queuelength": {
+   "default": "0",
+   "valve": "This value, multiplied by the tick interval, is added to cl_tickpacket_recvmargin_desired to obtain the effective desired recv margin."
+  },
+  "cl_tickpacket_recvmargin_desired": {
+   "default": "5",
+   "valve": "Recvmargin-based usercommand pacing will try to maintain N ms margin between user command arriving at the server and the server needing that user command.  See also cl_tickpacket_desired_queuelength."
+  },
+  "cl_updaterate": {
+   "default": "20",
+   "valve": "Number of packets per second of updates you are requesting from the server",
+   "note": "Snapshots per second requested from the server."
+  },
+  "cl_usesocketsforloopback": {
+   "default": "false",
+   "valve": "When connecting to local listen server (for example, using the 'map' command), default to loopback=false, which connects to '127.0.0.1' instead of 'loopback'.  This uses the network stack so that fake lag/loss can be simulated."
+  },
+  "closecaption": {
+   "default": "false",
+   "valve": "Enable close captioning.",
+   "note": "Closed captions."
+  },
+  "cloth_filter_transform_stateless": {
+   "default": "false",
+   "valve": "Enable the new, stateless version of FilterTransform"
+  },
+  "cloth_sim_on_tick": {
+   "default": "true"
+  },
+  "cloth_update": {
+   "default": "true"
+  },
+  "con_enable": {
+   "default": "false",
+   "valve": "Allows the console to be activated."
+  },
+  "cpu_level": {
+   "default": "2",
+   "valve": "CPU Level - Default: High",
+   "note": "Overall CPU detail level used by the engine (0 low, 1 medium, 2 high)."
+  },
+  "cq_buffer_bloat_msecs_max": {
+   "default": "150",
+   "valve": "Server will not allow the client to buffer up more than N ms of commands."
+  },
+  "csm_cascade0_override_dist": {
+   "default": "-1"
+  },
+  "csm_cascade1_override_dist": {
+   "default": "-1"
+  },
+  "csm_cascade2_override_dist": {
+   "default": "-1"
+  },
+  "csm_cascade3_override_dist": {
+   "default": "-1"
+  },
+  "csm_max_dist_between_caster_and_receiver": {
+   "default": "15000",
+   "valve": "default pushback"
+  },
+  "csm_max_num_cascades_override": {
+   "default": "-1",
+   "valve": "Number of cascades in sunlight shadow",
+   "note": "Number of sun shadow cascades. Fewer is faster; far shadows get worse."
+  },
+  "csm_max_shadow_dist_override": {
+   "default": "-1",
+   "ignored": true
+  },
+  "csm_max_visible_dist": {
+   "default": "7500",
+   "note": "How far away sun shadows are drawn."
+  },
+  "csm_res_override_0": {
+   "default": "0"
+  },
+  "csm_res_override_1": {
+   "default": "0"
+  },
+  "csm_res_override_2": {
+   "default": "0"
+  },
+  "csm_res_override_3": {
+   "default": "0"
+  },
+  "csm_sst_max_visible_dist": {
+   "default": "2000"
+  },
+  "csm_viewmodel_max_shadow_dist": {
+   "default": "21"
+  },
+  "csm_viewmodel_max_visible_dist": {
+   "default": "1000"
+  },
+  "csm_viewmodel_nearz": {
+   "default": "0.5"
+  },
+  "csm_viewmodel_shadows": {
+   "default": "false",
+   "note": "Shadows on your own weapon and arms."
+  },
+  "debug_draw_enable": {
+   "default": "true"
+  },
+  "default_fov": {
+   "default": "70",
+   "note": "Default field of view."
+  },
+  "disable_source_soundscape_trace": {
+   "default": "false",
+   "valve": "Bypasses lookup of soundscapes for indvidual audio sources when enabled."
+  },
+  "dsp_volume": {
+   "default": "0.8"
+  },
+  "enable_boneflex": {
+   "default": "true"
+  },
+  "engine_accurate_input_processing_delta_time": {
+   "default": "false",
+   "valve": "When true, elapsed time given to the input processing will be the time elapsed since the last input processing. This is only relevant when input is processed multiple times per frame ( i.e. multiple ticks per frame)"
+  },
+  "engine_allow_multiple_simulates_per_frame": {
+   "default": "false",
+   "valve": "When the client is catching up in low frame rate situations, should we run client simulate more than once a frame?"
+  },
+  "engine_low_latency_sleep_after_client_tick": {
+   "default": "false",
+   "valve": "When r_low_latency is enabled, this moves the low latency sleep on tick frames to happen after client simulation."
+  },
+  "engine_max_ticks_to_simulate": {
+   "default": "-1",
+   "valve": "Max number of ticks to simulate per frame, after which simulation will start to slow down compared to real time."
+  },
+  "engine_no_focus_sleep": {
+   "default": "20",
+   "note": "How long the game sleeps per frame while it's in the background (milliseconds). Higher saves power when alt-tabbed."
+  },
+  "fog_enable": {
+   "default": "true",
+   "valve": "Enable fog",
+   "note": "Distance fog."
+  },
+  "fps_max": {
+   "default": "120",
+   "valve": "Frame rate limiter.  0=no limit.  Does not apply to dedicated server.",
+   "note": "Frame rate cap in matches. 0 means no cap."
+  },
+  "fps_max_tools": {
+   "default": "120",
+   "valve": "Additional frame rate limit while in tools mode and a window other than the game window has focus. Note that fps_max still applies, this only allows the maximum frame rate for tools mode to be lower. 0=no tools specific limit."
+  },
+  "fps_max_ui": {
+   "default": "0",
+   "valve": "Frame rate limiter while the game UI is displayed.  0=no limit.  Does not apply to dedicated server.",
+   "note": "Frame rate cap in menus."
+  },
+  "fs_async_threads": {
+   "default": "-1",
+   "valve": "Number of IO threads in async filesystem (-1 == auto)"
+  },
+  "func_break_max_pieces": {
+   "default": "15"
+  },
+  "fx_drawmetalspark": {
+   "default": "true",
+   "valve": "Draw metal spark effects."
+  },
+  "g_ragdoll_important_maxcount": {
+   "default": "2"
+  },
+  "g_ragdoll_maxcount": {
+   "default": "5"
+  },
+  "gpu_level": {
+   "default": "3",
+   "valve": "GPU Level - Default: High",
+   "note": "Overall GPU detail level used by the engine."
+  },
+  "gpu_mem_level": {
+   "default": "2",
+   "valve": "Memory Level - Default: High",
+   "note": "Overall texture memory level."
+  },
+  "hairsim_force_fixed_timestep": {
+   "default": "true"
+  },
+  "hud_free_cursor": {
+   "default": "0",
+   "valve": "0 is disabled, 1 is enabled"
+  },
+  "ik_constraints_enabled": {
+   "default": "true"
+  },
+  "ik_debug_dogleg3bone_enabled": {
+   "default": "true"
+  },
+  "ik_debug_fabrik_backwards_enabled": {
+   "default": "true"
+  },
+  "ik_debug_fabrik_forwards_enabled": {
+   "default": "true"
+  },
+  "ik_enable": {
+   "default": "true",
+   "valve": "Enable IK."
+  },
+  "ik_fabrik_align_chain": {
+   "default": "true"
+  },
+  "ik_fabrik_backwards_enabled": {
+   "default": "true"
+  },
+  "ik_fabrik_forwards_enabled": {
+   "default": "true"
+  },
+  "ik_final_fixup_enable": {
+   "default": "true"
+  },
+  "ik_planetilt_enable": {
+   "default": "true"
+  },
+  "in_button_double_press_window": {
+   "default": "0.22",
+   "valve": "How short the time between presses needs to be for us to consider it a double-press"
+  },
+  "iv_parallel_restore": {
+   "default": "false"
+  },
+  "lb_allow_shadow_rotation": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Shadow Rotation",
+   "ignored": true
+  },
+  "lb_barnlight_shadow_use_precomputed_vis": {
+   "default": "true"
+  },
+  "lb_barnlight_shadowmap_scale": {
+   "default": "1",
+   "valve": "Scale for computed barnlight shadowmap size"
+  },
+  "lb_bin_slices": {
+   "default": "8192"
+  },
+  "lb_csm_cascade_size_override": {
+   "default": "-1",
+   "valve": "Override width/height of individual cascades in the CSM"
+  },
+  "lb_csm_cross_fade_override": {
+   "default": "-1",
+   "valve": "Override CSM cross fade amount"
+  },
+  "lb_csm_distance_fade_override": {
+   "default": "-1",
+   "valve": "Override CSM distance fade"
+  },
+  "lb_csm_draw_alpha_tested": {
+   "default": "true"
+  },
+  "lb_csm_draw_translucent": {
+   "default": "true"
+  },
+  "lb_csm_fov_override": {
+   "default": "-1",
+   "ignored": true
+  },
+  "lb_csm_override_bulb_radius": {
+   "default": "-1",
+   "valve": "Override bulb radius for CSM"
+  },
+  "lb_csm_override_staticgeo_cascades": {
+   "default": "false",
+   "valve": "Override Cascades that will render static objects with lb_csm_override_staticgeo_cascades_value"
+  },
+  "lb_csm_override_staticgeo_cascades_animated_verts": {
+   "default": "true",
+   "valve": "If lb_csm_override_staticgeo_cascades, ensure only objects without animated verts, i.e. SCENEOBJECTFLAG_CAN_RENDER_INTO_SST flag will be excluded (as opposed to all static objects)."
+  },
+  "lb_csm_override_staticgeo_cascades_value": {
+   "default": "-1",
+   "valve": "If lb_csm_override_staticgeo_cascades, override value used to determine which cascades render static objects"
+  },
+  "lb_csm_receiver_plane_depth_bias": {
+   "default": "0.000015",
+   "valve": "Shader depth bias applied to shadow receiver (Note this conflicts with renderstate depth bias, both now default to 0)"
+  },
+  "lb_csm_receiver_plane_depth_bias_transmissive_backface": {
+   "default": "0.00015",
+   "valve": "Depth bias applied to shadow receiver for transmissive backface geo (based on renderstate depthbias being 0)"
+  },
+  "lb_cubemap_normalization_max": {
+   "default": "32"
+  },
+  "lb_cubemap_normalization_roughness_begin": {
+   "default": "0.1"
+  },
+  "lb_cull_offscreen_bounce_light_shadows": {
+   "default": "true",
+   "valve": "Skip shadowmaps for offscreen dynamic bounce lights that indirect diffuse isn't going to sample",
+   "ignored": true
+  },
+  "lb_cull_onscreen_bounce_light_shadows": {
+   "default": "false",
+   "valve": "Skip shadowmaps for *onscreen* dynamic bounce lights which will probably not be visible",
+   "ignored": true
+  },
+  "lb_debug_light_bounds": {
+   "default": "false",
+   "valve": "SceneSystem/LightBinner/Debug Light Bounds",
+   "ignored": true
+  },
+  "lb_debug_shadow_atlas": {
+   "default": "false",
+   "valve": "SceneSystem/LightBinner/Debug Shadow Atlas",
+   "ignored": true
+  },
+  "lb_debug_shadowtile_atlas": {
+   "default": "false",
+   "valve": "SceneSystem/LightBinner/Debug ShadowTile Atlas",
+   "ignored": true
+  },
+  "lb_debug_silhouette": {
+   "default": "\"\"",
+   "valve": "SceneSystem/LightBinner/Debug Silhouettes",
+   "ignored": true
+  },
+  "lb_debug_silhouette_sum": {
+   "default": "1",
+   "valve": "If we should draw normal silhouette or minkowski sum silhouette",
+   "ignored": true
+  },
+  "lb_debug_tiles": {
+   "default": "\"\"",
+   "valve": "SceneSystem/LightBinner/Debug Tiles",
+   "ignored": true
+  },
+  "lb_debug_visualize_fog_shadowed_lights": {
+   "default": "0",
+   "valve": "SceneSystem/LightBinner/Debug Visualize Fog Shadowed Lights",
+   "ignored": true
+  },
+  "lb_debug_visualize_lights": {
+   "default": "0",
+   "valve": "SceneSystem/LightBinner/Debug Visualize Lights",
+   "ignored": true
+  },
+  "lb_debug_visualize_precomputed_shadow_atlas_lights": {
+   "default": "false",
+   "valve": "SceneSystem/LightBinner/Debug Visualize Precomputed Shadow Atlas Lights",
+   "ignored": true
+  },
+  "lb_debug_visualize_shadowed_light_details": {
+   "default": "false",
+   "ignored": true
+  },
+  "lb_debug_visualize_shadowed_lights": {
+   "default": "0",
+   "valve": "SceneSystem/LightBinner/Debug Visualize Shadowed Lights",
+   "ignored": true
+  },
+  "lb_dynamic_shadow_penumbra": {
+   "default": "true",
+   "valve": "Adjust shadow penumbra based on light size"
+  },
+  "lb_dynamic_shadow_resolution": {
+   "default": "true",
+   "valve": "Dynamically adjust shadow resolution",
+   "note": "Lets shadow resolution change with distance."
+  },
+  "lb_dynamic_shadow_resolution_base": {
+   "default": "1024",
+   "valve": "Base resolution for dynamic shadowmap sizing.  Shadowmap size of a screen sized light"
+  },
+  "lb_dynamic_shadow_resolution_base_cmp_shadowmapsize": {
+   "default": "false",
+   "valve": "take min of lb_dynamic_shadow_resolution and barnlight shadowmapsize as base shadowmapsize"
+  },
+  "lb_dynamic_shadow_resolution_quantization": {
+   "default": "64",
+   "valve": "Quantization of dynamically computed shadow size"
+  },
+  "lb_enable_baked_shadows": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Enable Baked Shadows",
+   "ignored": true
+  },
+  "lb_enable_binning": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Enable Binning"
+  },
+  "lb_enable_dynamic_lights": {
+   "default": "true",
+   "valve": "Allows rendering dynamic lights",
+   "ignored": true
+  },
+  "lb_enable_envmaps": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Enable EnvMaps",
+   "ignored": true
+  },
+  "lb_enable_fog_mixed_shadows": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Enable Fog Mixed Shadows",
+   "ignored": true
+  },
+  "lb_enable_lights": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Enable Lights",
+   "ignored": true
+  },
+  "lb_enable_shadow_casting": {
+   "default": "true",
+   "valve": "Allow stationary/dynamic lights to cast shadows.",
+   "note": "Shadows from lights other than the sun. Off is much faster."
+  },
+  "lb_enable_stationary_lights": {
+   "default": "true",
+   "valve": "Allows rendering stationary/mixed lights",
+   "ignored": true
+  },
+  "lb_enable_sunlight": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Enable Sunlight",
+   "ignored": true
+  },
+  "lb_max_visible_barn_lights_override": {
+   "default": "-1",
+   "valve": "Override maximum visible barn lights",
+   "ignored": true
+  },
+  "lb_max_visible_envmaps_override": {
+   "default": "-1",
+   "valve": "Override maximum visible envmaps",
+   "ignored": true
+  },
+  "lb_mixed_shadows": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Enable Mixed Shadows",
+   "ignored": true
+  },
+  "lb_override_barn_light_fade_sizes": {
+   "default": "[0.05, 0.025]",
+   "ignored": true
+  },
+  "lb_override_barn_light_fade_sizes_enable": {
+   "default": "false",
+   "ignored": true
+  },
+  "lb_override_barn_light_shadow_fade_sizes": {
+   "default": "[0.1, 0.05]",
+   "ignored": true
+  },
+  "lb_precomputed_shadowmap_depth_bias": {
+   "default": "0.00035"
+  },
+  "lb_precomputed_shadowmap_enable": {
+   "default": "true"
+  },
+  "lb_shadow_map_cull_empty_mixed": {
+   "default": "false",
+   "valve": "Don't render shadows for mixed shadowmaps with no dynamics objects in view",
+   "ignored": true
+  },
+  "lb_shadow_map_culling": {
+   "default": "true",
+   "ignored": true
+  },
+  "lb_shadow_texture_height_override": {
+   "default": "-1",
+   "valve": "Override height of shadow atlas texture"
+  },
+  "lb_shadow_texture_width_override": {
+   "default": "-1",
+   "valve": "Override width of shadow atlas texture"
+  },
+  "lb_ssss_samples": {
+   "default": "11",
+   "valve": "Subsurface sample count"
+  },
+  "lb_sun_csm_size_cull_threshold_texels": {
+   "default": "10",
+   "valve": "Size, in texels, where we will cull an object in the shadowmap"
+  },
+  "lb_timesliced_shadows_dynamic_size": {
+   "default": "true"
+  },
+  "lb_use_ellipsoid_bounds": {
+   "default": "true",
+   "ignored": true
+  },
+  "lb_use_illumination_silhouette": {
+   "default": "true",
+   "valve": "SceneSystem/LightBinner/Use Illumination Bounds",
+   "ignored": true
+  },
+  "lb_use_illumination_volume": {
+   "default": "true",
+   "valve": "Disables use of illumination volume (may cause precomputed lighting errors)",
+   "ignored": true
+  },
+  "mat_colcorrection_disableentities": {
+   "default": "false",
+   "valve": "Disable map color-correction entities"
+  },
+  "mat_colorcorrection": {
+   "default": "true",
+   "note": "Map colour grading. Off shows plain colours."
+  },
+  "mat_fullbright": {
+   "default": "0",
+   "valve": "Debug rendering modes",
+   "ignored": true
+  },
+  "mat_max_lighting_complexity": {
+   "default": "8"
+  },
+  "mat_tonemap_bloom_scale": {
+   "default": "-1"
+  },
+  "mat_viewportscale": {
+   "default": "1",
+   "valve": "Scale down the main viewport (to reduce GPU impact on CPU profiling)",
+   "note": "Render scale. Below 1 renders fewer pixels for more FPS and a blurrier image."
+  },
+  "mem_level": {
+   "default": "2",
+   "valve": "Memory Level - Default: High",
+   "note": "Overall memory level."
+  },
+  "mesh_calculate_curvature_smooth_pass_count": {
+   "default": "3"
+  },
+  "minimap_trooper_update_rate_hz": {
+   "default": "5"
+  },
+  "minimap_update_rate_hz": {
+   "default": "30"
+  },
+  "mm_idle_enabled": {
+   "default": "true",
+   "valve": "Kill switch for the idle detection system"
+  },
+  "mm_idle_show_warning_at_s": {
+   "default": "300",
+   "valve": "How many seconds to wait before showing the idle warning dialog"
+  },
+  "mm_prefer_solo_only": {
+   "default": "false",
+   "valve": "Prefer being matched with other solo players when not in a party"
+  },
+  "nav_edit_use_camera": {
+   "default": "true"
+  },
+  "nav_gen_connect_dist_a": {
+   "default": "1"
+  },
+  "nav_obstruction_async_update": {
+   "default": "false"
+  },
+  "nav_pathfind_multithread": {
+   "default": "false"
+  },
+  "net_async_clientconnect": {
+   "default": "true",
+   "valve": "Enable async client connect optimization"
+  },
+  "net_gather_child_fields_only": {
+   "default": "false",
+   "valve": "GatherSendProxyResults only walks struct and array fields, skipping scalar fields."
+  },
+  "panorama_allow_transitions": {
+   "default": "true",
+   "note": "Menu and HUD animations."
+  },
+  "panorama_async_compute_mipgen": {
+   "default": "true",
+   "valve": "use asynchronous compute for mipmap generation."
+  },
+  "panorama_box_shadow_no_comp_layer": {
+   "default": "true"
+  },
+  "panorama_clear_frames_on_device_restore": {
+   "default": "2"
+  },
+  "panorama_comp_layer_lru_lifetime": {
+   "default": "1"
+  },
+  "panorama_disable_blur": {
+   "default": "false",
+   "note": "Turns off blur behind menus and HUD panels. Faster."
+  },
+  "panorama_disable_box_shadow": {
+   "default": "false",
+   "note": "Turns off shadows on menu and HUD panels. Faster."
+  },
+  "panorama_disable_descendant_filtering": {
+   "default": "false",
+   "valve": "Disable descendant selector filtering"
+  },
+  "panorama_disable_render_target_cache": {
+   "default": "true"
+  },
+  "panorama_draw_text_fast_path": {
+   "default": "true"
+  },
+  "panorama_draw_text_fast_path_text_shadow": {
+   "default": "true"
+  },
+  "panorama_enable_secondary_layout_pass": {
+   "default": "true"
+  },
+  "panorama_hsbc_through_fast_path": {
+   "default": "true"
+  },
+  "panorama_joystick_enabled": {
+   "default": "true",
+   "valve": "Enable panorama joystick input"
+  },
+  "panorama_js_minidumps": {
+   "default": "false",
+   "valve": "Enable sending minidumps on JS Exceptions."
+  },
+  "panorama_panel_occlusion": {
+   "default": "true"
+  },
+  "panorama_render_target_cache_max_size": {
+   "default": "31457280"
+  },
+  "panorama_script_cache_enabled": {
+   "default": "true",
+   "valve": "Enable script caching to speed up recompiling scripts multiple times."
+  },
+  "panorama_skip_composition_layer_content_paint": {
+   "default": "true"
+  },
+  "panorama_temp_comp_layer_min_dimension": {
+   "default": "512"
+  },
+  "panorama_transition_time_factor": {
+   "default": "1",
+   "valve": "A float representing a scale factor for transitions. 1.0 is normal, 2.0 would be twice as fast as normal, 0.5 half as fast"
+  },
+  "panorama_use_backbuffer_directly": {
+   "default": "true"
+  },
+  "panorama_use_new_occlusion_invalidation": {
+   "default": "true"
+  },
+  "parallel_perform_invalidate_physics": {
+   "default": "false"
+  },
+  "parallel_update_surrounding_bounds_in_spatial_partition_update": {
+   "default": "false"
+  },
+  "particle_cluster_nodraw": {
+   "default": "false"
+  },
+  "particle_cluster_use_collision_hulls": {
+   "default": "true"
+  },
+  "phys_agg_world_compounds": {
+   "default": "false"
+  },
+  "phys_continuous_kinematic_update": {
+   "default": "1"
+  },
+  "phys_cull_internal_mesh_contacts": {
+   "default": "false"
+  },
+  "phys_dynamic_scaling": {
+   "default": "true"
+  },
+  "phys_expensive_shape_threshold": {
+   "default": "6"
+  },
+  "phys_highlight_expensive_objects_strength": {
+   "default": "0.02",
+   "valve": "Highlight expensive physics objects strength"
+  },
+  "phys_multithreading_enabled": {
+   "default": "true",
+   "valve": "Enable/Disable Multithreading in VPhysics"
+  },
+  "phys_threaded_cloth_bone_update": {
+   "default": "false"
+  },
+  "phys_threaded_kinematic_bone_update": {
+   "default": "false"
+  },
+  "phys_threaded_transform_update": {
+   "default": "false"
+  },
+  "pred_cloth_pos_max": {
+   "default": "2"
+  },
+  "pred_cloth_pos_multiplier": {
+   "default": "0.5"
+  },
+  "pred_cloth_pos_strength": {
+   "default": "0.25"
+  },
+  "pred_cloth_rot_high": {
+   "default": "0.1"
+  },
+  "pred_cloth_rot_low": {
+   "default": "0.01"
+  },
+  "pred_cloth_rot_multiplier": {
+   "default": "0.3"
+  },
+  "presettle_cloth_iterations": {
+   "default": "30"
+  },
+  "props_break_apply_radial_forces": {
+   "default": "true"
+  },
+  "props_break_max_pieces_perframe": {
+   "default": "16",
+   "valve": "Maximum prop breakable piece count per frame (-1 = model default)"
+  },
+  "r_add_views_in_pre_output": {
+   "default": "false"
+  },
+  "r_animatable_mesh_shaders": {
+   "default": "false"
+  },
+  "r_aoproxy_cull_dist": {
+   "default": "12",
+   "valve": "Distance to cull the AO proxy as a factor of size"
+  },
+  "r_aoproxy_default_ambient_strength": {
+   "default": "1"
+  },
+  "r_aoproxy_min_dist": {
+   "default": "3"
+  },
+  "r_aoproxy_min_dist_box": {
+   "default": "1"
+  },
+  "r_arealights": {
+   "default": "true"
+  },
+  "r_aspectratio": {
+   "default": "0",
+   "note": "Forces an aspect ratio, e.g. for stretched resolutions. 0 uses the screen's."
+  },
+  "r_bloom_tent_filter_radius": {
+   "default": "0",
+   "valve": "bloom mip up-sample filtering radius (using 3x3 tent filter, radius in mip level texels), 0.0 radius => box (2x2) filter with (fixed) 1.0 radius"
+  },
+  "r_character_decal_monitor_render_res": {
+   "default": "512"
+  },
+  "r_character_decal_resolution": {
+   "default": "1024",
+   "valve": "Resolution of character decal texture."
+  },
+  "r_citadel_antialiasing": {
+   "default": "1",
+   "note": "Anti-aliasing mode. Off is sharper and faster but shows jagged edges."
+  },
+  "r_citadel_clip_sphere_min_opacity": {
+   "default": "0.4"
+  },
+  "r_citadel_cloak_blur_amount": {
+   "default": "0.01",
+   "valve": "cloak",
+   "ignored": true
+  },
+  "r_citadel_cloak_blur_factor_max_roughness": {
+   "default": "1",
+   "valve": "cloak",
+   "ignored": true
+  },
+  "r_citadel_cloak_blur_factor_min_roughness": {
+   "default": "1",
+   "valve": "cloak",
+   "ignored": true
+  },
+  "r_citadel_cloak_blur_noise_amount": {
+   "default": "0.5",
+   "valve": "cloak",
+   "ignored": true
+  },
+  "r_citadel_cloak_color_tint": {
+   "default": "[230, 230, 230, 255]",
+   "valve": "cloak",
+   "ignored": true
+  },
+  "r_citadel_cloak_fresnel_effect": {
+   "default": "0",
+   "valve": "cloak",
+   "ignored": true
+  },
+  "r_citadel_cloak_intensity": {
+   "default": "1",
+   "valve": "cloak",
+   "ignored": true
+  },
+  "r_citadel_cloak_refract_amount": {
+   "default": "0",
+   "valve": "cloak",
+   "ignored": true
+  },
+  "r_citadel_depthoffield_aperture_diameter": {
+   "default": "0",
+   "valve": "Depth of field aperture diameter in inches",
+   "ignored": true
+  },
+  "r_citadel_depthoffield_debug": {
+   "default": "false",
+   "valve": "Enable depth of field debug drawing",
+   "ignored": true
+  },
+  "r_citadel_depthoffield_enable": {
+   "default": "false",
+   "valve": "Enable/Disable Depth of Field",
+   "ignored": true
+  },
+  "r_citadel_depthoffield_focus_distance": {
+   "default": "200",
+   "valve": "Depth of field focus distance in inches",
+   "ignored": true
+  },
+  "r_citadel_depthoffield_mode": {
+   "default": "0",
+   "valve": "Depth of field mode, 0: Normal 1: Near field only 2: Far field only",
+   "ignored": true
+  },
+  "r_citadel_depthoffield_sensor_size": {
+   "default": "1",
+   "valve": "Depth of field sensor size in inches",
+   "ignored": true
+  },
+  "r_citadel_disable_particle_lights": {
+   "default": "false",
+   "valve": "Disable particle lights except when explicitly overriden in particle renderer ops.",
+   "note": "Stops particle effects from casting light. Saves GPU time in fights."
+  },
+  "r_citadel_distancefield_ao_quality": {
+   "default": "0",
+   "valve": "Distance Field AO quality",
+   "note": "Quality of large-scale ambient occlusion from distance fields. Lower is faster."
+  },
+  "r_citadel_distancefield_blur": {
+   "default": "true",
+   "valve": "Enable/Disable distance field blur",
+   "ignored": true
+  },
+  "r_citadel_distancefield_blur_depth_threshold": {
+   "default": "1",
+   "valve": "Distance field blur depth threshold",
+   "ignored": true
+  },
+  "r_citadel_distancefield_down_sample": {
+   "default": "1",
+   "valve": "Distance field down sample factor",
+   "ignored": true
+  },
+  "r_citadel_distancefield_farfield_enable": {
+   "default": "true",
+   "valve": "Distance field far field enable",
+   "ignored": true
+  },
+  "r_citadel_distancefield_farfield_occlusion_length": {
+   "default": "192",
+   "valve": "Distance field far field occlusion length",
+   "ignored": true
+  },
+  "r_citadel_distancefield_farfield_occlusion_start_offset": {
+   "default": "16",
+   "valve": "Distance field far field occlusion start offset",
+   "ignored": true
+  },
+  "r_citadel_distancefield_farfield_resolution": {
+   "default": "192",
+   "valve": "Distance field far field resolution",
+   "ignored": true
+  },
+  "r_citadel_distancefield_farfield_size": {
+   "default": "2048",
+   "valve": "Distance field far field size",
+   "ignored": true
+  },
+  "r_citadel_distancefield_max_distance": {
+   "default": "2048",
+   "valve": "Maximum distance before culling",
+   "ignored": true
+  },
+  "r_citadel_distancefield_min_screen_space_size": {
+   "default": "0.015",
+   "valve": "Minimum screen space size before culling",
+   "ignored": true
+  },
+  "r_citadel_distancefield_occlusion_length": {
+   "default": "48",
+   "valve": "Distance field occlusion length",
+   "ignored": true
+  },
+  "r_citadel_distancefield_ray_origin_bias_max": {
+   "default": "3",
+   "valve": "Distance field ray origin bias max",
+   "ignored": true
+  },
+  "r_citadel_distancefield_ray_origin_bias_min": {
+   "default": "0.25",
+   "valve": "Distance field ray origin bias min",
+   "ignored": true
+  },
+  "r_citadel_distancefield_shadows": {
+   "default": "true",
+   "note": "Soft shadows from distance fields. Off is faster."
+  },
+  "r_citadel_drop_shadow_direction": {
+   "default": "[0.1, 0.1]",
+   "valve": "Drop Shadow Offset",
+   "ignored": true
+  },
+  "r_citadel_drop_shadow_flare": {
+   "default": "25",
+   "valve": "Percentage the shadow grows in each dimension per 100 game units below the character's feet.",
+   "ignored": true
+  },
+  "r_citadel_drop_shadow_max_dist": {
+   "default": "2048",
+   "ignored": true
+  },
+  "r_citadel_drop_shadow_update_frequency": {
+   "default": "1"
+  },
+  "r_citadel_fog_quality": {
+   "default": "1",
+   "valve": "Fog Quality",
+   "note": "Volumetric fog quality. Lower is faster."
+  },
+  "r_citadel_fsr_enable_mip_bias": {
+   "default": "true",
+   "valve": "Apply negative mip bias when rendering with FSR."
+  },
+  "r_citadel_glow_health_bar_debug": {
+   "default": "false"
+  },
+  "r_citadel_glow_health_bars": {
+   "default": "true"
+  },
+  "r_citadel_gpu_culling": {
+   "default": "true",
+   "valve": "Citadel/Graphics/GPU Culling",
+   "ignored": true
+  },
+  "r_citadel_gpu_culling_shadows": {
+   "default": "false",
+   "valve": "Citadel/Graphics/GPU Cull Shadow Views",
+   "ignored": true
+  },
+  "r_citadel_gpu_culling_two_pass": {
+   "default": "true",
+   "valve": "Citadel/Graphics/GPU Culling (Two Pass)",
+   "ignored": true
+  },
+  "r_citadel_gpu_preview_baked_shadows": {
+   "default": "true"
+  },
+  "r_citadel_gpu_preview_denoise": {
+   "default": "true"
+  },
+  "r_citadel_gpu_preview_denoise_passes": {
+   "default": "3"
+  },
+  "r_citadel_gpu_preview_denoise_shadow_passes": {
+   "default": "1"
+  },
+  "r_citadel_mboit_quality": {
+   "default": "0",
+   "valve": "MBOIT quality, 0: 4 Moments",
+   "ignored": true
+  },
+  "r_citadel_npr_outlines": {
+   "default": "true",
+   "valve": "Enable/Disable NPR Outlines",
+   "ignored": true
+  },
+  "r_citadel_npr_outlines_max_dist": {
+   "default": "1000",
+   "valve": "Maximum distance at which NPR outlines are rendered",
+   "ignored": true
+  },
+  "r_citadel_render_game": {
+   "default": "true",
+   "valve": "Should you render the main game world",
+   "ignored": true
+  },
+  "r_citadel_see_thru_walls_opacity": {
+   "default": "0.3",
+   "valve": "Opacity scale for see-thru UI",
+   "ignored": true
+  },
+  "r_citadel_selection_outline2_alpha": {
+   "default": "0.8",
+   "valve": "Selection Outline Alpha",
+   "ignored": true
+  },
+  "r_citadel_selection_outline2_fade_pow": {
+   "default": "1.5",
+   "valve": "Selection Outline Fade Pow",
+   "ignored": true
+  },
+  "r_citadel_selection_outline2_offset": {
+   "default": "0.3",
+   "valve": "Selection Outline Offset: -1 for interior, 0 for centered, 1 for exterior.",
+   "ignored": true
+  },
+  "r_citadel_selection_outline2_width": {
+   "default": "4",
+   "valve": "Selection Outline Width",
+   "ignored": true
+  },
+  "r_citadel_shadow_caching": {
+   "default": "true"
+  },
+  "r_citadel_shadow_quality": {
+   "default": "1",
+   "valve": "Shadow Quality",
+   "note": "Shadow quality. Lower is faster and blurrier."
+  },
+  "r_citadel_shadowdb": {
+   "default": "2048"
+  },
+  "r_citadel_ssao_quality": {
+   "default": "3",
+   "note": "Ambient occlusion quality. Lower is faster."
+  },
+  "r_citadel_sun_shadow_slope_scale_depth_bias": {
+   "default": "3.54"
+  },
+  "r_citadel_upscaling": {
+   "default": "4",
+   "note": "Upscaling mode (FSR/DLSS). Renders at a lower resolution and scales up for more FPS."
+  },
+  "r_dashboard_render_quality": {
+   "default": "true"
+  },
+  "r_decals": {
+   "default": "2048",
+   "note": "Maximum number of decals kept in the world. Lower is faster."
+  },
+  "r_decals_default_fade_duration": {
+   "default": "3"
+  },
+  "r_decals_default_start_fade": {
+   "default": "30"
+  },
+  "r_decals_overlap_threshold": {
+   "default": "0"
+  },
+  "r_depth_of_field": {
+   "default": "true",
+   "note": "Blur on far or near objects. Off keeps the whole screen sharp."
+  },
+  "r_directional_lightmaps": {
+   "default": "true"
+  },
+  "r_directlighting": {
+   "default": "true",
+   "valve": "Set to use direct lighting",
+   "ignored": true
+  },
+  "r_distancefield_enable": {
+   "default": "true",
+   "valve": "Graphics/Enable Distance Field rendering"
+  },
+  "r_dof_override_ranges": {
+   "default": "[0, 0, 0, 0]",
+   "ignored": true
+  },
+  "r_draw3dskybox": {
+   "default": "true",
+   "note": "Draws the distant 3D sky scenery. Off is faster."
+  },
+  "r_draw_particle_children_with_parents": {
+   "default": "-1",
+   "valve": "Draw particle children with parents (-1=use gameinfo, 0=no, 1=yes)"
+  },
+  "r_drawdecals": {
+   "default": "true",
+   "valve": "Set to render decals",
+   "note": "Bullet holes, scorch marks and other decals. Off is faster."
+  },
+  "r_drawparticles": {
+   "default": "true",
+   "valve": "SceneSystem/Particles/Draw Particles",
+   "ignored": true
+  },
+  "r_drawropes": {
+   "default": "true",
+   "note": "Draws ropes and cables in the map."
+  },
+  "r_drawskybox": {
+   "default": "true",
+   "valve": "Render the 2d skybox.",
+   "ignored": true
+  },
+  "r_drawtracers": {
+   "default": "true",
+   "note": "Bullet tracer lines."
+  },
+  "r_drawtracers_firstperson": {
+   "default": "true",
+   "valve": "Toggle visibility of first person weapon tracers",
+   "note": "Bullet tracers for your own shots."
+  },
+  "r_drawviewmodel": {
+   "default": "true",
+   "valve": "Render view model",
+   "note": "Draws your own weapon and arms."
+  },
+  "r_effects_bloom": {
+   "default": "true",
+   "note": "Glow around bright light. Off is a bit faster and clearer."
+  },
+  "r_enable_cubemap_fog": {
+   "default": "true",
+   "valve": "Citadel/Graphics/Fog/Enable Cubemap Fog",
+   "ignored": true
+  },
+  "r_enable_gradient_fog": {
+   "default": "true",
+   "valve": "Citadel/Graphics/Fog/Enable Gradient Fog",
+   "ignored": true
+  },
+  "r_enable_rigid_animation": {
+   "default": "false"
+  },
+  "r_enable_volume_fog": {
+   "default": "true",
+   "valve": "Citadel/Graphics/Fog/Enable Volume Fog",
+   "ignored": true
+  },
+  "r_environment_map_roughness_range": {
+   "default": "[0.2, 0.3]",
+   "valve": "Fade region for sampling environment maps on lightmapped nonmetals. Smoother values than the first param sample envmaps. Rougher values than the second sample only lightmap SH. r_environment_map_roughness_range 1 1 to always sample envmaps for comparison.",
+   "ignored": true
+  },
+  "r_fallback_texture_lod_scale": {
+   "default": "2",
+   "valve": "Scale factor for requested texture size (texture streaming) - used for geo that doesn't have a precomputed UV density measure",
+   "ignored": true
+  },
+  "r_farz": {
+   "default": "-1",
+   "valve": "Override the far clipping plane. -1 means to use the value in env_fog_controller.",
+   "note": "Far clipping distance. Things beyond it aren't drawn."
+  },
+  "r_flashlightambient": {
+   "default": "0"
+  },
+  "r_flashlightbrightness": {
+   "default": "1"
+  },
+  "r_flashlightconstant": {
+   "default": "0"
+  },
+  "r_flashlightfar": {
+   "default": "1500"
+  },
+  "r_flashlightshadowatten": {
+   "default": "0.35"
+  },
+  "r_force_thick_hair": {
+   "default": "false"
+  },
+  "r_frame_sync_enable": {
+   "default": "true"
+  },
+  "r_fullscreen_gamma": {
+   "default": "2.2",
+   "valve": "Screen Gamma (only in fullscreen modes)",
+   "note": "Brightness (gamma) in fullscreen."
+  },
+  "r_grass_allow_flattening": {
+   "default": "false"
+  },
+  "r_grass_alpha_test": {
+   "default": "0"
+  },
+  "r_grass_density_mode": {
+   "default": "0",
+   "valve": "0 = Density corresponds to blade existance, 1 = Density corresponds to blade height, 2 = Both 0 and 1"
+  },
+  "r_grass_end_fade": {
+   "default": "3000"
+  },
+  "r_grass_quality": {
+   "default": "2",
+   "valve": "0 = Off, 1 = Low, 2 = Med, 3 = high, 4 = ultra",
+   "note": "Grass detail. Lower is faster."
+  },
+  "r_grass_start_fade": {
+   "default": "2000"
+  },
+  "r_grass_vertex_lighting": {
+   "default": "0"
+  },
+  "r_hair_ao": {
+   "default": "true"
+  },
+  "r_hair_indirect_transmittance": {
+   "default": "true"
+  },
+  "r_hair_meshshader": {
+   "default": "0"
+  },
+  "r_hair_shadowtile": {
+   "default": "true"
+  },
+  "r_hair_voxels": {
+   "default": "-1"
+  },
+  "r_hair_wind_global_scale": {
+   "default": "0.3"
+  },
+  "r_hair_wind_motion_scale": {
+   "default": "0.07"
+  },
+  "r_hair_wind_noise": {
+   "default": "0.2"
+  },
+  "r_hair_wind_occlusion": {
+   "default": "2"
+  },
+  "r_haircull_percent": {
+   "default": "-1"
+  },
+  "r_hairsort": {
+   "default": "true"
+  },
+  "r_impacts_alt_orientation": {
+   "default": "true"
+  },
+  "r_impacts_decal_grazing_incidence_cutoff": {
+   "default": "0.55"
+  },
+  "r_impacts_decal_grazing_incidence_variance": {
+   "default": "0.1"
+  },
+  "r_indirectlighting": {
+   "default": "true",
+   "valve": "Set to use indirect lighting"
+  },
+  "r_late_particle_job_sync": {
+   "default": "false"
+  },
+  "r_light_flickering_enabled": {
+   "default": "true",
+   "note": "Flickering lights in the map."
+  },
+  "r_light_sensitivity_mode": {
+   "default": "false"
+  },
+  "r_lightmap_size": {
+   "default": "65536",
+   "valve": "Maximum lightmap resolution."
+  },
+  "r_lightmap_size_directional_irradiance": {
+   "default": "-1",
+   "valve": "Maximum lightmap resolution for directional_irradiance channel. -1 = use value of r_lightmap_size"
+  },
+  "r_limit_particle_job_duration": {
+   "default": "false"
+  },
+  "r_low_latency": {
+   "default": "1",
+   "valve": "NVIDIA Low Latency/AMD Anti-Lag 2 (0 = off, 1 = on, 2 = NV-only, on + boost)",
+   "note": "NVIDIA Reflex / low-latency mode. Lowers input lag; 0 turns it off."
+  },
+  "r_mapextents": {
+   "default": "16384",
+   "valve": "Set the max dimension for the map.  This determines the far clipping plane"
+  },
+  "r_max_portal_render_targets": {
+   "default": "2"
+  },
+  "r_mixed_shadows_fade_in_time": {
+   "default": "0.5"
+  },
+  "r_mixed_shadows_fade_out_time": {
+   "default": "0.5"
+  },
+  "r_monitor_3dskybox": {
+   "default": "true"
+  },
+  "r_morphing_enabled": {
+   "default": "true"
+  },
+  "r_muzzleflashbrightness": {
+   "default": "0.4"
+  },
+  "r_nearz": {
+   "default": "-1",
+   "valve": "Override the near clipping plane. -1 means use the default.",
+   "ignored": true
+  },
+  "r_particle_allowprerender": {
+   "default": "true"
+  },
+  "r_particle_batch_collections": {
+   "default": "false"
+  },
+  "r_particle_cables_cast_shadows": {
+   "default": "true",
+   "ignored": true
+  },
+  "r_particle_cables_culling": {
+   "default": "1",
+   "ignored": true
+  },
+  "r_particle_cables_culling_bounds_scale": {
+   "default": "1.2",
+   "ignored": true
+  },
+  "r_particle_cables_render": {
+   "default": "true",
+   "ignored": true
+  },
+  "r_particle_cables_render_meshlets": {
+   "default": "true",
+   "ignored": true
+  },
+  "r_particle_cables_visualize_roundness": {
+   "default": "false",
+   "ignored": true
+  },
+  "r_particle_fixedrandomseeds": {
+   "default": "false",
+   "valve": "Use fixed seeds for easier debugging"
+  },
+  "r_particle_gpu_implicit": {
+   "default": "true"
+  },
+  "r_particle_gpu_implicit_lds_cache": {
+   "default": "false"
+  },
+  "r_particle_max_detail_level": {
+   "default": "3",
+   "valve": "The maximum detail level of particle to create",
+   "note": "Highest particle detail. Lower makes ability effects simpler and faster."
+  },
+  "r_particle_max_draw_distance": {
+   "default": "1000000",
+   "valve": "The maximum distance that particles will render",
+   "note": "How far away particles are still drawn."
+  },
+  "r_particle_max_size_cull": {
+   "default": "1200",
+   "valve": "Particle systems larger than this in every dimension skip culling to save CPU.  They will be drawn anyway."
+  },
+  "r_particle_max_texture_layers": {
+   "default": "-1"
+  },
+  "r_particle_min_timestep": {
+   "default": "0",
+   "valve": "A minimum on particle simulation time, particle simulation happening more frequently than this will lerp."
+  },
+  "r_particle_mixed_resolution_viewstart": {
+   "default": "500"
+  },
+  "r_particle_model_new": {
+   "default": "false"
+  },
+  "r_particle_model_new8": {
+   "default": "true"
+  },
+  "r_particle_model_per_thread_count": {
+   "default": "32"
+  },
+  "r_particle_multiplier": {
+   "default": "1",
+   "valve": "Render each particle system N times for perf testing",
+   "ignored": true
+  },
+  "r_particle_newinput": {
+   "default": "false",
+   "valve": "Enable input path in particle ops"
+  },
+  "r_particle_skip_postsim": {
+   "default": "false"
+  },
+  "r_particle_timescale": {
+   "default": "1"
+  },
+  "r_physics_particle_op_spawn_scale": {
+   "default": "1"
+  },
+  "r_pipeline_stats_use_flush_api": {
+   "default": "true",
+   "valve": "Experimental: Set to 1 to use the ID3D11DeviceContext11::Flush() to flush the GPU pipeline instead of queries."
+  },
+  "r_pixelvisibility_partial": {
+   "default": "true"
+  },
+  "r_post_bloom": {
+   "default": "false",
+   "note": "Glow around bright light in post-processing. Off is a bit faster and clearer."
+  },
+  "r_postprocess_enable": {
+   "default": "true",
+   "ignored": true
+  },
+  "r_propsmaxdist": {
+   "default": "1200",
+   "valve": "Maximum visible distance",
+   "note": "How far away props are still drawn."
+  },
+  "r_rainparticledensity": {
+   "default": "1",
+   "valve": "Density of Particle Rain 0-1",
+   "ignored": true
+  },
+  "r_render_hair": {
+   "default": "true",
+   "note": "Draws hero hair strands."
+  },
+  "r_render_to_cubemap_debug": {
+   "default": "false",
+   "ignored": true
+  },
+  "r_renderdoc_auto_shader_pdbs": {
+   "default": "true",
+   "valve": "Automatically generate shader debug info on capture"
+  },
+  "r_rendersun": {
+   "default": "true",
+   "valve": "Render sun lighting",
+   "note": "Draws the sun disc and its glow."
+  },
+  "r_ropetranslucent": {
+   "default": "true"
+  },
+  "r_shadows": {
+   "default": "true",
+   "ignored": true
+  },
+  "r_size_cull_threshold": {
+   "default": "0.8",
+   "valve": "Threshold of screen size percentage below which objects get culled"
+  },
+  "r_size_cull_threshold_fade": {
+   "default": "0",
+   "valve": "% above the screen size percentage where we will start fading out (==0 will disable fading)."
+  },
+  "r_size_cull_threshold_shadow": {
+   "default": "0.2",
+   "valve": "Threshold of shadow map size percentage below which objects get culled"
+  },
+  "r_skip_precache_validation_check": {
+   "default": "false"
+  },
+  "r_smooth_morph_normals": {
+   "default": "true"
+  },
+  "r_ssao": {
+   "default": "true",
+   "valve": "Set to use screen-space ambient occlusion",
+   "note": "Ambient occlusion (soft contact shadows). Off gives more FPS and flatter-looking scenes."
+  },
+  "r_ssao_blur": {
+   "default": "true"
+  },
+  "r_ssao_strength": {
+   "default": "1.2",
+   "note": "How dark ambient occlusion shadows are."
+  },
+  "r_strip_invisible_during_sceneobject_update": {
+   "default": "false"
+  },
+  "r_texture_budget_dynamic": {
+   "default": "true",
+   "valve": "Dynamically adjust texture streaming budget based on GPU memory usage."
+  },
+  "r_texture_budget_threshold": {
+   "default": "0.9",
+   "valve": "Reduce texture memory pool size when this percentage of the budget is full."
+  },
+  "r_texture_budget_update_period": {
+   "default": "0.1",
+   "valve": "Time (in seconds) between updating texture memory budget."
+  },
+  "r_texture_lod_scale": {
+   "default": "1",
+   "valve": "Scale factor for requested texture size (texture streaming)",
+   "ignored": true
+  },
+  "r_texture_nonstreaming_load": {
+   "default": "true",
+   "valve": "Allow immediately loading mips of textures (when possible) when their headers are loaded, saving IO & reducing latency."
+  },
+  "r_texture_pool_reduce_rate": {
+   "default": "256",
+   "valve": "Reduce texture memory pool size by this many MB / s when over budget."
+  },
+  "r_texture_pool_size": {
+   "default": "1600",
+   "valve": "Total size of the texture pool in MB"
+  },
+  "r_texture_stream_max_resolution": {
+   "default": "2147483647",
+   "valve": "Maximum resolution for top mip level in streaming textures",
+   "note": "Largest texture size loaded. Lower uses less VRAM and looks blurrier."
+  },
+  "r_texture_stream_mip_bias": {
+   "default": "0",
+   "valve": "Biases the mip level the texture streaming system choses to stream for each texture.",
+   "note": "Shifts textures toward lower detail levels. Higher uses less VRAM and looks blurrier."
+  },
+  "r_texture_stream_throttle_amount": {
+   "default": "10"
+  },
+  "r_texture_stream_throttle_count": {
+   "default": "3"
+  },
+  "r_texture_stream_throttle_count_over_budget": {
+   "default": "1"
+  },
+  "r_texturefilteringquality": {
+   "default": "1",
+   "valve": "0: Bilinear, 1: Trilinear, 2: Aniso 2x, 3: Aniso 4x, 4: Aniso 8x, 5: Aniso 16x",
+   "note": "Texture filtering (anisotropic). Higher keeps far surfaces sharp at a small GPU cost."
+  },
+  "r_threaded_particles": {
+   "default": "true"
+  },
+  "r_translucent": {
+   "default": "true",
+   "valve": "Enable rendering of translucent geometry"
+  },
+  "r_update_particles_on_render_only_frames": {
+   "default": "false"
+  },
+  "r_vma_defrag_algorithm": {
+   "default": "1",
+   "valve": "Defrag algorithm 0=Fast 1=Balanced 2=full 3=Extensive"
+  },
+  "r_world_wind_frequency_grass": {
+   "default": "0.03"
+  },
+  "r_world_wind_frequency_trees": {
+   "default": "0.003"
+  },
+  "r_world_wind_strength": {
+   "default": "40"
+  },
+  "ragdoll_parallel_pose_control": {
+   "default": "false"
+  },
+  "reset_voice_on_input_stallout": {
+   "default": "false",
+   "valve": "If true, resets the input device when there was a long enough hitch between callbacks."
+  },
+  "rope_collide": {
+   "default": "1",
+   "valve": "Collide rope with the world"
+  },
+  "rope_smooth_enlarge": {
+   "default": "1.4",
+   "valve": "How much to enlarge ropes in screen space for antialiasing effect"
+  },
+  "rope_smooth_maxalpha": {
+   "default": "0.5",
+   "valve": "Alpha for rope antialiasing effect"
+  },
+  "rope_smooth_maxalphawidth": {
+   "default": "1.75"
+  },
+  "rope_smooth_minalpha": {
+   "default": "0.2",
+   "valve": "Alpha for rope antialiasing effect"
+  },
+  "rope_smooth_minwidth": {
+   "default": "0.3",
+   "valve": "When using smoothing, this is the min screenspace width it lets a rope shrink to"
+  },
+  "rope_subdiv": {
+   "default": "2",
+   "valve": "Rope subdivision amount"
+  },
+  "rope_wind_dist": {
+   "default": "1000",
+   "valve": "Don't use CPU applying small wind gusts to ropes when they're past this distance."
+  },
+  "rpg_camera_yaw": {
+   "default": "90"
+  },
+  "rtx_dynamic_blas": {
+   "default": "true",
+   "valve": "Allow dynamic BLAS creation for geometry going through the compute shader skinning path."
+  },
+  "rtx_dynamic_blas_caching": {
+   "default": "true",
+   "valve": "Cache dynamic BLAS if geometry has not changed"
+  },
+  "rtx_force_default_hitgroup": {
+   "default": "false",
+   "valve": "Forces all ray traced geometry to use default hit shaders instead of specialized ones."
+  },
+  "rtx_texture_resolution": {
+   "default": "512",
+   "valve": "Sets the texture resolution the raytracer will mark to stream in"
+  },
+  "sc_aggregate_bvh_threshold": {
+   "default": "128"
+  },
+  "sc_aggregate_gpu_culling": {
+   "default": "true",
+   "valve": "Toggles GPU culling of aggregate meshes"
+  },
+  "sc_aggregate_gpu_occlusion_culling": {
+   "default": "true"
+  },
+  "sc_allow_dithered_lod": {
+   "default": "true",
+   "valve": "Allow use of dithered lod transitions"
+  },
+  "sc_allow_dynamic_constant_batching": {
+   "default": "true"
+  },
+  "sc_allow_precomputed_vismembers": {
+   "default": "true"
+  },
+  "sc_barnlight_enable_precomputed_vis": {
+   "default": "true",
+   "valve": "Enable use of precomputed vis membership for lights (requires map restart)"
+  },
+  "sc_cache_envmap_lpv_lookup": {
+   "default": "true"
+  },
+  "sc_clutter_density_full_size": {
+   "default": "0.0075",
+   "valve": "Screen-size where clutter will be full density"
+  },
+  "sc_clutter_density_none_size": {
+   "default": "0.0035",
+   "valve": "Screen-size where clutter will be gone"
+  },
+  "sc_clutter_desity_override": {
+   "default": "false"
+  },
+  "sc_clutter_enable": {
+   "default": "true",
+   "valve": "SceneSystem/Clutter/Draw Clutter",
+   "note": "Small clutter objects (grass tufts, debris)."
+  },
+  "sc_disable_baked_lighting": {
+   "default": "false"
+  },
+  "sc_disable_culling_boxes": {
+   "default": "false",
+   "ignored": true
+  },
+  "sc_disable_procedural_layer_rendering": {
+   "default": "false",
+   "ignored": true
+  },
+  "sc_disable_spotlight_shadows": {
+   "default": "false",
+   "ignored": true
+  },
+  "sc_dithered_lod_transition_amt": {
+   "default": "0.075",
+   "valve": "Percentage of the transition between two lods we will apply a dither"
+  },
+  "sc_dump_lists": {
+   "default": "\"\"",
+   "ignored": true
+  },
+  "sc_enable_discard": {
+   "default": "true"
+  },
+  "sc_extended_stats": {
+   "default": "false",
+   "ignored": true
+  },
+  "sc_fade_distance_scale_override": {
+   "default": "-1",
+   "ignored": true
+  },
+  "sc_fog_cull": {
+   "default": "true",
+   "ignored": true
+  },
+  "sc_force_lod_level": {
+   "default": "-1",
+   "ignored": true
+  },
+  "sc_force_materials_batchable": {
+   "default": "false"
+  },
+  "sc_force_single_display_list_per_layer": {
+   "default": "false"
+  },
+  "sc_force_translation_in_projection": {
+   "default": "false",
+   "valve": "If enabled, the camera's translation will be included in the projection matrix.",
+   "ignored": true
+  },
+  "sc_hdr_enabled_override": {
+   "default": "-1",
+   "valve": "Override default setting for HDR rendering. -1 default, 0 NoHdr, 1 Hdr, 2 Hdr 1010102 3 Hdr 111110"
+  },
+  "sc_instanced_mesh_enable": {
+   "default": "true",
+   "valve": "SceneSystem/Instanced/Draw Instanced"
+  },
+  "sc_instanced_mesh_gpu_culling": {
+   "default": "true",
+   "valve": "Toggles GPU culling of instanced meshes"
+  },
+  "sc_instanced_mesh_gpu_density_culling": {
+   "default": "true",
+   "valve": "Toggles density culling (if enabled)"
+  },
+  "sc_instanced_mesh_lod_bias": {
+   "default": "1.25",
+   "valve": "Bias for LOD selection of instanced meshes"
+  },
+  "sc_instanced_mesh_lod_bias_shadow": {
+   "default": "1.75",
+   "valve": "Bias for LOD selection of instanced meshes in shadowmaps"
+  },
+  "sc_instanced_mesh_motion_vectors": {
+   "default": "true",
+   "valve": "Toggles motion vector support for instanced meshes"
+  },
+  "sc_instanced_mesh_opaque_fade": {
+   "default": "true",
+   "valve": "Toggles fade support for instanced meshes"
+  },
+  "sc_instanced_mesh_shadows_batch_across_materials": {
+   "default": "false",
+   "valve": "Toggles whether mesh shader instanced can batch on reflectivity"
+  },
+  "sc_instanced_mesh_size_cull_bias": {
+   "default": "1.5",
+   "valve": "Bias for size culling of instanced meshes"
+  },
+  "sc_instanced_mesh_size_cull_bias_shadow": {
+   "default": "2",
+   "valve": "Bias for size culling instanced meshes in shadowmaps"
+  },
+  "sc_layer_batch_threshold": {
+   "default": "128"
+  },
+  "sc_layer_batch_threshold_fullsort": {
+   "default": "80"
+  },
+  "sc_max_framebuffer_copies_per_layer": {
+   "default": "1"
+  },
+  "sc_mesh_backface_culling": {
+   "default": "true"
+  },
+  "sc_mesh_gpu_occlusion_culling": {
+   "default": "true"
+  },
+  "sc_mesh_gpu_volume_culling": {
+   "default": "true"
+  },
+  "sc_mesh_shadows_batch_across_materials": {
+   "default": "true"
+  },
+  "sc_only_render_opaque": {
+   "default": "false",
+   "ignored": true
+  },
+  "sc_only_render_shadowcasters": {
+   "default": "false",
+   "ignored": true
+  },
+  "sc_screen_size_lod_scale_override": {
+   "default": "-1",
+   "note": "Level-of-detail scale. Higher switches models to simpler versions sooner."
+  },
+  "sc_shadow_depth_bias": {
+   "default": "256"
+  },
+  "sc_shadow_depth_bias_state_override": {
+   "default": "false"
+  },
+  "sc_shadow_slopescale_depth_bias": {
+   "default": "2.13"
+  },
+  "sc_show_cs_skinning_stats": {
+   "default": "false",
+   "valve": "SceneSystem/Compute Skinning Stats",
+   "ignored": true
+  },
+  "sc_show_view_profiler": {
+   "default": "false",
+   "valve": "SceneSystem/View Profiler",
+   "ignored": true
+  },
+  "sc_show_vt_stats": {
+   "default": "false",
+   "valve": "SceneSystem/Virtual Texturing",
+   "ignored": true
+  },
+  "scene_clientflex": {
+   "default": "true",
+   "valve": "Do client side flex animation."
+  },
+  "shake_show": {
+   "default": "false",
+   "valve": "Displays a list of the active screen shakes."
+  },
+  "skeleton_instance_lod_optimization": {
+   "default": "false",
+   "valve": "Compute LOD mask internally like since 2016, i.e. force all LOD groups' bones to compute"
+  },
+  "snd_boxverb_simd": {
+   "default": "true",
+   "valve": "Enable SIMD code path for shoebox reverb processor."
+  },
+  "snd_disable_mixer_duck": {
+   "default": "false"
+  },
+  "snd_enable_subgraph_corenull_passthrough": {
+   "default": "true"
+  },
+  "snd_envelope_rate": {
+   "default": "0.9"
+  },
+  "snd_mix_async": {
+   "default": "true"
+  },
+  "snd_mixahead": {
+   "default": "0.001",
+   "note": "Audio buffer length in seconds. Lower reduces sound delay; too low can crackle."
+  },
+  "snd_occlusion_bounces": {
+   "default": "1"
+  },
+  "snd_occlusion_rays": {
+   "default": "4"
+  },
+  "snd_report_audio_nan": {
+   "default": "false"
+  },
+  "snd_sos_max_event_base_depth": {
+   "default": "4"
+  },
+  "snd_soundmixer": {
+   "default": "\"Default_Mix\""
+  },
+  "snd_soundmixer_update_maximum_frame_rate": {
+   "default": "10"
+  },
+  "snd_soundmixer_version": {
+   "default": "2"
+  },
+  "snd_spatialize_lerp": {
+   "default": "0"
+  },
+  "snd_steamaudio_active_hrtf": {
+   "default": "0",
+   "valve": "Index of active HRTF."
+  },
+  "snd_steamaudio_baked_dimensions_probelookup_usealternate": {
+   "default": "false",
+   "valve": "Use alternate probe lookup algorithm to query dimensions for listener position based on kd-tree of probe points."
+  },
+  "snd_steamaudio_custombake_dimensions_outsidefield_bake_enabled": {
+   "default": "true",
+   "valve": "Enable baking outside field for probes baking custom dimensions data."
+  },
+  "snd_steamaudio_custombake_dimensions_size_and_inout_bake_enabled": {
+   "default": "true",
+   "valve": "Enable baking size and inout data for probes when baking custom dimensions data."
+  },
+  "snd_steamaudio_custombake_dimensions_smallsizefield_bake_enabled": {
+   "default": "true",
+   "valve": "Enable baking insize size field for probes when baking custom dimensions data."
+  },
+  "snd_steamaudio_dimensions_grid_height_max": {
+   "default": "100",
+   "valve": "The maximum height (from the ground) we allow probes to be added above the initial layer. (meters)"
+  },
+  "snd_steamaudio_dimensions_max_ray_length": {
+   "default": "0",
+   "valve": "0 is disabled, but otherwise sets a limit the maximum ray size in the dimension size calculation. Used to model the enclosure algorithm. Game units"
+  },
+  "snd_steamaudio_enable_custom_hrtf": {
+   "default": "false",
+   "valve": "Enable custom HRTF loading."
+  },
+  "snd_steamaudio_enable_editor_profiling": {
+   "default": "false",
+   "valve": "Enables tracy profiling when baking steam audio data in Hammer."
+  },
+  "snd_steamaudio_enable_occlusion_caching": {
+   "default": "true",
+   "valve": "Continue using previous occlusion if probe lookup for occlusion fails."
+  },
+  "snd_steamaudio_enable_ordertruncated_ambisonics_hrtf": {
+   "default": "false",
+   "valve": "Enable order-truncated Ambisonics HRTF loading."
+  },
+  "snd_steamaudio_enable_pathing": {
+   "default": "false",
+   "valve": "This variable is checked by soundstack to globally enabling pathing for audio processing.",
+   "note": "Steam Audio sound paths around corners. Off is cheaper on the CPU."
+  },
+  "snd_steamaudio_enable_perspective_correction": {
+   "default": "false",
+   "valve": "Enable perspective correction for 3D audio."
+  },
+  "snd_steamaudio_enable_reverb": {
+   "default": "0",
+   "valve": "Enable Steam Audio Reverb processor.",
+   "note": "Steam Audio reverb. Off is cheaper on the CPU."
+  },
+  "snd_steamaudio_invalid_path_length": {
+   "default": "0",
+   "valve": "Path length of invalid path in inches. Set this to .0 to use direct distance as path length."
+  },
+  "snd_steamaudio_ir_duration": {
+   "default": "2",
+   "valve": "The time delay between a sound being emitted and the last audible reflection in Steam Audio."
+  },
+  "snd_steamaudio_load_dimensions_data": {
+   "default": "true",
+   "valve": "If set, baked dimensions data is loaded."
+  },
+  "snd_steamaudio_load_materials_data": {
+   "default": "true",
+   "valve": "If set, baked materials data is loaded."
+  },
+  "snd_steamaudio_load_occlusion_data": {
+   "default": "true",
+   "valve": "If set, baked occlusion data is loaded."
+  },
+  "snd_steamaudio_load_pathing_data": {
+   "default": "true",
+   "valve": "If set, baked pathing data is loaded. Steam Audio Hammer entities can successfully use pathing in this case."
+  },
+  "snd_steamaudio_load_reverb_data": {
+   "default": "true",
+   "valve": "If set, baked reverb data is loaded. Reset it to zero during an format changes of baked data until all data is updated."
+  },
+  "snd_steamaudio_max_occlusion_samples": {
+   "default": "64",
+   "valve": "The maximum number of rays that can be traced for volumetric occlusion by Steam Audio."
+  },
+  "snd_steamaudio_max_probes_customdata_dimensions": {
+   "default": "4294967295",
+   "valve": "Maximum number of probes to create when baking custom data (dimensions)."
+  },
+  "snd_steamaudio_num_diffuse_samples": {
+   "default": "2048",
+   "valve": "The number of directions considered for ray bounce by Steam Audio."
+  },
+  "snd_steamaudio_num_threads": {
+   "default": "2",
+   "valve": "Sets the number of threads used for realtime reflection by Steam Audio."
+  },
+  "snd_steamaudio_pathing_order": {
+   "default": "1",
+   "valve": "The amount of directional detail in the simulated by Steam Audio."
+  },
+  "snd_steamaudio_pathing_order_rendering": {
+   "default": "1",
+   "valve": "The amount of directional detail in the rendered audio by Steam Audio."
+  },
+  "snd_steamaudio_reverb_level_db": {
+   "default": "-3",
+   "valve": "Adjust overall volume (dB) of the output from Steam Audio Reverb processor."
+  },
+  "snd_steamaudio_reverb_order_rendering": {
+   "default": "1",
+   "valve": "Ambisonics order to use for convolution reverb. 0th order = 1 channel, 1st order = 4 channels."
+  },
+  "snd_steamaudio_reverb_update_rate": {
+   "default": "30",
+   "valve": "Set the maximum update rate (in Hz) for reverb."
+  },
+  "snd_ui_positional": {
+   "default": "false"
+  },
+  "snd_ui_spatialization_spread": {
+   "default": "1"
+  },
+  "snd_use_baked_occlusion": {
+   "default": "0"
+  },
+  "sos_use_guid_filter": {
+   "default": "false"
+  },
+  "soundsystem_update_async": {
+   "default": "true"
+  },
+  "sparseshadowtree_cs_exclude_next_cascade_region": {
+   "default": "true",
+   "valve": "Exclude the inner region of a cascade during CS unpack if there is a higher resolution cascade that will cover that area."
+  },
+  "sparseshadowtree_disable_add_layers": {
+   "default": "false",
+   "valve": "Disable SST runtime layers, for debugging (will exclude geo that CAN render into SST if SST otherwise enabled)"
+  },
+  "sparseshadowtree_disable_for_viewmodel": {
+   "default": "true",
+   "valve": "Disable SST generation and runtime for viewmodel (use original CSM rendering)."
+  },
+  "sparseshadowtree_enable_rendering": {
+   "default": "true",
+   "valve": "Enable use of SST at runtime (static geo rendered into cascades via SST)."
+  },
+  "sparseshadowtree_leaf_precision_viewmodel": {
+   "default": "0.0005",
+   "valve": "(viewmodel) precision for depth compression at SST leaf nodes."
+  },
+  "sparseshadowtree_parallel_generation": {
+   "default": "2",
+   "valve": "Split SST tile generation into threadjobs (0 - disabled, 1 - wait on readpixels for job batch, 2 - async readpixels)."
+  },
+  "stats_collect_gpu": {
+   "default": "false",
+   "valve": "While doing stats_display, collect GPU perf counters. Used for stats_print_gpu."
+  },
+  "steam_inputhandler_enabled": {
+   "default": "true",
+   "valve": "Enable steaminput"
+  },
+  "sv_cheats": {
+   "default": "false",
+   "valve": "Allow cheats on server",
+   "ignored": true
+  },
+  "sv_cloth_interp_rot": {
+   "default": "false"
+  },
+  "sv_debug_overlays_bandwidth": {
+   "default": "65536",
+   "valve": "Broadcast server debug overlays traffic"
+  },
+  "sv_enable_donttransmit": {
+   "default": "true",
+   "valve": "When encoding entity deltas, instead of unreliably deducing explicit deletions, actually send list of existing but not networked entities (dont_transmit list) to each client."
+  },
+  "sv_frame_perf_sample_buffer_max": {
+   "default": "100",
+   "valve": "Same as cl_frame_perf_sample_buffer_max, but for dedicated servers only."
+  },
+  "sv_hide_ent_in_pvs": {
+   "default": "-1"
+  },
+  "sv_lagcomp_filterbyviewangle": {
+   "default": "true",
+   "valve": "If true, player pawn will filter lag compensation targets by their view angle."
+  },
+  "sv_maxspeed": {
+   "default": "320"
+  },
+  "sv_maxunlag": {
+   "default": "1",
+   "valve": "Maximum lag compensation in seconds"
+  },
+  "sv_maxunlag_player": {
+   "default": "-1",
+   "valve": "If >0, maximumum lag compensation used for other human pawns. Applied after sv_maxunlag!"
+  },
+  "sv_maxupdaterate": {
+   "default": "60",
+   "valve": "Maximum updates per second that the server will allow"
+  },
+  "sv_maxvelocity": {
+   "default": "3500",
+   "valve": "Maximum speed any ballistically moving object is allowed to attain per axis."
+  },
+  "sv_minrate": {
+   "default": "5000",
+   "valve": "Min bandwidth rate allowed on server, 0 == unlimited"
+  },
+  "sv_minupdaterate": {
+   "default": "10",
+   "valve": "Minimum updates per second that the server will allow"
+  },
+  "sv_parallel_checktransmit": {
+   "default": "0",
+   "valve": "Set to 1 to use threaded checkentities for transmit/pvs on listen servers, 2 for dedicated servers."
+  },
+  "sv_parallel_sendsnapshot": {
+   "default": "2",
+   "valve": "0: run all send jobs on main thread; 1: send jobs run asynchronously (except on dedicated server); 2: send jobs asynchronously; 3: send jobs run in parallel but block to not overlap the next tick; 4: main server clients' send jobs run in parallel, then HLTV server jobs; this approximately matches pre-async profile for a single HLTV server configuration"
+  },
+  "sv_pvs_max_distance": {
+   "default": "0",
+   "valve": "if set, adds a maximum range to PVS/PAS checks"
+  },
+  "sv_remove_ent_from_pvs": {
+   "default": "0"
+  },
+  "sv_stepsize": {
+   "default": "18"
+  },
+  "sv_waterdist": {
+   "default": "12",
+   "valve": "Vertical view fixup when eyes are near water plane."
+  },
+  "think_limit": {
+   "default": "10",
+   "valve": "Maximum think time in milliseconds, warning is printed if this is exceeded."
+  },
+  "thread_pool_option": {
+   "default": "-1",
+   "valve": "Thread pool option",
+   "note": "How many worker threads the engine uses."
+  },
+  "thumper_use_plane_reflection": {
+   "default": "true"
+  },
+  "tv_enable_delta_frames": {
+   "default": "true",
+   "valve": "Indicates whether or not the tv should use delta frames for storage of intermediate frames. This takes more CPU but significantly less memory."
+  },
+  "update_all_keyframed_in_spatial_partition_update": {
+   "default": "true"
+  },
+  "update_voices_low_priority": {
+   "default": "false"
+  },
+  "v8_maximum_heap_size_mb": {
+   "default": "512",
+   "valve": "Hard limit for the v8 heap size (in mBytes)"
+  },
+  "viewmodel_fov": {
+   "default": "54",
+   "note": "Field of view of your weapon and arms."
+  },
+  "violence_ablood": {
+   "default": "true",
+   "valve": "Draw alien blood",
+   "note": "Alien blood effects."
+  },
+  "violence_agibs": {
+   "default": "true",
+   "valve": "Show alien gib entities"
+  },
+  "violence_hblood": {
+   "default": "true",
+   "valve": "Draw human blood",
+   "note": "Blood effects."
+  },
+  "violence_hgibs": {
+   "default": "true",
+   "valve": "Show human gib entities"
+  },
+  "vis_enable": {
+   "default": "true",
+   "valve": "Enable precomputed visibility when true"
+  },
+  "vis_sunlight_enable": {
+   "default": "true",
+   "valve": "Toggle whether to use sunlight PVS for sunlight views (0 = sky PVS, 1 = sunlight PVS)"
+  },
+  "voice_in_process": {
+   "default": "false"
+  },
+  "voice_input_stallout": {
+   "default": "2",
+   "valve": "Time before we consider a mic stalled out and need to reset it."
+  },
+  "volume_fog_density_scale": {
+   "default": "1",
+   "valve": "Scale global volume fog density",
+   "note": "Density of volumetric fog."
+  },
+  "volume_fog_enable_jitter": {
+   "default": "true"
+  },
+  "volume_fog_intermediate_textures_hdr": {
+   "default": "true"
+  },
+  "volume_fog_temporal_filter": {
+   "default": "true"
+  },
+  "vulkan_batch_size": {
+   "default": "500"
+  },
+  "wind_system_default_resolution_xy": {
+   "default": "256"
+  },
+  "wind_system_temporal_smoothing": {
+   "default": "true"
+  },
+  "zipline_use_new_latch": {
+   "default": "2",
+   "valve": "Use the new latch motion for getting on a zipline. 0: Dont use 1: Just those with b_UseNewZipLineSetup 2: Everyone use"
+  }
+ }
+}

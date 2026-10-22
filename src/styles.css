@@ -440,3 +440,10 @@ input::placeholder { color: var(--text-faint); }
   background: var(--warn-wash); color: var(--warn); font-size: var(--fs-sm);
 }
 .ranked-notice .change-list { width: 100%; color: var(--text); }
+
+/* ---------- convar notes ---------- */
+.change-label { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; }
+.change-label .change-key { max-width: 100%; }
+.change-note { flex-basis: 100%; color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.35; }
+.change-tag.is-ignored { color: var(--warn); background: var(--warn-wash); }
+.change.is-ignored .change-after { color: var(--text-faint); }

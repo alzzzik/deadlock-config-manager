@@ -4,6 +4,7 @@ pub mod diag;
 pub mod diff;
 pub mod github;
 mod commands;
+pub mod convars;
 pub mod fsops;
 pub mod gameinfo;
 pub mod kv;

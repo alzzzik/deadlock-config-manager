@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Change, FileDiff, Preview } from "../api";
+import { Change, ConvarInfo, FileDiff, Preview } from "../api";
 import { Modal } from "./Modal";
 
 interface PreviewDialogProps {
@@ -11,13 +11,25 @@ interface PreviewDialogProps {
 
 const COLLAPSED_ROWS = 30;
 
-function ChangeRow({ c }: { c: Change }) {
+const CONVARS_PREFIX = "ConVars › ";
+
+function ChangeRow({ c, info }: { c: Change; info?: ConvarInfo }) {
   const kind = c.before === null ? "added" : c.after === null ? "removed" : "changed";
+  const isConvar = c.key.startsWith(CONVARS_PREFIX);
+  const text = info?.text ?? (isConvar && !info?.ignored ? "No description yet." : null);
   return (
-    <li className={`change change-${kind}`}>
-      <code className="change-key" title={c.key}>
-        {c.key}
-      </code>
+    <li className={`change change-${kind} ${info?.ignored ? "is-ignored" : ""}`}>
+      <div className="change-label">
+        <code className="change-key" title={c.key}>
+          {isConvar ? c.key.slice(CONVARS_PREFIX.length) : c.key}
+        </code>
+        {info?.ignored && (
+          <span className="change-tag is-ignored" title="Valve marked this setting gameinfo_cannot_override, so the game skips it in gameinfo.gi.">
+            ignored by the game
+          </span>
+        )}
+        {text && <small className="change-note">{text}</small>}
+      </div>
       <span className="change-vals">
         {kind === "added" && <span className="change-tag">new</span>}
         {kind !== "added" && <span className="change-before">{c.before}</span>}
@@ -28,7 +40,7 @@ function ChangeRow({ c }: { c: Change }) {
   );
 }
 
-function FileSection({ d }: { d: FileDiff }) {
+function FileSection({ d, convars }: { d: FileDiff; convars: Record<string, ConvarInfo> }) {
   const [all, setAll] = useState(false);
   const shown = all ? d.changes : d.changes.slice(0, COLLAPSED_ROWS);
   const summary = d.created
@@ -45,7 +57,7 @@ function FileSection({ d }: { d: FileDiff }) {
       {d.changes.length > 0 && (
         <ul className="change-list">
           {shown.map((c) => (
-            <ChangeRow key={c.key} c={c} />
+            <ChangeRow key={c.key} c={c} info={convars[c.key]} />
           ))}
         </ul>
       )}
@@ -94,6 +106,7 @@ function RankedNotice({ preview }: { preview: Preview }) {
 export function PreviewDialog({ preview, onCancel, onConfirm, onConfirmSafe }: PreviewDialogProps) {
   const nothing = preview.files.every((f) => !f.created && f.changes.length === 0);
   const offerSafe = !preview.rankedSafe && preview.rankedChanges.length > 0;
+  const ignored = Object.values(preview.convars).filter((i) => i.ignored).length;
   return (
     <Modal
       title={`Apply ${preview.packName}?`}
@@ -132,8 +145,15 @@ export function PreviewDialog({ preview, onCancel, onConfirm, onConfirmSafe }: P
       )}
       <RankedNotice preview={preview} />
       {nothing && <p className="muted">Nothing would change: your files already match this pack.</p>}
+      {ignored > 0 && (
+        <p className="muted small">
+          {ignored} setting{ignored === 1 ? "" : "s"} in this pack {ignored === 1 ? "is" : "are"} ignored by the game: Valve
+          locked {ignored === 1 ? "it" : "them"} so gameinfo.gi can't change {ignored === 1 ? "it" : "them"}. They're
+          marked below. Descriptions are from game build {preview.convarBuild}.
+        </p>
+      )}
       {preview.files.map((d) => (
-        <FileSection key={d.file} d={d} />
+        <FileSection key={d.file} d={d} convars={preview.convars} />
       ))}
     </Modal>
   );
