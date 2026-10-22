@@ -86,6 +86,26 @@ jobs:
           Get-Content SHA256SUMS.txt
           "installer=$($files[0].FullName)" >> $env:GITHUB_OUTPUT
 
+      # Clean-machine check of the installer: silent install, launch, uninstall entry, silent uninstall.
+      - name: Install test
+        shell: pwsh
+        run: |
+          $setup = "${{ steps.sums.outputs.installer }}"
+          Start-Process -FilePath $setup -ArgumentList "/S" -Wait
+          $exe = Join-Path $env:LOCALAPPDATA "Deadlock Config Manager\deadlock-config-manager.exe"
+          if (-not (Test-Path $exe)) { throw "Not installed at $exe" }
+          $key = Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall |
+            Where-Object { (Get-ItemProperty $_.PSPath).DisplayName -eq "Deadlock Config Manager" }
+          if (-not $key) { throw "No uninstall entry" }
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) { throw "The app exited right after starting (code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+          $uninstaller = (Get-ItemProperty $key.PSPath).UninstallString.Trim('"')
+          Start-Process -FilePath $uninstaller -ArgumentList "/S" -Wait
+          Start-Sleep -Seconds 5
+          if (Test-Path $exe) { throw "Still installed after uninstall" }
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
