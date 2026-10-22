@@ -3,6 +3,7 @@
 
 use crate::apply::{self, PackFiles, VideoInput};
 use crate::backup::{self, BackupMeta, Sources};
+use crate::diag;
 use crate::diff::{self, FileDiff};
 use crate::gameinfo;
 use crate::overview::resolve;
@@ -148,7 +149,8 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
     let p = pack.clone();
     let fetched = tauri::async_runtime::spawn_blocking(move || packs::fetch_pack(&p.repo, &p, &cache))
         .await
-        .map_err(|e| e.to_string())??;
+        .map_err(|e| e.to_string())?;
+    let fetched = diag::logged(&format!("download {}#{}", pack.repo, pack.id), fetched)?;
     let notes = if fetched.from_cache && pack.revision != fetched.revision {
         vec!["GitHub was unreachable, so the cached copy of this pack was used.".to_string()]
     } else {
@@ -162,15 +164,25 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
         files: fetched.files,
         notes,
     };
-    apply_source(&state, src, confirmed)
+    let label = format!("apply {}#{}", src.repo.as_deref().unwrap_or("?"), src.id);
+    logged_apply(&label, apply_source(&state, src, confirmed))
 }
 
 #[tauri::command]
 pub fn apply_local(state: State<AppState>, folder: String, confirmed: bool) -> Result<ApplyResponse, String> {
     let dir = PathBuf::from(&folder);
-    let files = packs::read_local(&dir)?;
+    let files = diag::logged("read local folder", packs::read_local(&dir))?;
     let name = dir.file_name().map(|n| format!("Local: {}", n.to_string_lossy())).unwrap_or_else(|| "Local folder".into());
-    apply_source(&state, Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![] }, confirmed)
+    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![] };
+    logged_apply("apply local folder", apply_source(&state, src, confirmed))
+}
+
+/// Records completed applies and failures; previews aren't worth a log line.
+fn logged_apply(what: &str, result: Result<ApplyResponse, String>) -> Result<ApplyResponse, String> {
+    if let Ok(ApplyResponse::Done { message, .. }) = &result {
+        diag::info(&format!("{what}: {message}"));
+    }
+    diag::logged(what, result)
 }
 
 #[tauri::command]
@@ -180,9 +192,17 @@ pub fn list_backups(state: State<AppState>) -> Vec<BackupMeta> {
 
 #[tauri::command]
 pub fn restore_backup(state: State<AppState>, id: String) -> Result<String, String> {
+    let result = restore_inner(&state, &id);
+    if let Ok(msg) = &result {
+        diag::info(&format!("restore {id}: {msg}"));
+    }
+    diag::logged(&format!("restore {id}"), result)
+}
+
+fn restore_inner(state: &AppState, id: &str) -> Result<String, String> {
     ensure_closed()?;
     let backups = state.backups_dir();
-    let meta = backup::find(&backups, &id).ok_or("That backup no longer exists.")?;
+    let meta = backup::find(&backups, id).ok_or("That backup no longer exists.")?;
     let targets: Vec<PathBuf> = [&meta.gameinfo_path, &meta.video_path]
         .into_iter()
         .flatten()
@@ -261,4 +281,37 @@ pub fn open_location(state: State<AppState>, which: String) -> Result<(), String
         cmd.arg(dir);
     }
     cmd.spawn().map(|_| ()).map_err(|e| format!("Could not open Explorer: {e}"))
+}
+
+/// Plain-text report for bug reports: versions, resolved paths and recent log lines,
+/// with the Windows user name replaced by `<user>`.
+#[tauri::command]
+pub fn get_diagnostics(state: State<AppState>) -> String {
+    let s = state.snapshot();
+    let ov = resolve(&s);
+    let yes_no = |b: bool| if b { "found" } else { "missing" }.to_string();
+    let path = |p: &Option<String>| p.clone().unwrap_or_else(|| "(not detected)".into());
+    let applied = s
+        .applied
+        .as_ref()
+        .map(|a| format!("{} from {} at {}", a.pack_name, a.repo.as_deref().unwrap_or("local"), a.applied_at))
+        .unwrap_or_else(|| "nothing".into());
+    let user = std::env::var("USERNAME").ok();
+    let windows = diag::windows_version();
+    diag::report(&diag::ReportInput {
+        app_version: env!("CARGO_PKG_VERSION"),
+        windows: &windows,
+        lines: vec![
+            ("Steam", path(&ov.steam_root)),
+            ("gameinfo.gi", format!("{} ({})", path(&ov.gameinfo_path), yes_no(ov.gameinfo_found))),
+            ("video.txt", format!("{} ({})", path(&ov.video_path), yes_no(ov.video_found))),
+            ("Accounts", ov.accounts.len().to_string()),
+            ("Status", format!("{:?}", ov.status)),
+            ("Applied", applied),
+            ("Repos", s.effective_repos().join(", ")),
+            ("Deadlock running", ov.deadlock_running.to_string()),
+        ],
+        log: diag::report_log(&state.dir),
+        user: user.as_deref(),
+    })
 }

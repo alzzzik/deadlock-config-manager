@@ -1,0 +1,24 @@
+name: Bug report
+description: Something in the app didn't work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: In the app, open **Settings → Copy diagnostics** and paste the result here. Your Windows user name is already removed.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: pack
+    attributes:
+      label: Config
+      description: Which config were you applying, if any? (e.g. alzzzik/alz-deadlock-cfg Stable)

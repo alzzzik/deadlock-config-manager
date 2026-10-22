@@ -98,7 +98,10 @@ export const api = {
   open: (which: Location) => invoke<void>("open_location", { which }),
   openGithub: (url: string) => invoke<void>("open_github", { url }),
   togglePin: (key: string) => invoke<Overview>("toggle_pin", { key }),
+  diagnostics: () => invoke<string>("get_diagnostics"),
 };
+
+export const ISSUES_URL = "https://github.com/alzzzik/deadlock-config-manager/issues/new/choose";
 
 /** Tauri rejects with the Rust error string; normalise anything else. */
 export function errorText(e: unknown): string {

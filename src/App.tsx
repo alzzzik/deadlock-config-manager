@@ -384,6 +384,8 @@ export default function App() {
           onRemoveRepo={removeRepo}
           onOpenBackups={() => openLocation("backups")}
           onOpenGithub={openGithub}
+          onCheckUpdate={appUpdate.lookForUpdate}
+          onNotify={push}
         />
       )}
       {dialog.kind === "preview" && (

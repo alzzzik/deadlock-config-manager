@@ -428,3 +428,4 @@ input::placeholder { color: var(--text-faint); }
   background: var(--accent-wash); font-size: var(--fs-sm);
 }
 .update-bar.is-bad { background: var(--bad-wash); color: var(--bad); }
+.about-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

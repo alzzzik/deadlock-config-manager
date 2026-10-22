@@ -1,8 +1,10 @@
-import { useState } from "react";
-import { Overview } from "../api";
+import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
+import { ISSUES_URL, Overview, api, errorText } from "../api";
 import { AddRepo } from "./AddRepo";
 import { ChevronIcon, CloseIcon } from "./icons";
 import { Modal } from "./Modal";
+import { UpdateCheck } from "./AppUpdate";
 
 interface SettingsDialogProps {
   overview: Overview;
@@ -13,6 +15,8 @@ interface SettingsDialogProps {
   onRemoveRepo: (repo: string) => void;
   onOpenBackups: () => void;
   onOpenGithub: (url: string) => void;
+  onCheckUpdate: () => Promise<UpdateCheck>;
+  onNotify: (kind: "ok" | "error" | "info", text: string) => void;
 }
 
 const KEY_LABELS: Record<string, string> = {
@@ -27,7 +31,18 @@ const KEY_LABELS: Record<string, string> = {
   "setting.aspectratiomode": "Aspect ratio mode",
 };
 
-export function SettingsDialog({ overview, onClose, onSaveKeys, onAddRepo, onMoveRepo, onRemoveRepo, onOpenBackups, onOpenGithub }: SettingsDialogProps) {
+export function SettingsDialog({
+  overview,
+  onClose,
+  onSaveKeys,
+  onAddRepo,
+  onMoveRepo,
+  onRemoveRepo,
+  onOpenBackups,
+  onOpenGithub,
+  onCheckUpdate,
+  onNotify,
+}: SettingsDialogProps) {
   const [keys, setKeys] = useState<string[]>(overview.preservedKeys);
   const toggle = (k: string) => setKeys((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
   const repos = overview.repos;
@@ -89,6 +104,62 @@ export function SettingsDialog({ overview, onClose, onSaveKeys, onAddRepo, onMov
           ))}
         </div>
       </fieldset>
+
+      <AboutSection onOpenGithub={onOpenGithub} onCheckUpdate={onCheckUpdate} onNotify={onNotify} />
     </Modal>
+  );
+}
+
+interface AboutSectionProps {
+  onOpenGithub: (url: string) => void;
+  onCheckUpdate: () => Promise<UpdateCheck>;
+  onNotify: (kind: "ok" | "error" | "info", text: string) => void;
+}
+
+/** App version, update check and the diagnostics report for bug reports. */
+function AboutSection({ onOpenGithub, onCheckUpdate, onNotify }: AboutSectionProps) {
+  const [version, setVersion] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    getVersion().then(setVersion, () => setVersion(null));
+  }, []);
+
+  const check = async () => {
+    setChecking(true);
+    const result = await onCheckUpdate();
+    setChecking(false);
+    if (result === "none") onNotify("ok", "You have the latest version.");
+    if (result === "failed") onNotify("error", "Couldn't reach GitHub to check for updates. Try again later.");
+  };
+
+  const copyDiagnostics = async () => {
+    try {
+      await navigator.clipboard.writeText(await api.diagnostics());
+      onNotify("ok", "Diagnostics copied. Paste them into your bug report.");
+    } catch (e) {
+      onNotify("error", `Couldn't copy diagnostics: ${errorText(e)}`);
+    }
+  };
+
+  return (
+    <section className="field">
+      <h3 className="field-title">About</h3>
+      <p className="muted small">
+        Deadlock Config Manager {version ?? ""}. Diagnostics list the app and Windows version, the detected paths
+        (with your user name removed) and recent log lines. Nothing is sent automatically.
+      </p>
+      <div className="about-actions">
+        <button className="btn btn-secondary btn-sm" onClick={check} disabled={checking}>
+          {checking ? "Checking…" : "Check for updates"}
+        </button>
+        <button className="btn btn-secondary btn-sm" onClick={copyDiagnostics}>
+          Copy diagnostics
+        </button>
+        <button className="btn btn-quiet btn-sm" onClick={() => onOpenGithub(ISSUES_URL)}>
+          Report a problem
+        </button>
+      </div>
+    </section>
   );
 }

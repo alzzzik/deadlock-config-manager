@@ -1,5 +1,6 @@
 pub mod apply;
 pub mod backup;
+pub mod diag;
 mod diff;
 pub mod github;
 mod commands;
@@ -18,6 +19,7 @@ use std::sync::Mutex;
 
 pub fn run() {
     let dir = settings::app_dir();
+    diag::init(&dir);
     let state = commands::AppState { settings: Mutex::new(settings::load(&dir)), dir };
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -40,6 +42,7 @@ pub fn run() {
             commands::restore_backup,
             commands::open_location,
             commands::open_github,
+            commands::get_diagnostics,
             overview::toggle_pin,
         ])
         .run(tauri::generate_context!())

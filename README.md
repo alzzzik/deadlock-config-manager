@@ -144,7 +144,7 @@ default and can be removed in Settings. These requests are covered by
 [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 The app makes no other network connections.
 
-Everything else stays on your PC: settings, backups and downloaded configs are stored in
+Everything else stays on your PC: settings, backups, downloaded configs and a small log file are stored in
 `%APPDATA%\DeadlockConfigManager\`, and the only files it changes are Deadlock's `gameinfo.gi` and
 `video.txt`, after showing you the changes.
 
@@ -166,7 +166,8 @@ Team roles:
 ## Contributing
 
 Bug reports and repo suggestions go in
-[Issues](https://github.com/alzzzik/deadlock-config-manager/issues). Build instructions and code layout are in
+[Issues](https://github.com/alzzzik/deadlock-config-manager/issues). For bugs, paste the output of
+**Settings → Copy diagnostics**; it has your Windows user name removed. Build instructions and code layout are in
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ---

@@ -6,6 +6,8 @@ import { errorText } from "../api";
 /** How often the app checks GitHub for a newer version of itself while open. */
 const APP_UPDATE_CHECK_MS = 6 * 60 * 60 * 1000;
 
+export type UpdateCheck = "found" | "none" | "failed";
+
 export type AppUpdateState =
   | { kind: "idle" }
   | { kind: "available"; update: Update }
@@ -16,14 +18,15 @@ export type AppUpdateState =
 export function useAppUpdate() {
   const [state, setState] = useState<AppUpdateState>({ kind: "idle" });
 
-  const lookForUpdate = useCallback(async (): Promise<Update | null> => {
+  /** "found", "none", or "failed" when GitHub couldn't be reached. */
+  const lookForUpdate = useCallback(async (): Promise<UpdateCheck> => {
     try {
       const update = await check();
       if (update) setState((cur) => (cur.kind === "installing" ? cur : { kind: "available", update }));
-      return update;
+      return update ? "found" : "none";
     } catch {
       // Offline, rate-limited or running outside the installed app: try again later.
-      return null;
+      return "failed";
     }
   }, []);
 
