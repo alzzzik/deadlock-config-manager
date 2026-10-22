@@ -71,7 +71,8 @@ code, input, select { user-select: text; }
 .small { font-size: var(--fs-sm); }
 
 /* ---------- shell ---------- */
-.app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+.app { display: grid; grid-template-rows: auto auto minmax(0, 1fr); height: 100%; }
+.app > .content { grid-row: 3; }
 
 .topbar {
   display: flex; align-items: center; gap: 6px;
@@ -418,3 +419,12 @@ input::placeholder { color: var(--text-faint); }
   .checks { grid-template-columns: 1fr; }
   .search input { width: 150px; }
 }
+
+/* ---------- app update ---------- */
+.update-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px 8px 20px; min-height: 44px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-wash); font-size: var(--fs-sm);
+}
+.update-bar.is-bad { background: var(--bad-wash); color: var(--bad); }

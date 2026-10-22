@@ -23,6 +23,7 @@ import { RestoreDialog } from "./components/RestoreDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { PreviewDialog } from "./components/PreviewDialog";
 import { ToastStack, useToasts } from "./components/Toasts";
+import { UpdateBar, useAppUpdate } from "./components/AppUpdate";
 
 type Dialog =
   | { kind: "none" }
@@ -60,6 +61,7 @@ export default function App() {
   const [fresh, setFresh] = useState(false);
   const [ready, setReady] = useState(false);
   const { toasts, push, dismiss } = useToasts();
+  const appUpdate = useAppUpdate();
   const fail = useCallback((e: unknown) => push("error", errorText(e)), [push]);
 
   const refreshOverview = useCallback(() => {
@@ -279,6 +281,8 @@ export default function App() {
           Settings
         </button>
       </header>
+
+      <UpdateBar state={appUpdate.state} onInstall={(u) => void appUpdate.install(u)} onDismiss={appUpdate.dismiss} />
 
       <main className="content">
         {overview ? (

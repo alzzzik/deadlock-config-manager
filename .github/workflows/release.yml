@@ -1,5 +1,7 @@
 # Builds the Windows installer when a version tag (v0.1.0, v0.2.0, …) is pushed,
 # runs the tests first, and attaches the installer to a draft GitHub release.
+# The draft also gets latest.json (read by the in-app updater once the release is published),
+# a SHA256SUMS.txt file and a build attestation that proves the installer came from this workflow.
 name: Release
 
 on:
@@ -9,6 +11,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -33,20 +37,52 @@ jobs:
       - name: Type-check UI
         run: npx tsc --noEmit
 
+      - name: UI tests
+        run: npm test
+
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test
 
       - name: Build installer and draft release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the update files. Without these secrets the build fails on purpose,
+          # because installed copies would refuse an unsigned update anyway.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Deadlock Config Manager ${{ github.ref_name }}
           releaseBody: |
-            Download **Deadlock.Config.Manager_*_x64-setup.exe** below and run it.
-            Windows may say "Windows protected your PC" because the app isn't code-signed yet: click **More info → Run anyway**.
+            Download **Deadlock.Config.Manager_*_x64-setup.exe** below and run it. Installed copies from v0.3.0 on update themselves.
+
+            Windows may say "Windows protected your PC" because the app isn't code-signed: click **More info → Run anyway**. To check the download first, compare its SHA-256 with `SHA256SUMS.txt` (`Get-FileHash .\Deadlock.Config.Manager_*_x64-setup.exe`), or verify where it was built with `gh attestation verify <file> --repo alzzzik/deadlock-config-manager`.
+
             [Code signing policy](https://github.com/alzzzik/deadlock-config-manager#code-signing-policy) · [Privacy policy](https://github.com/alzzzik/deadlock-config-manager#privacy-policy)
           releaseDraft: true
           prerelease: false
+          includeUpdaterJson: true
+
+      - name: Checksums
+        id: sums
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter *-setup.exe
+          $lines = $files | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name }
+          $lines | Set-Content -Encoding ascii SHA256SUMS.txt
+          Get-Content SHA256SUMS.txt
+          "installer=$($files[0].FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.sums.outputs.installer }}
+
+      - name: Attach checksums to the draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" SHA256SUMS.txt --clobber

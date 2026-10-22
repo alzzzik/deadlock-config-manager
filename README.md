@@ -52,10 +52,13 @@ You can also add, reorder and remove config repos here.
 1. Download `Deadlock.Config.Manager_x.y.z_x64-setup.exe` from the
    [latest release](https://github.com/alzzzik/deadlock-config-manager/releases/latest).
 2. Run it. It installs for your user only and doesn't need admin rights.
-3. Windows may show "Windows protected your PC" because the app isn't code-signed yet. Click
+3. Windows may show "Windows protected your PC" because the app isn't code-signed. Click
    **More info**, then **Run anyway**. The installer is built from this repo by
-   [GitHub Actions](https://github.com/alzzzik/deadlock-config-manager/actions); see the
+   [GitHub Actions](https://github.com/alzzzik/deadlock-config-manager/actions); see
+   [how to check a download](#how-do-i-know-the-installer-is-safe) and the
    [code signing policy](#code-signing-policy).
+
+From v0.3.0 on, the app checks for new versions and offers to install them in one click.
 
 To uninstall, go to Windows **Settings → Apps → Installed apps**, find Deadlock Config Manager and click
 **Uninstall**. Your game files stay as they are; use **Restore original** first if you want them back.
@@ -113,9 +116,20 @@ Yes. It keeps the search paths those tools add and doesn't make files read-only,
 </details>
 
 <details>
+<summary><b id="how-do-i-know-the-installer-is-safe">How do I know the installer is safe?</b></summary>
+
+Every release is built from this repo's source by GitHub Actions and lists a SHA-256 checksum in
+`SHA256SUMS.txt`. In PowerShell, `Get-FileHash .\Deadlock.Config.Manager_*_x64-setup.exe` should print the same
+value. Each installer also has a GitHub build attestation, which you can check with
+`gh attestation verify <file> --repo alzzzik/deadlock-config-manager`. You can also upload it to
+[VirusTotal](https://www.virustotal.com) before running it.
+</details>
+
+<details>
 <summary><b>What does it connect to?</b></summary>
 
-Only GitHub, to list and download configs. See the [privacy policy](#privacy-policy).
+Only GitHub, to list and download configs and to check for app updates. See the
+[privacy policy](#privacy-policy).
 </details>
 
 ## Privacy policy
@@ -124,7 +138,8 @@ Deadlock Config Manager doesn't collect, store or send personal data, and has no
 background service.
 
 To list and download configs, the app connects to GitHub (`github.com`, `api.github.com` and
-`raw.githubusercontent.com`) for the config repos linked in the app. `alzzzik/alz-deadlock-cfg` is linked by
+`raw.githubusercontent.com`) for the config repos linked in the app, and checks this repo's latest release
+for app updates. `alzzzik/alz-deadlock-cfg` is linked by
 default and can be removed in Settings. These requests are covered by
 [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 The app makes no other network connections.
@@ -140,8 +155,8 @@ Windows installers are built from the source in this repository by
 [Releases](https://github.com/alzzzik/deadlock-config-manager/releases) page. Every release is approved by
 hand before it's published.
 
-Releases are not code-signed yet. An application for free code signing from
-[SignPath Foundation](https://signpath.org) is in progress.
+Releases are not code-signed yet. Each release lists SHA-256 checksums and has a GitHub build attestation
+instead. App updates are signed with a separate update key, and installed copies refuse updates that aren't.
 
 Team roles:
 
