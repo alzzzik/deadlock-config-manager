@@ -8,6 +8,7 @@ use crate::diff::{self, FileDiff};
 use crate::gameinfo;
 use crate::overview::resolve;
 use crate::packs::{self, PackInfo};
+use crate::overrides::{self, Overrides};
 use crate::ranked;
 use crate::stock;
 use crate::settings::{self, AppliedRecord, Settings};
@@ -61,6 +62,8 @@ pub struct Preview {
     pub convars: std::collections::BTreeMap<String, crate::convars::ConvarInfo>,
     /// Game build the convar data comes from.
     pub convar_build: String,
+    /// Number of personal tweaks applied on top of the pack.
+    pub tweaks: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -121,10 +124,11 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
     };
 
     let stock = stock::load(&state.dir.join("cache"), installed.as_deref());
-    let files = if src.ranked_safe {
-        PackFiles { gameinfo: ranked::make_safe(&stock, &src.files.gameinfo)?, video: src.files.video.clone() }
-    } else {
-        src.files
+    let safe_gameinfo = if src.ranked_safe { ranked::make_safe(&stock, &src.files.gameinfo)? } else { src.files.gameinfo.clone() };
+    let tweaks = s.overrides.effective();
+    let files = PackFiles {
+        gameinfo: overrides::apply(&safe_gameinfo, &tweaks).map_err(|e| format!("Your tweaks couldn't be applied: {e}"))?,
+        video: src.files.video.clone(),
     };
     let plan = apply::build_plan(&files, installed.as_deref(), video_in, &s.preserved_keys)?;
     if !confirmed {
@@ -142,6 +146,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
             ranked_safe: src.ranked_safe,
             convars,
             convar_build: crate::convars::build().to_string(),
+            tweaks: tweaks.len(),
         };
         return Ok(ApplyResponse::Preview { preview });
     }
@@ -410,4 +415,78 @@ pub async fn check_packs(state: State<'_, AppState>, packs: Vec<PackInfo>) -> Re
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FixInfo {
+    pub id: &'static str,
+    pub label: &'static str,
+    /// What the fix writes, e.g. `cl_ragdoll_limit "-1"` or `// r_farz`.
+    pub lines: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TweaksView {
+    pub overrides: Overrides,
+    pub fixes: Vec<FixInfo>,
+    pub min_fov: u32,
+    pub max_fov: u32,
+}
+
+fn tweaks_view(o: Overrides) -> TweaksView {
+    let line = |e: &overrides::Entry| match &e.value {
+        Some(v) => format!("{} \"{v}\"", e.name),
+        None => format!("// {}", e.name),
+    };
+    let fixes = overrides::FIXES
+        .iter()
+        .map(|f| FixInfo { id: f.id, label: f.label, lines: (f.entries)().iter().map(line).collect() })
+        .collect();
+    TweaksView { overrides: o, fixes, min_fov: overrides::MIN_FOV, max_fov: overrides::MAX_FOV }
+}
+
+#[tauri::command]
+pub fn get_tweaks(state: State<AppState>) -> TweaksView {
+    tweaks_view(state.snapshot().overrides)
+}
+
+/// Saves tweaks. They take effect the next time a pack is applied.
+#[tauri::command]
+pub fn save_tweaks(state: State<AppState>, overrides: Overrides) -> Result<TweaksView, String> {
+    overrides::validate(&overrides.custom)?;
+    let known: Vec<String> = overrides.fixes.into_iter().filter(|id| overrides::FIXES.iter().any(|f| f.id == id)).collect();
+    let clean = Overrides { fixes: known, ..overrides };
+    let s = state.update(|s| Settings { overrides: clean, ..s })?;
+    Ok(tweaks_view(s.overrides))
+}
+
+/// Reads an overrides.gi file into custom lines (replacing the current custom lines).
+#[tauri::command]
+pub fn import_tweaks(state: State<AppState>, path: String) -> Result<TweaksView, String> {
+    let text = fs::read_to_string(&path).map_err(|e| format!("Cannot read {path}: {e}"))?;
+    let custom = overrides::parse_file(&text)?;
+    let s = state.update(|s| Settings { overrides: Overrides { custom, ..s.overrides.clone() }, ..s })?;
+    Ok(tweaks_view(s.overrides))
+}
+
+/// Writes all active tweaks (fixes, FOV and custom lines) as an overrides.gi file.
+#[tauri::command]
+pub fn export_tweaks(state: State<AppState>, path: String) -> Result<(), String> {
+    let text = overrides::to_file(&state.snapshot().overrides.effective());
+    crate::fsops::atomic_write(Path::new(&path), text.as_bytes()).map_err(|e| format!("Cannot write {path}: {e}"))
+}
+
+/// Parses custom tweak lines typed in the app (overrides.gi format).
+#[tauri::command]
+pub fn parse_tweak_lines(text: String) -> Result<Vec<overrides::Entry>, String> {
+    overrides::parse_file(&text)
+}
+
+/// The same lines back as text, for editing.
+#[tauri::command]
+pub fn format_tweak_lines(entries: Vec<overrides::Entry>) -> String {
+    overrides::to_file(&entries).lines().skip(1).map(|l| format!("{l}
+")).collect()
 }

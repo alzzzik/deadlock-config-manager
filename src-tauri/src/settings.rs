@@ -49,6 +49,8 @@ pub struct Settings {
     pub pinned: Vec<String>,
     /// The first-run guide was finished or skipped.
     pub onboarded: bool,
+    /// Personal tweaks applied on top of every pack.
+    pub overrides: crate::overrides::Overrides,
 }
 
 impl Default for Settings {
@@ -64,6 +66,7 @@ impl Default for Settings {
             applied: None,
             pinned: Vec::new(),
             onboarded: false,
+            overrides: Default::default(),
         }
     }
 }

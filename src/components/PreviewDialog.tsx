@@ -144,6 +144,11 @@ export function PreviewDialog({ preview, onCancel, onConfirm, onConfirmSafe }: P
         </ul>
       )}
       <RankedNotice preview={preview} />
+      {preview.tweaks > 0 && (
+        <p className="muted small">
+          Includes your {preview.tweaks} tweak{preview.tweaks === 1 ? "" : "s"} on top of the pack.
+        </p>
+      )}
       {nothing && <p className="muted">Nothing would change: your files already match this pack.</p>}
       {ignored > 0 && (
         <p className="muted small">

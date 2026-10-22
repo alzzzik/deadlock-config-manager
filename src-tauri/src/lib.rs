@@ -9,6 +9,7 @@ pub mod fsops;
 pub mod gameinfo;
 pub mod kv;
 mod overview;
+pub mod overrides;
 pub mod packs;
 pub mod paths;
 pub mod ranked;
@@ -49,6 +50,12 @@ pub fn run() {
             commands::install_kind,
             commands::make_ranked_safe,
             commands::check_packs,
+            commands::get_tweaks,
+            commands::save_tweaks,
+            commands::import_tweaks,
+            commands::export_tweaks,
+            commands::parse_tweak_lines,
+            commands::format_tweak_lines,
             overview::toggle_pin,
             overview::finish_guide,
         ])

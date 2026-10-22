@@ -26,12 +26,14 @@ import { ToastStack, useToasts } from "./components/Toasts";
 import { UpdateBar, useAppUpdate } from "./components/AppUpdate";
 import { PackChecks, PackChecksContext } from "./packChecks";
 import { FirstRunGuide, GuideChoice } from "./components/FirstRunGuide";
+import { TweaksDialog } from "./components/TweaksDialog";
 
 type Dialog =
   | { kind: "none" }
   | { kind: "restore" }
   | { kind: "settings" }
   | { kind: "guide" }
+  | { kind: "tweaks" }
   | { kind: "preview"; preview: Preview; proceed: () => void; proceedSafe: () => void };
 
 type ApplyCall = (confirmed: boolean, rankedSafe: boolean) => Promise<ApplyResponse>;
@@ -338,6 +340,9 @@ export default function App() {
             {overview.deadlockRunning ? "Deadlock running" : "Deadlock closed"}
           </span>
         )}
+        <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "tweaks" })} disabled={!overview}>
+          Tweaks
+        </button>
         <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "restore" })}>
           Restore…
         </button>
@@ -455,6 +460,18 @@ export default function App() {
           onShowGuide={() => setDialog({ kind: "guide" })}
           installKind={appUpdate.installKind}
           onNotify={push}
+        />
+      )}
+      {dialog.kind === "tweaks" && (
+        <TweaksDialog
+          canReapply={!!appliedPack || overview?.applied?.packId === "local"}
+          onClose={() => setDialog({ kind: "none" })}
+          onNotify={push}
+          onSaved={(again) => {
+            setDialog({ kind: "none" });
+            if (again) void reapply();
+            else push("ok", "Tweaks saved. They're added the next time you apply a pack.");
+          }}
         />
       )}
       {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} />}

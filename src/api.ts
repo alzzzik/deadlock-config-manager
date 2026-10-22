@@ -76,11 +76,22 @@ export type Preview = {
   /** Keyed by change path ("ConVars › r_ssao"). */
   convars: Record<string, ConvarInfo>;
   convarBuild: string;
+  /** Personal tweaks added on top of the pack. */
+  tweaks: number;
 };
 
 export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
 
 export type PackCheck = { key: string; rankedChanges: number | null };
+
+export type TweakEntry = { name: string; value: string | null };
+export type Overrides = { fixes: string[]; fov: number | null; custom: TweakEntry[] };
+export type TweaksView = {
+  overrides: Overrides;
+  fixes: { id: string; label: string; lines: string[] }[];
+  minFov: number;
+  maxFov: number;
+};
 
 export type ApplyResponse =
   | { kind: "preview"; preview: Preview }
@@ -127,6 +138,12 @@ export const api = {
   togglePin: (key: string) => invoke<Overview>("toggle_pin", { key }),
   diagnostics: () => invoke<string>("get_diagnostics"),
   finishGuide: () => invoke<Overview>("finish_guide"),
+  getTweaks: () => invoke<TweaksView>("get_tweaks"),
+  saveTweaks: (overrides: Overrides) => invoke<TweaksView>("save_tweaks", { overrides }),
+  importTweaks: (path: string) => invoke<TweaksView>("import_tweaks", { path }),
+  exportTweaks: (path: string) => invoke<void>("export_tweaks", { path }),
+  parseTweakLines: (text: string) => invoke<TweakEntry[]>("parse_tweak_lines", { text }),
+  formatTweakLines: (entries: TweakEntry[]) => invoke<string>("format_tweak_lines", { entries }),
   installKind: () => invoke<InstallKind>("install_kind"),
 };
 
