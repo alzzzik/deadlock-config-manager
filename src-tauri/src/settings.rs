@@ -25,6 +25,9 @@ pub struct AppliedRecord {
     /// Applied with the engine sections put back to Valve's defaults.
     #[serde(default)]
     pub ranked_safe: bool,
+    /// Steam build id of Deadlock when the pack was applied.
+    #[serde(default)]
+    pub game_build: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

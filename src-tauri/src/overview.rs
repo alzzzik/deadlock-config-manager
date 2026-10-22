@@ -35,6 +35,10 @@ pub struct Overview {
     pub ranked_changes: Option<usize>,
     /// Show the first-run guide: never finished or skipped, and nothing applied yet.
     pub show_guide: bool,
+    /// Who replaced the applied gameinfo.gi when status is "changed": "game", "dmm", "grimoire" or "other".
+    pub changed_by: Option<String>,
+    /// Steam build id of the installed game.
+    pub game_build: Option<String>,
 }
 
 pub fn to_string(p: &Path) -> String {
@@ -79,6 +83,36 @@ pub fn resolve(s: &Settings) -> Overview {
         always_preserved: video::ALWAYS_PRESERVED.iter().map(|k| k.to_string()).collect(),
         ranked_changes: None,
         show_guide: !s.onboarded && s.applied.is_none(),
+        changed_by: None,
+        game_build: None,
+    }
+}
+
+/// Best guess at who changed an applied gameinfo.gi: a new game build or a file that matches Valve's
+/// ConVars means a game update; markers point at Deadlock Mod Manager or Grimoire.
+pub fn changed_by(current: &str, stock: &str, applied_build: Option<&str>, game_build: Option<&str>) -> &'static str {
+    if applied_build.zip(game_build).is_some_and(|(a, b)| a != b) {
+        return "game";
+    }
+    if crate::gameinfo::has_dmm_markers(current) {
+        return "dmm";
+    }
+    if current.to_ascii_lowercase().contains("grimoire") {
+        return "grimoire";
+    }
+    let convars = |src: &str| -> Vec<(String, String)> {
+        crate::kv::parse(src)
+            .map(|n| crate::diff::flatten(&n))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(k, _)| crate::convars::convar_of(k).is_some())
+            .collect()
+    };
+    let (changes, _) = crate::diff::diff_pairs(&convars(stock), &convars(current));
+    if changes.is_empty() {
+        "game"
+    } else {
+        "other"
     }
 }
 
@@ -86,11 +120,17 @@ pub fn resolve(s: &Settings) -> Overview {
 pub fn resolve_with_checks(s: &Settings, cache_dir: &Path) -> Overview {
     let ov = resolve(s);
     let installed = ov.gameinfo_path.as_ref().filter(|_| ov.gameinfo_found).and_then(|p| std::fs::read_to_string(p).ok());
-    let ranked_changes = installed.as_deref().and_then(|src| {
-        let stock = crate::stock::load(cache_dir, Some(src));
-        crate::ranked::guarded_changes(&stock, src).ok().map(|c| c.len())
-    });
-    Overview { ranked_changes, ..ov }
+    let stock = crate::stock::load(cache_dir, installed.as_deref());
+    let ranked_changes = installed.as_deref().and_then(|src| crate::ranked::guarded_changes(&stock, src).ok().map(|c| c.len()));
+    let game_build = ov.gameinfo_path.as_deref().and_then(|p| paths::game_build(Path::new(p)));
+    let changed_by = match (&ov.status, installed.as_deref()) {
+        (apply::Status::Changed { .. }, Some(src)) => {
+            let applied_build = s.applied.as_ref().and_then(|a| a.game_build.as_deref());
+            Some(changed_by(src, &stock, applied_build, game_build.as_deref()).to_string())
+        }
+        _ => None,
+    };
+    Overview { ranked_changes, changed_by, game_build, ..ov }
 }
 
 #[tauri::command]
@@ -244,6 +284,21 @@ pub fn finish_guide(state: State<AppState>) -> Result<Overview, String> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn tells_who_changed_the_file() {
+        let stock = crate::stock::EMBEDDED;
+        assert_eq!(changed_by(stock, stock, Some("1"), Some("2")), "game");
+        assert_eq!(changed_by(stock, stock, None, None), "game");
+        let tweaked = stock.replacen("\"rate\"", "\"r_fog\" \"0\"\n\t\t\"rate\"", 1);
+        assert_eq!(changed_by(&tweaked, stock, Some("1"), Some("1")), "other");
+        let dmm = format!("{tweaked}\n{}\n{}\n", crate::gameinfo::DMM_START, crate::gameinfo::DMM_END);
+        assert_eq!(changed_by(&dmm, stock, None, None), "dmm");
+        let grim = tweaked.replacen("Game_LowViolence", "Game citadel/grimoire
+			Game_LowViolence", 1);
+        assert_eq!(changed_by(&grim, stock, None, None), "grimoire");
+    }
+
     use super::*;
     use std::fs;
 

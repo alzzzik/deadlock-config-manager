@@ -51,13 +51,26 @@ function headline(s: Status, o: Overview, update: boolean): { tone: Tone; title:
         detail: [source, a?.rankedSafe && "ranked-safe", s.kind === "appliedDmm" && "edited by Deadlock Mod Manager"].filter(Boolean).join(" · "),
       };
     case "changed":
-      return { tone: "warn", title: "Game updated", detail: `Deadlock replaced gameinfo.gi, so ${s.pack} is no longer applied.` };
+      return { tone: "warn", ...changedText(o.changedBy, s.pack) };
     case "missing":
       return o.gameinfoCreatable
         ? { tone: "idle", title: "Ready", detail: "gameinfo.gi is missing; applying a pack puts one in place." }
         : { tone: "bad", title: "Deadlock not found", detail: "Locate your install under Paths." };
     case "notApplied":
       return { tone: "idle", title: "No pack applied", detail: "Pick a pack below to apply it." };
+  }
+}
+
+function changedText(by: Overview["changedBy"], pack: string): { title: string; detail: string } {
+  switch (by) {
+    case "dmm":
+      return { title: "Changed by Deadlock Mod Manager", detail: `Mod Manager rewrote gameinfo.gi, so ${pack} is no longer fully applied.` };
+    case "grimoire":
+      return { title: "Changed by Grimoire", detail: `Grimoire rewrote gameinfo.gi, so ${pack} is no longer fully applied.` };
+    case "other":
+      return { title: "gameinfo.gi was changed", detail: `Another program or a manual edit changed it, so ${pack} is no longer applied.` };
+    default:
+      return { title: "Game updated", detail: `Deadlock replaced gameinfo.gi, so ${pack} is no longer applied.` };
   }
 }
 

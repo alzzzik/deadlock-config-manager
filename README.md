@@ -32,7 +32,9 @@ config, see what it changes, apply it, and restore your old files if you want th
 - Shows every setting a config changes before anything is written.
 - Keeps your GPU IDs (`VendorID`, `DeviceID`) and display settings from your own `video.txt`.
 - Backs up your files before every change. The first backup is kept as your original.
-- Detects when a game update overwrites `gameinfo.gi` and lets you re-apply in one click.
+- Explains each setting in plain words and marks settings the game ignores.
+- Flags configs that can block ranked matchmaking and can apply them ranked-safe.
+- Detects when a game update or another tool overwrites `gameinfo.gi` and lets you re-apply in one click.
 - Works with any GitHub repo that has config folders. Each config shows when it was last updated.
 - Works alongside Deadlock Mod Manager and Grimoire.
 
@@ -119,7 +121,30 @@ Updates replace `gameinfo.gi`. Open the app and click **Re-apply**.
 <summary><b>Does it work with Deadlock Mod Manager or Grimoire?</b></summary>
 
 Yes. It keeps the search paths those tools add and doesn't make files read-only, so they can still edit
-`gameinfo.gi`.
+`gameinfo.gi`. A few tips:
+
+- Install or update mods first, then apply a config. If a mod manager rewrites `gameinfo.gi` later, the app
+  says which tool changed it and offers **Re-apply**.
+- Deadlock Mod Manager 2.0 can also apply performance presets. Use one tool for configs, not both, or they'll
+  keep overwriting each other.
+- Grimoire adds its own search path (`citadel/grimoire`); the app keeps it.
+</details>
+
+<details>
+<summary><b>Why does a config say "May block ranked"?</b></summary>
+
+Since March 2026, Valve doesn't let you queue for ranked matchmaking when `gameinfo.gi` changes certain engine
+sections (Engine2, MaterialSystem2, NetworkSystem, Particles, RenderSystem, SceneSystem, WorldRenderer).
+Settings in ConVars are fine. The app compares each config with Valve's own file and flags the ones that touch
+those sections. **Apply ranked-safe** keeps the config's other settings and puts those sections back to Valve's
+defaults.
+</details>
+
+<details>
+<summary><b>What does "ignored by the game" mean?</b></summary>
+
+Valve locked some settings (shadows, fog, outlines, glow and others) so `gameinfo.gi` can't change them
+anymore. Configs that still set them don't break anything, but those lines do nothing. The preview marks them.
 </details>
 
 <details>

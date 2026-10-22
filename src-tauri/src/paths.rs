@@ -58,6 +58,20 @@ pub fn deadlock_library_from_vdf(vdf: &str) -> Option<PathBuf> {
         .find_map(|lib| kv::get(lib.children(), "path")?.as_str().map(PathBuf::from))
 }
 
+/// Steam's build id for Deadlock, read from `appmanifest_1422450.acf` next to the library's `common`
+/// folder. `gameinfo` is `<library>\steamapps\common\Deadlock\game\citadel\gameinfo.gi`.
+pub fn game_build(gameinfo: &Path) -> Option<String> {
+    let steamapps = gameinfo.ancestors().nth(5)?;
+    let text = fs::read_to_string(steamapps.join(format!("appmanifest_{DEADLOCK_APP_ID}.acf"))).ok()?;
+    build_from_manifest(&text)
+}
+
+pub fn build_from_manifest(acf: &str) -> Option<String> {
+    let nodes = kv::parse(acf).ok()?;
+    let state = kv::get(&nodes, "AppState")?;
+    kv::get(state.children(), "buildid")?.as_str().map(str::to_string).filter(|b| !b.is_empty())
+}
+
 pub fn gameinfo_in_library(library: &Path) -> PathBuf {
     library.join(r"steamapps\common\Deadlock\game\citadel\gameinfo.gi")
 }
@@ -162,6 +176,19 @@ pub fn read_loginusers(steam_root: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn reads_build_id_from_app_manifest() {
+        let acf = "\"AppState\"\n{\n\t\"appid\"\t\t\"1422450\"\n\t\"buildid\"\t\t\"26143760\"\n}\n";
+        assert_eq!(build_from_manifest(acf).as_deref(), Some("26143760"));
+        assert_eq!(build_from_manifest("\"AppState\"\n{\n}\n"), None);
+        let tmp = tempfile::tempdir().unwrap();
+        let gi = tmp.path().join(r"steamapps\common\Deadlock\game\citadel\gameinfo.gi");
+        fs::create_dir_all(gi.parent().unwrap()).unwrap();
+        fs::write(tmp.path().join(r"steamapps\appmanifest_1422450.acf"), acf).unwrap();
+        assert_eq!(game_build(&gi).as_deref(), Some("26143760"));
+    }
+
     use super::*;
 
     const LIBS: &str = include_str!("../fixtures/libraryfolders.vdf");

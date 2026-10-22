@@ -164,6 +164,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         gameinfo_normalized_sha256: gameinfo::normalized_hash(&plan.gameinfo_out),
         video_sha256: plan.video_out.as_ref().map(|v| gameinfo::sha256_hex(v.as_bytes())),
         ranked_safe: src.ranked_safe,
+        game_build: crate::paths::game_build(&gi_path),
     };
     state.update(|s| Settings { applied: Some(record), onboarded: true, ..s })?;
 

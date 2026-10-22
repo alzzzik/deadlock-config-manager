@@ -38,6 +38,8 @@ export type Overview = {
   /** Engine-section entries in the installed gameinfo.gi that differ from Valve's (can block ranked). */
   rankedChanges: number | null;
   showGuide: boolean;
+  changedBy: "game" | "dmm" | "grimoire" | "other" | null;
+  gameBuild: string | null;
 };
 
 export type PackInfo = {
