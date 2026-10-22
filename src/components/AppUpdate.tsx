@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { errorText } from "../api";
+import { InstallKind, api, errorText } from "../api";
 
 /** How often the app checks GitHub for a newer version of itself while open. */
 const APP_UPDATE_CHECK_MS = 6 * 60 * 60 * 1000;
@@ -17,6 +17,7 @@ export type AppUpdateState =
 /** Checks for a new app version on startup and every few hours; failures stay silent. */
 export function useAppUpdate() {
   const [state, setState] = useState<AppUpdateState>({ kind: "idle" });
+  const [installKind, setInstallKind] = useState<InstallKind | null>(null);
 
   /** "found", "none", or "failed" when GitHub couldn't be reached. */
   const lookForUpdate = useCallback(async (): Promise<UpdateCheck> => {
@@ -31,10 +32,15 @@ export function useAppUpdate() {
   }, []);
 
   useEffect(() => {
+    api.installKind().then(setInstallKind, () => setInstallKind("portable"));
+  }, []);
+
+  useEffect(() => {
+    if (installKind !== "installer") return;
     void lookForUpdate();
     const timer = window.setInterval(() => void lookForUpdate(), APP_UPDATE_CHECK_MS);
     return () => window.clearInterval(timer);
-  }, [lookForUpdate]);
+  }, [installKind, lookForUpdate]);
 
   const install = useCallback(async (update: Update) => {
     let total = 0;
@@ -58,7 +64,7 @@ export function useAppUpdate() {
 
   const dismiss = useCallback(() => setState({ kind: "idle" }), []);
 
-  return { state, install, dismiss, lookForUpdate };
+  return { state, install, dismiss, lookForUpdate, installKind };
 }
 
 interface UpdateBarProps {

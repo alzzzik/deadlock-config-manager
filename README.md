@@ -60,6 +60,13 @@ You can also add, reorder and remove config repos here.
 
 From v0.3.0 on, the app checks for new versions and offers to install them in one click.
 
+With [Scoop](https://scoop.sh) (portable copy, updated by Scoop):
+
+```
+scoop bucket add deadlock-config-manager https://github.com/alzzzik/deadlock-config-manager
+scoop install deadlock-config-manager
+```
+
 To uninstall, go to Windows **Settings → Apps → Installed apps**, find Deadlock Config Manager and click
 **Uninstall**. Your game files stay as they are; use **Restore original** first if you want them back.
 Settings and backups in `%APPDATA%\DeadlockConfigManager\` are kept, so delete that folder too if you want

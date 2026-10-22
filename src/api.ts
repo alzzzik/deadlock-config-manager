@@ -77,6 +77,9 @@ export type BackupMeta = {
   absent: string[];
 };
 
+/** Only "installer" copies update themselves; Scoop and portable copies are updated outside the app. */
+export type InstallKind = "installer" | "scoop" | "portable";
+
 export type PathKind = "steam" | "gameinfo" | "video";
 export type Location = "game" | "video" | "userdata" | "backups";
 
@@ -99,6 +102,7 @@ export const api = {
   openGithub: (url: string) => invoke<void>("open_github", { url }),
   togglePin: (key: string) => invoke<Overview>("toggle_pin", { key }),
   diagnostics: () => invoke<string>("get_diagnostics"),
+  installKind: () => invoke<InstallKind>("install_kind"),
 };
 
 export const ISSUES_URL = "https://github.com/alzzzik/deadlock-config-manager/issues/new/choose";

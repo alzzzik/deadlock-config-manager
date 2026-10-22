@@ -34,6 +34,16 @@ npm test                                        # UI unit tests (Vitest, from th
    `latest.json`, `SHA256SUMS.txt` and a build attestation. Check it, then publish. Installed copies only see
    the update once the release is published.
 
+Publishing a release also runs the **Packages** workflow:
+
+- **Scoop:** `bucket/deadlock-config-manager.json` is updated to the new version and the portable zip's hash
+  and committed to `main`. Users add this repo as a bucket (see the README).
+- **winget:** submit the first version by hand with
+  `wingetcreate new <installer URL>` (identifier `alzzzik.DeadlockConfigManager`, installer type `nullsoft`,
+  scope `user`). After Microsoft merges it, add a `WINGET_TOKEN` secret (classic PAT with `public_repo`); from
+  then on each published release opens the winget pull request automatically. Add the
+  `winget install alzzzik.DeadlockConfigManager` line to the README once it's listed.
+
 App updates are signed with a [Tauri updater key](https://v2.tauri.app/plugin/updater/). The workflow reads
 it from the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repository secrets and fails
 without them. The matching public key is in `tauri.conf.json`. If the private key is lost, installed copies

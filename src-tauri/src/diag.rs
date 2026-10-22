@@ -112,6 +112,19 @@ pub fn windows_version() -> String {
     format!("{name} {display} (build {build})").replace("  ", " ")
 }
 
+/// How this copy was installed. Only the NSIS install updates itself; Scoop and portable copies
+/// would otherwise get a second, installed copy from the updater.
+pub fn install_kind(exe: &Path) -> &'static str {
+    let lower = exe.to_string_lossy().to_lowercase();
+    if lower.contains(r"\scoop\apps\") {
+        "scoop"
+    } else if exe.parent().is_some_and(|d| d.join("uninstall.exe").is_file()) {
+        "installer"
+    } else {
+        "portable"
+    }
+}
+
 /// Everything a bug report needs, as plain text with the user name removed.
 pub struct ReportInput<'a> {
     pub app_version: &'a str,
@@ -152,6 +165,16 @@ mod tests {
         assert_eq!(redact(text, None), text);
         // One-letter names would mangle everything, so they're left alone.
         assert_eq!(redact("a b", Some("a")), "a b");
+    }
+
+    #[test]
+    fn tells_install_kinds_apart() {
+        let dir = tempfile::tempdir().unwrap();
+        let exe = dir.path().join("app.exe");
+        assert_eq!(install_kind(&exe), "portable");
+        fs::write(dir.path().join("uninstall.exe"), "").unwrap();
+        assert_eq!(install_kind(&exe), "installer");
+        assert_eq!(install_kind(Path::new(r"C:\Users\a\scoop\apps\dcm\current\app.exe")), "scoop");
     }
 
     #[test]

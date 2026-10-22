@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { ISSUES_URL, Overview, api, errorText } from "../api";
+import { ISSUES_URL, InstallKind, Overview, api, errorText } from "../api";
 import { AddRepo } from "./AddRepo";
 import { ChevronIcon, CloseIcon } from "./icons";
 import { Modal } from "./Modal";
@@ -17,6 +17,7 @@ interface SettingsDialogProps {
   onOpenGithub: (url: string) => void;
   onCheckUpdate: () => Promise<UpdateCheck>;
   onNotify: (kind: "ok" | "error" | "info", text: string) => void;
+  installKind: InstallKind | null;
 }
 
 const KEY_LABELS: Record<string, string> = {
@@ -42,6 +43,7 @@ export function SettingsDialog({
   onOpenGithub,
   onCheckUpdate,
   onNotify,
+  installKind,
 }: SettingsDialogProps) {
   const [keys, setKeys] = useState<string[]>(overview.preservedKeys);
   const toggle = (k: string) => setKeys((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
@@ -105,7 +107,7 @@ export function SettingsDialog({
         </div>
       </fieldset>
 
-      <AboutSection onOpenGithub={onOpenGithub} onCheckUpdate={onCheckUpdate} onNotify={onNotify} />
+      <AboutSection onOpenGithub={onOpenGithub} onCheckUpdate={onCheckUpdate} onNotify={onNotify} installKind={installKind} />
     </Modal>
   );
 }
@@ -114,10 +116,18 @@ interface AboutSectionProps {
   onOpenGithub: (url: string) => void;
   onCheckUpdate: () => Promise<UpdateCheck>;
   onNotify: (kind: "ok" | "error" | "info", text: string) => void;
+  installKind: InstallKind | null;
 }
 
+const RELEASES_URL = "https://github.com/alzzzik/deadlock-config-manager/releases";
+
+const UPDATE_NOTE: Record<Exclude<InstallKind, "installer">, string> = {
+  scoop: "Installed with Scoop: update with scoop update deadlock-config-manager.",
+  portable: "Portable copy: download new versions from GitHub releases.",
+};
+
 /** App version, update check and the diagnostics report for bug reports. */
-function AboutSection({ onOpenGithub, onCheckUpdate, onNotify }: AboutSectionProps) {
+function AboutSection({ onOpenGithub, onCheckUpdate, onNotify, installKind }: AboutSectionProps) {
   const [version, setVersion] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -149,10 +159,17 @@ function AboutSection({ onOpenGithub, onCheckUpdate, onNotify }: AboutSectionPro
         Deadlock Config Manager {version ?? ""}. Diagnostics list the app and Windows version, the detected paths
         (with your user name removed) and recent log lines. Nothing is sent automatically.
       </p>
+      {installKind && installKind !== "installer" && <p className="muted small">{UPDATE_NOTE[installKind]}</p>}
       <div className="about-actions">
-        <button className="btn btn-secondary btn-sm" onClick={check} disabled={checking}>
-          {checking ? "Checking…" : "Check for updates"}
-        </button>
+        {installKind === "installer" ? (
+          <button className="btn btn-secondary btn-sm" onClick={check} disabled={checking}>
+            {checking ? "Checking…" : "Check for updates"}
+          </button>
+        ) : (
+          <button className="btn btn-secondary btn-sm" onClick={() => onOpenGithub(RELEASES_URL)}>
+            Releases
+          </button>
+        )}
         <button className="btn btn-secondary btn-sm" onClick={copyDiagnostics}>
           Copy diagnostics
         </button>

@@ -310,8 +310,15 @@ pub fn get_diagnostics(state: State<AppState>) -> String {
             ("Applied", applied),
             ("Repos", s.effective_repos().join(", ")),
             ("Deadlock running", ov.deadlock_running.to_string()),
+            ("Install", install_kind().to_string()),
         ],
         log: diag::report_log(&state.dir),
         user: user.as_deref(),
     })
+}
+
+/// "installer", "scoop" or "portable"; the UI only offers in-app updates for "installer".
+#[tauri::command]
+pub fn install_kind() -> &'static str {
+    std::env::current_exe().map(|exe| diag::install_kind(&exe)).unwrap_or("portable")
 }

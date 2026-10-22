@@ -43,6 +43,7 @@ pub fn run() {
             commands::open_location,
             commands::open_github,
             commands::get_diagnostics,
+            commands::install_kind,
             overview::toggle_pin,
         ])
         .run(tauri::generate_context!())

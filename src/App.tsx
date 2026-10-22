@@ -385,6 +385,7 @@ export default function App() {
           onOpenBackups={() => openLocation("backups")}
           onOpenGithub={openGithub}
           onCheckUpdate={appUpdate.lookForUpdate}
+          installKind={appUpdate.installKind}
           onNotify={push}
         />
       )}
