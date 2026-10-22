@@ -447,3 +447,15 @@ input::placeholder { color: var(--text-faint); }
 .change-note { flex-basis: 100%; color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.35; }
 .change-tag.is-ignored { color: var(--warn); background: var(--warn-wash); }
 .change.is-ignored .change-after { color: var(--text-faint); }
+
+/* ---------- first-run guide ---------- */
+.guide-choices { display: grid; gap: 8px; margin-top: 12px; }
+.guide-choice {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; cursor: pointer;
+  border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--surface-2);
+  transition: border-color var(--fast) var(--ease);
+}
+.guide-choice:hover { border-color: var(--accent-line); }
+.guide-choice.is-picked { border-color: var(--accent); background: var(--accent-wash); }
+.guide-choice input { margin-top: 3px; accent-color: var(--accent); }
+.guide-choice > span { display: grid; gap: 2px; }

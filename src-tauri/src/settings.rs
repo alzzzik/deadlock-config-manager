@@ -44,6 +44,8 @@ pub struct Settings {
     pub applied: Option<AppliedRecord>,
     /// Pinned packs as `owner/name#packId`, shown at the top of the pack list.
     pub pinned: Vec<String>,
+    /// The first-run guide was finished or skipped.
+    pub onboarded: bool,
 }
 
 impl Default for Settings {
@@ -58,6 +60,7 @@ impl Default for Settings {
             preserved_keys: DEFAULT_PRESERVED.iter().map(|s| s.to_string()).collect(),
             applied: None,
             pinned: Vec::new(),
+            onboarded: false,
         }
     }
 }

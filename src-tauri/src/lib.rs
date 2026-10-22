@@ -50,6 +50,7 @@ pub fn run() {
             commands::make_ranked_safe,
             commands::check_packs,
             overview::toggle_pin,
+            overview::finish_guide,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Deadlock Config Manager");

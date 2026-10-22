@@ -165,7 +165,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         video_sha256: plan.video_out.as_ref().map(|v| gameinfo::sha256_hex(v.as_bytes())),
         ranked_safe: src.ranked_safe,
     };
-    state.update(|s| Settings { applied: Some(record), ..s })?;
+    state.update(|s| Settings { applied: Some(record), onboarded: true, ..s })?;
 
     let notes = src
         .notes

@@ -18,6 +18,7 @@ interface SettingsDialogProps {
   onCheckUpdate: () => Promise<UpdateCheck>;
   onNotify: (kind: "ok" | "error" | "info", text: string) => void;
   installKind: InstallKind | null;
+  onShowGuide: () => void;
 }
 
 const KEY_LABELS: Record<string, string> = {
@@ -44,6 +45,7 @@ export function SettingsDialog({
   onCheckUpdate,
   onNotify,
   installKind,
+  onShowGuide,
 }: SettingsDialogProps) {
   const [keys, setKeys] = useState<string[]>(overview.preservedKeys);
   const toggle = (k: string) => setKeys((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
@@ -57,6 +59,9 @@ export function SettingsDialog({
         <>
           <button className="btn btn-quiet" onClick={onOpenBackups}>
             Open backups folder
+          </button>
+          <button className="btn btn-quiet" onClick={onShowGuide}>
+            Starting config guide
           </button>
           <span className="spacer" />
           <button className="btn btn-secondary" onClick={onClose}>

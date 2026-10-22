@@ -33,6 +33,8 @@ pub struct Overview {
     pub always_preserved: Vec<String>,
     /// Engine-section entries in the installed gameinfo.gi that differ from Valve's; None if unreadable.
     pub ranked_changes: Option<usize>,
+    /// Show the first-run guide: never finished or skipped, and nothing applied yet.
+    pub show_guide: bool,
 }
 
 pub fn to_string(p: &Path) -> String {
@@ -76,6 +78,7 @@ pub fn resolve(s: &Settings) -> Overview {
         optional_preserved: video::DEFAULT_PRESERVED.iter().map(|k| k.to_string()).collect(),
         always_preserved: video::ALWAYS_PRESERVED.iter().map(|k| k.to_string()).collect(),
         ranked_changes: None,
+        show_guide: !s.onboarded && s.applied.is_none(),
     }
 }
 
@@ -229,6 +232,13 @@ pub fn toggle_pin(state: State<AppState>, key: String) -> Result<Overview, Strin
         return Err("That pack can't be pinned.".into());
     }
     let s = state.update(|s| Settings { pinned: repos::toggle(&s.pinned, &key), ..s })?;
+    Ok(state.overview(&s))
+}
+
+/// Hides the first-run guide for good (finished or skipped).
+#[tauri::command]
+pub fn finish_guide(state: State<AppState>) -> Result<Overview, String> {
+    let s = state.update(|s| Settings { onboarded: true, ..s })?;
     Ok(state.overview(&s))
 }
 

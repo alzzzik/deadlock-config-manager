@@ -37,6 +37,7 @@ export type Overview = {
   alwaysPreserved: string[];
   /** Engine-section entries in the installed gameinfo.gi that differ from Valve's (can block ranked). */
   rankedChanges: number | null;
+  showGuide: boolean;
 };
 
 export type PackInfo = {
@@ -123,6 +124,7 @@ export const api = {
   openGithub: (url: string) => invoke<void>("open_github", { url }),
   togglePin: (key: string) => invoke<Overview>("toggle_pin", { key }),
   diagnostics: () => invoke<string>("get_diagnostics"),
+  finishGuide: () => invoke<Overview>("finish_guide"),
   installKind: () => invoke<InstallKind>("install_kind"),
 };
 

@@ -25,11 +25,13 @@ import { PreviewDialog } from "./components/PreviewDialog";
 import { ToastStack, useToasts } from "./components/Toasts";
 import { UpdateBar, useAppUpdate } from "./components/AppUpdate";
 import { PackChecks, PackChecksContext } from "./packChecks";
+import { FirstRunGuide, GuideChoice } from "./components/FirstRunGuide";
 
 type Dialog =
   | { kind: "none" }
   | { kind: "restore" }
   | { kind: "settings" }
+  | { kind: "guide" }
   | { kind: "preview"; preview: Preview; proceed: () => void; proceedSafe: () => void };
 
 type ApplyCall = (confirmed: boolean, rankedSafe: boolean) => Promise<ApplyResponse>;
@@ -115,6 +117,14 @@ export default function App() {
     const timer = window.setTimeout(() => document.getElementById("splash")?.remove(), SPLASH_FADE_MS);
     return () => window.clearTimeout(timer);
   }, [ready]);
+
+  // First launch: offer the guide once the window is ready.
+  const guideShown = useRef(false);
+  useEffect(() => {
+    if (!ready || guideShown.current || !overview?.showGuide || dialog.kind !== "none") return;
+    guideShown.current = true;
+    setDialog({ kind: "guide" });
+  }, [ready, overview, dialog.kind]);
 
   const firstRepo = overview?.repos[0];
   const appliedPack = useMemo(
@@ -206,6 +216,38 @@ export default function App() {
   };
 
   const makeRankedSafe = () => runApply((c) => api.makeRankedSafe(c));
+
+  const skipGuide = () => {
+    setDialog({ kind: "none" });
+    api.finishGuide().then(setOverview, fail);
+  };
+
+  /** Links the choice's repo if needed, then opens the ranked-safe preview of that pack. */
+  const pickFromGuide = async (choice: GuideChoice) => {
+    setBusy(true);
+    try {
+      const linked = overview?.repos.some((r) => r.toLowerCase() === choice.repo.toLowerCase());
+      let list = groups ?? (await api.listPacks());
+      if (!linked) {
+        const { overview: o, group } = await api.addRepo(choice.repo);
+        setOverview(o);
+        list = [...list, group];
+        setGroups(list);
+      }
+      const pack = list
+        .filter((g) => g.repo.toLowerCase() === choice.repo.toLowerCase())
+        .flatMap((g) => g.packs)
+        .find((p) => p.folder.toLowerCase() === choice.folder.toLowerCase());
+      if (!pack) throw new Error(`${choice.title} wasn't found in ${choice.repo}. Pick a pack from the list instead.`);
+      setDialog({ kind: "none" });
+      setBusy(false);
+      await applyPack(pack, true);
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const reapply = () => {
     const safe = !!overview?.applied?.rankedSafe;
@@ -410,10 +452,12 @@ export default function App() {
           onOpenBackups={() => openLocation("backups")}
           onOpenGithub={openGithub}
           onCheckUpdate={appUpdate.lookForUpdate}
+          onShowGuide={() => setDialog({ kind: "guide" })}
           installKind={appUpdate.installKind}
           onNotify={push}
         />
       )}
+      {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} />}
       {dialog.kind === "preview" && (
         <PreviewDialog preview={dialog.preview} onCancel={() => setDialog({ kind: "none" })} onConfirm={dialog.proceed} onConfirmSafe={dialog.proceedSafe} />
       )}
