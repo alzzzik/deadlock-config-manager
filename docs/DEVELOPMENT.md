@@ -74,6 +74,18 @@ can't be updated anymore, so keep an offline backup.
 | `backup.rs` | Backups, pruning, restore |
 | `writer.rs` | Atomic writes and the elevated write helper |
 | `apply.rs` | Build, verify, roll back, status |
+| `stock.rs`, `ranked.rs` | Valve's stock gameinfo.gi and the ranked-safety check / ranked-safe rewrite |
+| `convars.rs` | Convar descriptions and "ignored by the game" data (`data/convars.json`) |
+| `overrides.rs` | Personal tweaks (view width, FPS caps, toggles, custom lines) on the ConVars block |
+| `overlay.rs` | Overlay mode: keep settings Valve's current file has and the pack lacks |
+| `library.rs` | Saved configs (My configs), zip/7z import and export |
+| `share.rs` | DCM1 share codes |
+| `gamebanana.rs` | Importing configs from GameBanana |
+| `store.rs` | Config store list (`index.json` via jsDelivr) |
+| `launch.rs` | Steam launch options in `localconfig.vdf` |
+| `report.rs` | What a game update changed for the applied config |
+| `watch.rs` | Background re-apply after game updates |
+| `diag.rs` | Local log, panic hook and the diagnostics report |
 | `overview.rs`, `commands.rs` | Tauri commands used by the UI |
 
 UI components live in `src/components/`; design tokens are at the top of `src/styles.css`.
@@ -84,6 +96,7 @@ A repo works if each pack is a folder (or the repo root) with a `gameinfo.gi` an
 
 - `video.txt` can be a full file or just the setting lines to paste under `DeviceID`.
 - Several video files in one folder (e.g. `video(Shadows).txt`, `video(No Shadows).txt`) become separate packs.
+- Extra gameinfo files in one folder (e.g. `gameinfo-EXTREME-LOW.gi`) become separate packs too.
 - Add a `packs.json` at the repo root for exact names and descriptions:
 
 ```json
