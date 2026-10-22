@@ -490,3 +490,155 @@ pub fn format_tweak_lines(entries: Vec<overrides::Entry>) -> String {
     overrides::to_file(&entries).lines().skip(1).map(|l| format!("{l}
 ")).collect()
 }
+
+fn library_dir(state: &AppState) -> PathBuf {
+    crate::library::dir(&state.dir)
+}
+
+#[tauri::command]
+pub fn list_library(state: State<AppState>) -> Vec<crate::library::Entry> {
+    crate::library::list(&library_dir(&state))
+}
+
+/// Saves the gameinfo.gi and video.txt that are installed now as a named config.
+#[tauri::command]
+pub fn save_current(state: State<AppState>, name: String, notes: String) -> Result<crate::library::Entry, String> {
+    let s = state.snapshot();
+    let ov = resolve(&s);
+    let gi_path = ov.gameinfo_path.filter(|_| ov.gameinfo_found).ok_or("gameinfo.gi wasn't found, so there's nothing to save.")?;
+    let gameinfo = fs::read_to_string(&gi_path).map_err(|e| format!("Cannot read gameinfo.gi: {e}"))?;
+    let video = match &ov.video_path {
+        Some(p) => read_optional(Path::new(p), "video.txt")?,
+        None => None,
+    };
+    let source = match (&s.applied, &ov.status) {
+        (Some(a), crate::apply::Status::Applied { .. } | crate::apply::Status::AppliedDmm { .. }) => {
+            format!("Saved from {}{}", a.pack_name, a.repo.as_deref().map(|r| format!(" ({r})")).unwrap_or_default())
+        }
+        _ => "Saved from the installed files".to_string(),
+    };
+    let entry = crate::library::save(&library_dir(&state), &name, &notes, &PackFiles { gameinfo, video }, &source)?;
+    diag::info(&format!("saved config {}", entry.id));
+    Ok(entry)
+}
+
+/// Imports a .zip or folder into My configs. The name defaults to the file or folder name.
+#[tauri::command]
+pub fn import_config(state: State<AppState>, path: String) -> Result<crate::library::Entry, String> {
+    let p = PathBuf::from(&path);
+    let files = crate::library::read_import(&p)?;
+    let name = p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "Imported config".into());
+    let source = format!("Imported from {}", p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
+    diag::logged("import config", crate::library::save(&library_dir(&state), &name, "", &files, &source))
+}
+
+#[tauri::command]
+pub fn export_config(state: State<AppState>, id: String, path: String) -> Result<(), String> {
+    diag::logged("export config", crate::library::export_zip(&library_dir(&state), &id, Path::new(&path)))
+}
+
+#[tauri::command]
+pub fn delete_config(state: State<AppState>, id: String) -> Result<Vec<crate::library::Entry>, String> {
+    crate::library::delete(&library_dir(&state), &id)?;
+    Ok(crate::library::list(&library_dir(&state)))
+}
+
+#[tauri::command]
+pub fn rename_config(state: State<AppState>, id: String, name: String, notes: String) -> Result<crate::library::Entry, String> {
+    crate::library::rename(&library_dir(&state), &id, &name, &notes)
+}
+
+/// Applies a saved config, with the same preview, tweaks, ranked-safe option and backup as packs.
+#[tauri::command]
+pub fn apply_library(state: State<AppState>, id: String, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
+    let root = library_dir(&state);
+    let entry = crate::library::find(&root, &id)?;
+    let files = crate::library::read(&root, &id)?;
+    let src = Source {
+        repo: None,
+        id: format!("{LIBRARY_PREFIX}{id}"),
+        name: entry.name,
+        revision: None,
+        files,
+        notes: vec![],
+        ranked_safe,
+    };
+    logged_apply(&format!("apply saved config {id}"), apply_source(&state, src, confirmed))
+}
+
+/// Pack id prefix that marks an applied saved config.
+pub const LIBRARY_PREFIX: &str = "lib:";
+
+/// Share message for a repo pack, with your tweaks and the ranked-safe choice.
+#[tauri::command]
+pub fn share_pack(state: State<AppState>, pack: PackInfo, ranked_safe: bool) -> Result<String, String> {
+    let shared = crate::share::Shared::Pack {
+        repo: pack.repo.clone(),
+        folder: pack.folder.clone(),
+        name: pack.name.clone(),
+        rev: pack.revision.clone(),
+        video_file: pack.video_file.clone(),
+        safe: ranked_safe,
+        tweaks: state.snapshot().overrides.effective(),
+    };
+    Ok(crate::share::message(&pack.name, &crate::share::encode(&shared)?))
+}
+
+/// Share message for a saved config: its ConVars changes and video.txt settings.
+#[tauri::command]
+pub fn share_config(state: State<AppState>, id: String) -> Result<String, String> {
+    let root = library_dir(&state);
+    let entry = crate::library::find(&root, &id)?;
+    let files = crate::library::read(&root, &id)?;
+    let stock = stock::load(&state.dir.join("cache"), Some(&files.gameinfo));
+    let video = files.video.as_deref().map(crate::video::read_values).transpose().map_err(|e| format!("video.txt {e}"))?.unwrap_or_default();
+    let shared = crate::share::Shared::Config {
+        name: entry.name.clone(),
+        notes: entry.notes.clone(),
+        convars: crate::share::convar_delta(&stock, &files.gameinfo)?,
+        video,
+    };
+    Ok(crate::share::message(&entry.name, &crate::share::encode(&shared)?))
+}
+
+/// Turns a share code (or a message or link containing one) into a saved config.
+#[tauri::command]
+pub async fn import_code(state: State<'_, AppState>, text: String) -> Result<crate::library::Entry, String> {
+    let shared = crate::share::decode(&text)?;
+    let dir = state.dir.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<crate::library::Entry, String> {
+        let cache = dir.join("cache");
+        let root = crate::library::dir(&dir);
+        match shared {
+            crate::share::Shared::Pack { repo, folder, name, rev, video_file, safe, tweaks } => {
+                let pack = PackInfo {
+                    repo: repo.clone(),
+                    id: packs::slug(&folder),
+                    name: name.clone(),
+                    description: String::new(),
+                    folder,
+                    last_commit_date: None,
+                    revision: rev,
+                    commit_message: None,
+                    html_url: String::new(),
+                    video_file,
+                };
+                let fetched = packs::fetch_pack(&repo, &pack, &cache)?;
+                let stock = stock::load(&cache, None);
+                let gi = if safe { ranked::make_safe(&stock, &fetched.files.gameinfo)? } else { fetched.files.gameinfo };
+                let gameinfo = overrides::apply(&gi, &tweaks)?;
+                let notes = if tweaks.is_empty() { String::new() } else { format!("Includes {} tweak(s) from the person who shared it.", tweaks.len()) };
+                let files = PackFiles { gameinfo, video: fetched.files.video };
+                crate::library::save(&root, &format!("{name} (shared)"), &notes, &files, &format!("Shared: {name} from {repo}"))
+            }
+            crate::share::Shared::Config { name, notes, convars, video } => {
+                let stock = stock::load(&cache, None);
+                let files = crate::share::config_files(&stock, &convars, &video)?;
+                crate::library::save(&root, &format!("{name} (shared)"), &notes, &files, "Shared config")
+            }
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    diag::logged("import share code", result)
+}

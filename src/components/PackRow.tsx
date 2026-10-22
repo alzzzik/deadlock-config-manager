@@ -1,6 +1,6 @@
 import { PackInfo, pinKey, timeAgo } from "../api";
 import { usePackCheck } from "../packChecks";
-import { GithubIcon, PinIcon } from "./icons";
+import { GithubIcon, PinIcon, ShareIcon } from "./icons";
 
 interface PackRowProps {
   pack: PackInfo;
@@ -12,6 +12,7 @@ interface PackRowProps {
   onApply: (p: PackInfo) => void;
   onOpenGithub: (url: string) => void;
   onTogglePin: (p: PackInfo) => void;
+  onShare?: (p: PackInfo) => void;
 }
 
 /** A pack folder untouched this long may not match the current game version. */
@@ -24,7 +25,7 @@ function ageInDays(iso: string | null): number | null {
   return Number.isNaN(t) ? null : Math.floor((Date.now() - t) / DAY_MS);
 }
 
-export function PackRow({ pack: p, applied, disabled, pinned, showRepo, onApply, onOpenGithub, onTogglePin }: PackRowProps) {
+export function PackRow({ pack: p, applied, disabled, pinned, showRepo, onApply, onOpenGithub, onTogglePin, onShare }: PackRowProps) {
   const days = ageInDays(p.lastCommitDate);
   const stale = days !== null && days >= STALE_DAYS;
   const fullDate = p.lastCommitDate ? new Date(p.lastCommitDate).toLocaleString() : undefined;
@@ -68,6 +69,11 @@ export function PackRow({ pack: p, applied, disabled, pinned, showRepo, onApply,
       </div>
 
       <div className="pack-actions">
+        {onShare && (
+          <button className="icon-btn row-hover" onClick={() => onShare(p)} aria-label={`Share ${p.name}`} title="Copy a share code (includes your tweaks)">
+            <ShareIcon size={15} />
+          </button>
+        )}
         <button className="icon-btn row-hover" onClick={() => onOpenGithub(p.htmlUrl)} disabled={!p.htmlUrl} aria-label={`View ${p.name} on GitHub`} title="View on GitHub">
           <GithubIcon size={15} />
         </button>

@@ -250,7 +250,7 @@ input::placeholder { color: var(--text-faint); }
 .pack-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
 .pack-row {
   position: relative;
-  display: grid; grid-template-columns: 26px minmax(0, 1fr) 230px 118px; align-items: center; gap: 12px;
+  display: grid; grid-template-columns: 26px minmax(0, 1fr) 210px 150px; align-items: center; gap: 12px;
   min-height: 60px; padding: 10px 12px 10px 8px;
   transition: background var(--fast) var(--ease);
 }

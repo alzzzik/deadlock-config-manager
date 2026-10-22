@@ -30,6 +30,12 @@ export const FolderIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ShareIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 2.5v7.5M5 5.5 8 2.5l3 3M3.5 9v3c0 .8.7 1.5 1.5 1.5h6c.8 0 1.5-.7 1.5-1.5V9" />
+  </Svg>
+);
+
 export const RefreshIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M13 8a5 5 0 1 1-1.5-3.6" />

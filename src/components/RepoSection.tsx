@@ -10,7 +10,7 @@ interface MenuItem {
   disabled?: boolean;
 }
 
-function RepoMenu({ label, items }: { label: string; items: MenuItem[] }) {
+export function RepoMenu({ label, items }: { label: string; items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -62,9 +62,10 @@ interface PackListProps {
   onApply: (p: PackInfo) => void;
   onOpenGithub: (url: string) => void;
   onTogglePin: (p: PackInfo) => void;
+  onShare?: (p: PackInfo) => void;
 }
 
-export function PackList({ packs, pinned, firstRepo, applied, disabled, showRepo, onApply, onOpenGithub, onTogglePin }: PackListProps) {
+export function PackList({ packs, pinned, firstRepo, applied, disabled, showRepo, onApply, onOpenGithub, onTogglePin, onShare }: PackListProps) {
   return (
     <ul className="pack-list">
       {packs.map((p) => (
@@ -78,6 +79,7 @@ export function PackList({ packs, pinned, firstRepo, applied, disabled, showRepo
           onApply={onApply}
           onOpenGithub={onOpenGithub}
           onTogglePin={onTogglePin}
+          onShare={onShare}
         />
       ))}
     </ul>

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { getCurrent as getDeepLinks, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import {
   ApplyResponse,
   BackupMeta,
+  LIBRARY_PREFIX,
+  LibraryEntry,
   Location,
   Overview,
   PackInfo,
@@ -27,6 +30,8 @@ import { UpdateBar, useAppUpdate } from "./components/AppUpdate";
 import { PackChecks, PackChecksContext } from "./packChecks";
 import { FirstRunGuide, GuideChoice } from "./components/FirstRunGuide";
 import { TweaksDialog } from "./components/TweaksDialog";
+import { MyConfigs, SaveConfigDialog } from "./components/MyConfigs";
+import { ImportDialog } from "./components/ImportDialog";
 
 type Dialog =
   | { kind: "none" }
@@ -34,6 +39,8 @@ type Dialog =
   | { kind: "settings" }
   | { kind: "guide" }
   | { kind: "tweaks" }
+  | { kind: "saveConfig" }
+  | { kind: "import" }
   | { kind: "preview"; preview: Preview; proceed: () => void; proceedSafe: () => void };
 
 type ApplyCall = (confirmed: boolean, rankedSafe: boolean) => Promise<ApplyResponse>;
@@ -66,6 +73,7 @@ export default function App() {
   const [fresh, setFresh] = useState(false);
   const [ready, setReady] = useState(false);
   const [checks, setChecks] = useState<PackChecks>({});
+  const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const { toasts, push, dismiss } = useToasts();
   const appUpdate = useAppUpdate();
   const fail = useCallback((e: unknown) => push("error", errorText(e)), [push]);
@@ -86,6 +94,10 @@ export default function App() {
       .catch((e) => !silent && fail(e))
       .finally(() => setLoading(false));
   }, [fail]);
+
+  useEffect(() => {
+    api.listLibrary().then(setLibrary, () => undefined);
+  }, []);
 
   useEffect(() => {
     refreshOverview();
@@ -219,6 +231,81 @@ export default function App() {
 
   const makeRankedSafe = () => runApply((c) => api.makeRankedSafe(c));
 
+  const applyLibrary = (e: LibraryEntry, rankedSafe = false) =>
+    runApply((c, r) => api.applyLibrary(e.id, c, r), false, rankedSafe);
+
+  const sharePack = (p: PackInfo) => void copyShare(api.sharePack(p, !!checks[pinKey(p)]));
+
+  const copyShare = async (message: Promise<string>) => {
+    try {
+      await navigator.clipboard.writeText(await message);
+      push("ok", "Share message copied. Paste it anywhere; the code works in this app.");
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const addedToLibrary = (e: LibraryEntry, verb: string) => {
+    setLibrary((cur) => [e, ...cur.filter((x) => x.id !== e.id)]);
+    push("ok", `${verb} "${e.name}" to My configs.`);
+  };
+
+  const importCode = async (text: string) => {
+    setBusy(true);
+    try {
+      addedToLibrary(await api.importCode(text), "Added");
+      setDialog({ kind: "none" });
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const importPath = async (directory: boolean) => {
+    const path = await open(
+      directory
+        ? { directory: true, title: "Folder with gameinfo.gi" }
+        : { title: "Config zip", filters: [{ name: "Zip", extensions: ["zip"] }] },
+    );
+    if (typeof path !== "string") return;
+    try {
+      addedToLibrary(await api.importConfig(path), "Added");
+      setDialog({ kind: "none" });
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const exportConfig = async (e: LibraryEntry) => {
+    const path = await save({ title: "Export config", defaultPath: `${e.name}.zip`, filters: [{ name: "Zip", extensions: ["zip"] }] });
+    if (!path) return;
+    api.exportConfig(e.id, path).then(() => push("ok", `Exported ${e.name}.`), fail);
+  };
+
+  const deleteConfig = (e: LibraryEntry) =>
+    api.deleteConfig(e.id).then((list) => {
+      setLibrary(list);
+      push("info", `Deleted ${e.name}.`);
+    }, fail);
+
+  const saveCurrent = (name: string, notes: string) =>
+    api.saveCurrent(name, notes).then((e) => {
+      setDialog({ kind: "none" });
+      addedToLibrary(e, "Saved");
+    }, fail);
+
+  // deadlockcfg://import/<code> links: on launch and while running.
+  const importCodeRef = useRef(importCode);
+  importCodeRef.current = importCode;
+  useEffect(() => {
+    const handle = (urls: string[] | null) => urls?.filter((u) => u.includes("DCM1-")).forEach((u) => void importCodeRef.current(u));
+    getDeepLinks().then(handle, () => undefined);
+    let unlisten: (() => void) | undefined;
+    onOpenUrl(handle).then((u) => (unlisten = u), () => undefined);
+    return () => unlisten?.();
+  }, []);
+
   const skipGuide = () => {
     setDialog({ kind: "none" });
     api.finishGuide().then(setOverview, fail);
@@ -253,6 +340,9 @@ export default function App() {
 
   const reapply = () => {
     const safe = !!overview?.applied?.rankedSafe;
+    const appliedId = overview?.applied?.packId ?? "";
+    const saved = library.find((e) => `${LIBRARY_PREFIX}${e.id}` === appliedId);
+    if (saved) return applyLibrary(saved, safe);
     if (appliedPack) return applyPack(appliedPack, safe);
     if (overview?.applied?.packId === "local") return applyLocal(safe);
     push("error", "That pack isn't in your linked repos anymore. Refresh, or pick a pack below.");
@@ -321,6 +411,7 @@ export default function App() {
     }, fail);
 
   const canWrite = !!overview && (overview.gameinfoFound || overview.gameinfoCreatable);
+  const isLibraryApplied = library.some((e) => `${LIBRARY_PREFIX}${e.id}` === overview?.applied?.packId);
   const blocked = busy || !overview || overview.deadlockRunning || !canWrite;
 
   const packCount = allPacks.length;
@@ -360,7 +451,7 @@ export default function App() {
             busy={busy}
             updateAvailable={updateAvailable}
             updateNote={updateAvailable ? appliedPack?.commitMessage ?? null : null}
-            canReapply={!!appliedPack || overview.applied?.packId === "local"}
+            canReapply={!!appliedPack || overview.applied?.packId === "local" || isLibraryApplied}
             onReapply={reapply}
             onMakeRankedSafe={makeRankedSafe}
             onAccount={(id) => api.setAccount(id).then(setOverview, fail)}
@@ -394,6 +485,19 @@ export default function App() {
             </button>
           </div>
 
+          <MyConfigs
+            entries={library}
+            appliedId={overview?.applied?.packId ?? null}
+            disabled={blocked}
+            canSave={!!overview?.gameinfoFound}
+            onApply={(e) => void applyLibrary(e)}
+            onSave={() => setDialog({ kind: "saveConfig" })}
+            onImport={() => setDialog({ kind: "import" })}
+            onExport={(e) => void exportConfig(e)}
+            onShare={(e) => void copyShare(api.shareConfig(e.id))}
+            onDelete={(e) => void deleteConfig(e)}
+          />
+
           {pinnedPacks.length > 0 && (
             <PinnedSection
               packs={pinnedPacks}
@@ -404,6 +508,7 @@ export default function App() {
               onApply={applyPack}
               onOpenGithub={openGithub}
               onTogglePin={togglePin}
+              onShare={sharePack}
             />
           )}
 
@@ -435,6 +540,7 @@ export default function App() {
               onMove={moveRepo}
               onRemove={removeRepo}
               onTogglePin={togglePin}
+              onShare={sharePack}
             />
           ))}
 
@@ -464,7 +570,7 @@ export default function App() {
       )}
       {dialog.kind === "tweaks" && (
         <TweaksDialog
-          canReapply={!!appliedPack || overview?.applied?.packId === "local"}
+          canReapply={!!appliedPack || overview?.applied?.packId === "local" || isLibraryApplied}
           onClose={() => setDialog({ kind: "none" })}
           onNotify={push}
           onSaved={(again) => {
@@ -472,6 +578,22 @@ export default function App() {
             if (again) void reapply();
             else push("ok", "Tweaks saved. They're added the next time you apply a pack.");
           }}
+        />
+      )}
+      {dialog.kind === "saveConfig" && (
+        <SaveConfigDialog
+          suggestedName={overview?.applied ? `My ${overview.applied.packName}` : "My config"}
+          onCancel={() => setDialog({ kind: "none" })}
+          onSave={(n, notes) => void saveCurrent(n, notes)}
+        />
+      )}
+      {dialog.kind === "import" && (
+        <ImportDialog
+          busy={busy}
+          onCancel={() => setDialog({ kind: "none" })}
+          onCode={(t) => void importCode(t)}
+          onZip={() => void importPath(false)}
+          onFolder={() => void importPath(true)}
         />
       )}
       {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} />}

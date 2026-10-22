@@ -84,6 +84,15 @@ export type ConvarInfo = { text: string | null; ignored: boolean; default: strin
 
 export type PackCheck = { key: string; rankedChanges: number | null };
 
+export type LibraryEntry = {
+  id: string;
+  name: string;
+  notes: string;
+  createdAt: string;
+  hasVideo: boolean;
+  source: string;
+};
+
 export type TweakEntry = { name: string; value: string | null };
 export type Overrides = { fixes: string[]; fov: number | null; custom: TweakEntry[] };
 export type TweaksView = {
@@ -144,8 +153,21 @@ export const api = {
   exportTweaks: (path: string) => invoke<void>("export_tweaks", { path }),
   parseTweakLines: (text: string) => invoke<TweakEntry[]>("parse_tweak_lines", { text }),
   formatTweakLines: (entries: TweakEntry[]) => invoke<string>("format_tweak_lines", { entries }),
+  listLibrary: () => invoke<LibraryEntry[]>("list_library"),
+  saveCurrent: (name: string, notes: string) => invoke<LibraryEntry>("save_current", { name, notes }),
+  importConfig: (path: string) => invoke<LibraryEntry>("import_config", { path }),
+  exportConfig: (id: string, path: string) => invoke<void>("export_config", { id, path }),
+  deleteConfig: (id: string) => invoke<LibraryEntry[]>("delete_config", { id }),
+  applyLibrary: (id: string, confirmed: boolean, rankedSafe: boolean) =>
+    invoke<ApplyResponse>("apply_library", { id, confirmed, rankedSafe }),
+  sharePack: (pack: PackInfo, rankedSafe: boolean) => invoke<string>("share_pack", { pack, rankedSafe }),
+  shareConfig: (id: string) => invoke<string>("share_config", { id }),
+  importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
   installKind: () => invoke<InstallKind>("install_kind"),
 };
+
+/** Pack id prefix of an applied saved config. */
+export const LIBRARY_PREFIX = "lib:";
 
 export const ISSUES_URL = "https://github.com/alzzzik/deadlock-config-manager/issues/new/choose";
 
