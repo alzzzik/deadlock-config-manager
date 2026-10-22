@@ -22,6 +22,7 @@ pub mod report;
 pub mod settings;
 pub mod share;
 pub mod stock;
+pub mod store;
 pub mod video;
 mod watch;
 pub mod writer;
@@ -152,6 +153,7 @@ pub fn run() {
             commands::get_launch_options,
             commands::set_launch_options,
             commands::import_gamebanana,
+            commands::get_store,
             overview::toggle_pin,
             overview::finish_guide,
         ])

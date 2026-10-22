@@ -33,6 +33,7 @@ import { FirstRunGuide, GuideChoice } from "./components/FirstRunGuide";
 import { TweaksDialog } from "./components/TweaksDialog";
 import { MyConfigs, SaveConfigDialog } from "./components/MyConfigs";
 import { ImportDialog } from "./components/ImportDialog";
+import { StoreDialog } from "./components/StoreDialog";
 
 type Dialog =
   | { kind: "none" }
@@ -42,6 +43,7 @@ type Dialog =
   | { kind: "tweaks" }
   | { kind: "saveConfig" }
   | { kind: "import" }
+  | { kind: "store" }
   | { kind: "preview"; preview: Preview; proceed: () => void; proceedSafe: () => void };
 
 type ApplyCall = (confirmed: boolean, rankedSafe: boolean) => Promise<ApplyResponse>;
@@ -485,6 +487,9 @@ export default function App() {
             <button className="icon-btn" onClick={() => refreshPacks()} disabled={loading} aria-label="Refresh all repos" title="Refresh all repos">
               <RefreshIcon className={loading ? "spin" : ""} />
             </button>
+            <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "store" })} title="Browse community configs">
+              Browse…
+            </button>
             <button className="btn btn-quiet btn-sm" onClick={() => void applyLocal()} disabled={blocked} title="Apply a pack from a folder on this PC">
               <FolderIcon size={14} />
               From folder…
@@ -600,6 +605,16 @@ export default function App() {
           onCode={(t) => void importCode(t)}
           onZip={() => void importPath(false)}
           onFolder={() => void importPath(true)}
+        />
+      )}
+      {dialog.kind === "store" && (
+        <StoreDialog
+          linked={overview?.repos ?? []}
+          busy={busy}
+          onClose={() => setDialog({ kind: "none" })}
+          onLinkRepo={addRepo}
+          onAddCode={(code) => void importCode(code)}
+          onOpenGithub={openGithub}
         />
       )}
       {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} />}

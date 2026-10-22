@@ -38,6 +38,9 @@ config, see what it changes, apply it, and restore your old files if you want th
 - Works with any GitHub repo that has config folders. Each config shows when it was last updated.
 - Saves your own configs ("My configs"), imports and exports them as zip files.
 - Share codes and `deadlockcfg://` links: send someone a config (with your tweaks) in one line of text.
+- **Browse…** a community list of config repos and shared configs; import configs from GameBanana links.
+- Optional: re-applies your config by itself after game updates (tray mode), and keeps settings Valve adds
+  (overlay mode).
 - Works alongside Deadlock Mod Manager and Grimoire.
 
 ## Settings

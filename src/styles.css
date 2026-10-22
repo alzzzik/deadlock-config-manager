@@ -504,3 +504,9 @@ input::placeholder { color: var(--text-faint); }
   background: var(--surface); color: var(--text); font: 12.5px var(--font); user-select: text;
 }
 .text-field input:focus { outline: none; border-color: var(--accent-line); }
+
+/* ---------- store ---------- */
+.store-search { margin-bottom: 10px; }
+.store-search input { width: 100%; padding-left: 10px; }
+.store-row { grid-template-columns: minmax(0, 1fr) 180px 140px; padding-left: 14px; }
+.store-list { max-height: 52vh; overflow: auto; }

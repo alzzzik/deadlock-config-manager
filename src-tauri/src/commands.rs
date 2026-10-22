@@ -825,3 +825,10 @@ pub async fn import_gamebanana(state: State<'_, AppState>, url: String) -> Resul
     .map_err(|e| e.to_string())?;
     diag::logged("import from GameBanana", result)
 }
+
+/// The config store list (online, cached or built in).
+#[tauri::command]
+pub async fn get_store(state: State<'_, AppState>) -> Result<crate::store::StoreView, String> {
+    let cache = state.dir.join("cache");
+    tauri::async_runtime::spawn_blocking(move || crate::store::load(&cache)).await.map_err(|e| e.to_string())
+}

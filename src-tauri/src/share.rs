@@ -84,14 +84,26 @@ pub fn decode(text: &str) -> Result<Shared, String> {
     Ok(shared)
 }
 
+/// Settings a shared config may not set: cheats and visual exploits.
+const DENIED: [&str; 6] = ["sv_cheats", "host_timescale", "r_drawothermodels", "mat_wireframe", "r_drawworld", "mat_fullbright"];
+
+fn check_denied(entries: &[Entry]) -> Result<(), String> {
+    match entries.iter().find(|e| DENIED.iter().any(|d| d.eq_ignore_ascii_case(&e.name)) && e.value.is_some()) {
+        Some(e) => Err(format!("That share code sets {}, which isn't allowed.", e.name)),
+        None => Ok(()),
+    }
+}
+
 fn validate(s: &Shared) -> Result<(), String> {
     match s {
         Shared::Pack { repo, tweaks, .. } => {
             crate::repos::canonical(repo)?;
-            crate::overrides::validate(tweaks)
+            crate::overrides::validate(tweaks)?;
+            check_denied(tweaks)
         }
         Shared::Config { convars, video, .. } => {
             crate::overrides::validate(convars)?;
+            check_denied(convars)?;
             let bad = video.iter().any(|(k, v)| k.is_empty() || k.contains(['"', '\n', '{', '}']) || v.contains(['"', '\n', '{', '}']));
             if bad {
                 return Err("That share code has an invalid video.txt line.".into());
@@ -176,6 +188,18 @@ mod tests {
         let files = config_files(EMBEDDED, &convars, &video).unwrap();
         assert!(convar_delta(&saved, &files.gameinfo).unwrap().is_empty());
         assert!(files.video.unwrap().contains("setting.mat_vsync"));
+    }
+
+    #[test]
+    fn rejects_cheats() {
+        let code = encode(&Shared::Config {
+            name: "x".into(),
+            notes: String::new(),
+            convars: vec![Entry { name: "sv_cheats".into(), value: Some("1".into()) }],
+            video: vec![],
+        })
+        .unwrap();
+        assert!(decode(&code).unwrap_err().contains("sv_cheats"));
     }
 
     #[test]

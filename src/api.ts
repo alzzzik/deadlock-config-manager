@@ -93,6 +93,11 @@ export type UpdateReport = {
 
 export type LaunchView = { options: string; steamRunning: boolean; problem: string | null };
 
+export type StoreEntry =
+  | { kind: "repo"; repo: string; title: string; description: string; author: string }
+  | { kind: "code"; title: string; description: string; author: string; code: string };
+export type StoreView = { entries: StoreEntry[]; online: boolean; submitUrl: string };
+
 export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean };
 
 export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
@@ -186,6 +191,7 @@ export const api = {
   shareConfig: (id: string) => invoke<string>("share_config", { id }),
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
   importGamebanana: (url: string) => invoke<LibraryEntry>("import_gamebanana", { url }),
+  getStore: () => invoke<StoreView>("get_store"),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
   getLaunchOptions: () => invoke<LaunchView>("get_launch_options"),
