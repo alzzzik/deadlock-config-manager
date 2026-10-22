@@ -16,6 +16,7 @@ pub mod packs;
 pub mod paths;
 pub mod ranked;
 pub mod repos;
+pub mod report;
 pub mod settings;
 pub mod share;
 pub mod stock;
@@ -145,6 +146,7 @@ pub fn run() {
             commands::import_code,
             commands::get_automation,
             commands::set_automation,
+            commands::update_report,
             overview::toggle_pin,
             overview::finish_guide,
         ])

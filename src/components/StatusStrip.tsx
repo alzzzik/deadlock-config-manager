@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Location, Overview, PathKind, Status, timeAgo } from "../api";
+import { Location, Overview, PathKind, Status, UpdateReport, api, timeAgo } from "../api";
 import { AccountHelp } from "./AccountHelp";
 import { CheckIcon, ChevronIcon, CloseIcon, FolderIcon, PlusIcon } from "./icons";
 
@@ -173,6 +173,7 @@ export function StatusStrip(props: StatusStripProps) {
         )}
       </div>
 
+      {o.status.kind === "changed" && o.changedBy === "game" && <UpdateReportNotice gameinfoKey={o.gameBuild ?? ""} />}
       {o.deadlockRunning && <p className="notice is-warn">Deadlock is running. Close it before applying or restoring.</p>}
       {!!o.rankedChanges && o.status.kind !== "missing" && (
         <div className="notice is-warn notice-action">
@@ -242,5 +243,32 @@ export function StatusStrip(props: StatusStripProps) {
         </div>
       )}
     </section>
+  );
+}
+
+/** After a game update: what changed for the applied config. */
+function UpdateReportNotice({ gameinfoKey }: { gameinfoKey: string }) {
+  const [r, setR] = useState<UpdateReport | null>(null);
+  useEffect(() => {
+    api.updateReport().then(setR, () => setR(null));
+  }, [gameinfoKey]);
+  if (!r) return null;
+  const items = [
+    r.newSettings.length > 0 &&
+      `Valve added ${r.newSettings.length} setting${r.newSettings.length === 1 ? "" : "s"} your config doesn't have; re-applying removes them unless overlay mode is on (Settings).`,
+    r.ignored.length > 0 && `${r.ignored.length} setting${r.ignored.length === 1 ? "" : "s"} in your config ${r.ignored.length === 1 ? "is" : "are"} ignored by the game.`,
+    r.engineChanges > 0 && `Your config differs from Valve's new file in ${r.engineChanges} engine setting${r.engineChanges === 1 ? "" : "s"}, which can block ranked; re-apply it ranked-safe to be sure.`,
+  ].filter((x): x is string => !!x);
+  if (items.length === 0) return null;
+  const builds = r.fromBuild && r.toBuild && r.fromBuild !== r.toBuild ? ` (build ${r.fromBuild} → ${r.toBuild})` : "";
+  return (
+    <div className="notice is-warn update-report">
+      <strong>What this update changed{builds}</strong>
+      <ul>
+        {items.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ul>
+    </div>
   );
 }

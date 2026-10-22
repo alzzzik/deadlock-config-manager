@@ -486,3 +486,6 @@ input::placeholder { color: var(--text-faint); }
 .chip.is-on { color: var(--accent-text); border-color: var(--accent); background: var(--accent-wash); }
 .chip:focus-within { outline: 2px solid var(--accent-line); outline-offset: 1px; }
 .field-toggle { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+
+.update-report { display: grid; gap: 4px; align-items: start; }
+.update-report ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }

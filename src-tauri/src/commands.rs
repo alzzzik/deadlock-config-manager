@@ -747,3 +747,17 @@ pub fn set_automation(app: tauri::AppHandle, state: State<AppState>, overlay: bo
     }
     Ok(AutomationSettings { overlay: s.overlay, auto_reapply: s.auto_reapply, start_with_windows: s.start_with_windows })
 }
+
+/// What the last game update changed for the applied config. None unless a game update replaced it.
+#[tauri::command]
+pub fn update_report(state: State<AppState>) -> Option<crate::report::UpdateReport> {
+    let s = state.snapshot();
+    let ov = state.overview(&s);
+    if ov.changed_by.as_deref() != Some("game") {
+        return None;
+    }
+    let pack = applied_source(&state.dir)?;
+    let installed = fs::read_to_string(ov.gameinfo_path?).ok()?;
+    let from = s.applied.and_then(|a| a.game_build);
+    Some(crate::report::build(&pack.gameinfo, &installed, from, ov.game_build))
+}

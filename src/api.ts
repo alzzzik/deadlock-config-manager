@@ -82,6 +82,14 @@ export type Preview = {
   overlayAdded: number | null;
 };
 
+export type UpdateReport = {
+  fromBuild: string | null;
+  toBuild: string | null;
+  newSettings: string[];
+  ignored: string[];
+  engineChanges: number;
+};
+
 export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean };
 
 export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
@@ -175,6 +183,7 @@ export const api = {
   shareConfig: (id: string) => invoke<string>("share_config", { id }),
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
   getAutomation: () => invoke<Automation>("get_automation"),
+  updateReport: () => invoke<UpdateReport | null>("update_report"),
   setAutomation: (a: Automation) => invoke<Automation>("set_automation", a),
   installKind: () => invoke<InstallKind>("install_kind"),
 };
