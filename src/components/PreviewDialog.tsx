@@ -6,6 +6,7 @@ interface PreviewDialogProps {
   preview: Preview;
   onCancel: () => void;
   onConfirm: () => void;
+  onConfirmSafe: () => void;
 }
 
 const COLLAPSED_ROWS = 30;
@@ -57,8 +58,42 @@ function FileSection({ d }: { d: FileDiff }) {
   );
 }
 
-export function PreviewDialog({ preview, onCancel, onConfirm }: PreviewDialogProps) {
+function RankedNotice({ preview }: { preview: Preview }) {
+  const [open, setOpen] = useState(false);
+  const n = preview.rankedChanges.length;
+  if (preview.rankedSafe) {
+    return (
+      <p className="notice is-good">
+        Ranked-safe: the engine sections Valve checks before matchmaking are set to Valve's defaults. The pack's other
+        changes are kept.
+      </p>
+    );
+  }
+  if (n === 0) return null;
+  return (
+    <div className="ranked-notice">
+      <p>
+        <strong>May block ranked matchmaking.</strong> This pack changes {n} engine setting{n === 1 ? "" : "s"} that
+        Valve checks before ranked queueing. <b>Apply ranked-safe</b> keeps everything else and puts those sections back
+        to Valve's defaults.
+      </p>
+      <button className="btn btn-quiet btn-sm" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {open ? "Hide engine settings" : "Show engine settings"}
+      </button>
+      {open && (
+        <ul className="change-list">
+          {preview.rankedChanges.map((c) => (
+            <ChangeRow key={c.key} c={c} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export function PreviewDialog({ preview, onCancel, onConfirm, onConfirmSafe }: PreviewDialogProps) {
   const nothing = preview.files.every((f) => !f.created && f.changes.length === 0);
+  const offerSafe = !preview.rankedSafe && preview.rankedChanges.length > 0;
   return (
     <Modal
       title={`Apply ${preview.packName}?`}
@@ -71,9 +106,20 @@ export function PreviewDialog({ preview, onCancel, onConfirm }: PreviewDialogPro
           <button className="btn btn-secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={onConfirm} autoFocus>
-            {nothing ? "Apply anyway" : "Apply"}
-          </button>
+          {offerSafe ? (
+            <>
+              <button className="btn btn-secondary" onClick={onConfirm}>
+                Apply as is
+              </button>
+              <button className="btn btn-primary" onClick={onConfirmSafe} autoFocus>
+                Apply ranked-safe
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary" onClick={onConfirm} autoFocus>
+              {nothing ? "Apply anyway" : "Apply"}
+            </button>
+          )}
         </>
       }
     >
@@ -84,6 +130,7 @@ export function PreviewDialog({ preview, onCancel, onConfirm }: PreviewDialogPro
           ))}
         </ul>
       )}
+      <RankedNotice preview={preview} />
       {nothing && <p className="muted">Nothing would change: your files already match this pack.</p>}
       {preview.files.map((d) => (
         <FileSection key={d.file} d={d} />

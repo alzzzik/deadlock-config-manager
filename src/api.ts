@@ -15,6 +15,7 @@ export type AppliedRecord = {
   packName: string;
   revision: string | null;
   appliedAt: string;
+  rankedSafe?: boolean;
 };
 
 export type Overview = {
@@ -34,6 +35,8 @@ export type Overview = {
   preservedKeys: string[];
   optionalPreserved: string[];
   alwaysPreserved: string[];
+  /** Engine-section entries in the installed gameinfo.gi that differ from Valve's (can block ranked). */
+  rankedChanges: number | null;
 };
 
 export type PackInfo = {
@@ -60,7 +63,16 @@ export type RepoGroup = {
 
 export type Change = { key: string; before: string | null; after: string | null };
 export type FileDiff = { file: string; created: boolean; changes: Change[]; unchanged: number };
-export type Preview = { packName: string; files: FileDiff[]; warnings: string[] };
+export type Preview = {
+  packName: string;
+  files: FileDiff[];
+  warnings: string[];
+  /** Engine-section entries that differ from Valve's file after applying. */
+  rankedChanges: Change[];
+  rankedSafe: boolean;
+};
+
+export type PackCheck = { key: string; rankedChanges: number | null };
 
 export type ApplyResponse =
   | { kind: "preview"; preview: Preview }
@@ -94,8 +106,12 @@ export const api = {
   addRepo: (input: string) => invoke<{ overview: Overview; group: RepoGroup }>("add_repo", { input }),
   removeRepo: (repo: string) => invoke<Overview>("remove_repo", { repo }),
   moveRepo: (repo: string, delta: number) => invoke<Overview>("move_repo", { repo, delta }),
-  applyPack: (pack: PackInfo, confirmed: boolean) => invoke<ApplyResponse>("apply_pack", { pack, confirmed }),
-  applyLocal: (folder: string, confirmed: boolean) => invoke<ApplyResponse>("apply_local", { folder, confirmed }),
+  applyPack: (pack: PackInfo, confirmed: boolean, rankedSafe: boolean) =>
+    invoke<ApplyResponse>("apply_pack", { pack, confirmed, rankedSafe }),
+  applyLocal: (folder: string, confirmed: boolean, rankedSafe: boolean) =>
+    invoke<ApplyResponse>("apply_local", { folder, confirmed, rankedSafe }),
+  makeRankedSafe: (confirmed: boolean) => invoke<ApplyResponse>("make_ranked_safe", { confirmed }),
+  checkPacks: (packs: PackInfo[]) => invoke<PackCheck[]>("check_packs", { packs }),
   listBackups: () => invoke<BackupMeta[]>("list_backups"),
   restore: (id: string) => invoke<string>("restore_backup", { id }),
   open: (which: Location) => invoke<void>("open_location", { which }),

@@ -234,6 +234,7 @@ mod tests {
             gameinfo_sha256: gameinfo::sha256_hex(p.gameinfo_out.as_bytes()),
             gameinfo_normalized_sha256: gameinfo::normalized_hash(&p.gameinfo_out),
             video_sha256: None,
+            ranked_safe: false,
         };
         assert_eq!(status(Some(&gi), Some(&rec)), Status::Applied { pack: "Stable".into() });
         fs::write(&gi, DMM).unwrap();

@@ -1,4 +1,5 @@
-import { PackInfo, timeAgo } from "../api";
+import { PackInfo, pinKey, timeAgo } from "../api";
+import { usePackCheck } from "../packChecks";
 import { GithubIcon, PinIcon } from "./icons";
 
 interface PackRowProps {
@@ -28,6 +29,7 @@ export function PackRow({ pack: p, applied, disabled, pinned, showRepo, onApply,
   const stale = days !== null && days >= STALE_DAYS;
   const fullDate = p.lastCommitDate ? new Date(p.lastCommitDate).toLocaleString() : undefined;
   const description = p.description || "No description";
+  const rankedChanges = usePackCheck(pinKey(p));
 
   return (
     <li className={`pack-row ${applied ? "is-applied" : ""} ${pinned ? "is-pinned" : ""}`}>
@@ -45,6 +47,14 @@ export function PackRow({ pack: p, applied, disabled, pinned, showRepo, onApply,
         <div className="pack-title">
           <h3>{p.name}</h3>
           {applied && <span className="badge is-good">Applied</span>}
+          {!!rankedChanges && (
+            <span
+              className="badge is-warn"
+              title={`Changes ${rankedChanges} engine setting${rankedChanges === 1 ? "" : "s"} that Valve checks before ranked matchmaking. You can apply it ranked-safe from the preview.`}
+            >
+              May block ranked
+            </span>
+          )}
         </div>
         <p className="pack-desc" title={description}>
           {showRepo && <span className="pack-repo">{p.repo} · </span>}

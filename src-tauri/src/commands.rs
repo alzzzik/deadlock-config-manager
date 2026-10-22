@@ -8,6 +8,8 @@ use crate::diff::{self, FileDiff};
 use crate::gameinfo;
 use crate::overview::resolve;
 use crate::packs::{self, PackInfo};
+use crate::ranked;
+use crate::stock;
 use crate::settings::{self, AppliedRecord, Settings};
 use crate::writer::{self, FileWrite, WriteOutcome};
 use serde::Serialize;
@@ -34,6 +36,11 @@ impl AppState {
         Ok(next)
     }
 
+    /// Overview including the checks that read the cache (ranked safety).
+    pub fn overview(&self, s: &Settings) -> crate::overview::Overview {
+        crate::overview::resolve_with_checks(s, &self.dir.join("cache"))
+    }
+
     fn backups_dir(&self) -> PathBuf {
         self.dir.join("backups")
     }
@@ -46,6 +53,10 @@ pub struct Preview {
     pub pack_name: String,
     pub files: Vec<FileDiff>,
     pub warnings: Vec<String>,
+    /// Engine-section entries that differ from Valve's file after applying; these can block ranked.
+    pub ranked_changes: Vec<diff::Change>,
+    /// This preview is for the ranked-safe variant of the pack.
+    pub ranked_safe: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -63,6 +74,7 @@ struct Source {
     revision: Option<String>,
     files: PackFiles,
     notes: Vec<String>,
+    ranked_safe: bool,
 }
 
 fn real_writer(jobs: PathBuf) -> impl Fn(&[FileWrite]) -> Result<WriteOutcome, String> {
@@ -104,12 +116,19 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         (None, _) => VideoInput::Skip,
     };
 
-    let plan = apply::build_plan(&src.files, installed.as_deref(), video_in, &s.preserved_keys)?;
+    let stock = stock::load(&state.dir.join("cache"), installed.as_deref());
+    let files = if src.ranked_safe {
+        PackFiles { gameinfo: ranked::make_safe(&stock, &src.files.gameinfo)?, video: src.files.video.clone() }
+    } else {
+        src.files
+    };
+    let plan = apply::build_plan(&files, installed.as_deref(), video_in, &s.preserved_keys)?;
     if !confirmed {
         let files = std::iter::once(diff::diff_file("gameinfo.gi", installed.as_deref(), &plan.gameinfo_out))
             .chain(plan.video_out.as_deref().map(|v| diff::diff_file("video.txt", user_video.as_deref(), v)))
             .collect();
-        let preview = Preview { pack_name: src.name, files, warnings: plan.warnings };
+        let ranked_changes = ranked::guarded_changes(&stock, &plan.gameinfo_out).unwrap_or_default();
+        let preview = Preview { pack_name: src.name, files, warnings: plan.warnings, ranked_changes, ranked_safe: src.ranked_safe };
         return Ok(ApplyResponse::Preview { preview });
     }
 
@@ -130,6 +149,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         gameinfo_sha256: gameinfo::sha256_hex(plan.gameinfo_out.as_bytes()),
         gameinfo_normalized_sha256: gameinfo::normalized_hash(&plan.gameinfo_out),
         video_sha256: plan.video_out.as_ref().map(|v| gameinfo::sha256_hex(v.as_bytes())),
+        ranked_safe: src.ranked_safe,
     };
     state.update(|s| Settings { applied: Some(record), ..s })?;
 
@@ -139,11 +159,12 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         .chain(outcome.readonly_cleared.iter().map(|p| format!("Cleared the read-only flag on {p} so Deadlock Mod Manager can still edit it.")))
         .collect();
     let what = if plan.video_out.is_some() { "gameinfo.gi and video.txt" } else { "gameinfo.gi" };
-    Ok(ApplyResponse::Done { message: format!("Applied {} ({what}). Backup saved.", src.name), notes })
+    let mode = if src.ranked_safe { ", ranked-safe" } else { "" };
+    Ok(ApplyResponse::Done { message: format!("Applied {} ({what}{mode}). Backup saved.", src.name), notes })
 }
 
 #[tauri::command]
-pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: bool) -> Result<ApplyResponse, String> {
+pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
     ensure_closed()?;
     let cache = state.dir.join("cache");
     let p = pack.clone();
@@ -163,17 +184,18 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
         revision: fetched.revision,
         files: fetched.files,
         notes,
+        ranked_safe,
     };
     let label = format!("apply {}#{}", src.repo.as_deref().unwrap_or("?"), src.id);
     logged_apply(&label, apply_source(&state, src, confirmed))
 }
 
 #[tauri::command]
-pub fn apply_local(state: State<AppState>, folder: String, confirmed: bool) -> Result<ApplyResponse, String> {
+pub fn apply_local(state: State<AppState>, folder: String, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
     let dir = PathBuf::from(&folder);
     let files = diag::logged("read local folder", packs::read_local(&dir))?;
     let name = dir.file_name().map(|n| format!("Local: {}", n.to_string_lossy())).unwrap_or_else(|| "Local folder".into());
-    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![] };
+    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![], ranked_safe };
     logged_apply("apply local folder", apply_source(&state, src, confirmed))
 }
 
@@ -321,4 +343,56 @@ pub fn get_diagnostics(state: State<AppState>) -> String {
 #[tauri::command]
 pub fn install_kind() -> &'static str {
     std::env::current_exe().map(|exe| diag::install_kind(&exe)).unwrap_or("portable")
+}
+
+/// Puts the engine sections of the installed gameinfo.gi back to Valve's defaults and keeps the rest
+/// (ConVars and so on). Same preview/confirm flow and backup as applying a pack; video.txt is untouched.
+#[tauri::command]
+pub fn make_ranked_safe(state: State<AppState>, confirmed: bool) -> Result<ApplyResponse, String> {
+    let ov = resolve(&state.snapshot());
+    let path = ov.gameinfo_path.filter(|_| ov.gameinfo_found).ok_or("gameinfo.gi wasn't found.")?;
+    let installed = fs::read_to_string(&path).map_err(|e| format!("Cannot read gameinfo.gi: {e}"))?;
+    let applied = state.snapshot().applied;
+    let src = Source {
+        repo: applied.as_ref().and_then(|a| a.repo.clone()),
+        id: applied.as_ref().map_or("installed".into(), |a| a.pack_id.clone()),
+        name: applied.as_ref().map_or("your current gameinfo.gi".into(), |a| a.pack_name.clone()),
+        revision: applied.as_ref().and_then(|a| a.revision.clone()),
+        files: PackFiles { gameinfo: installed, video: None },
+        notes: vec![],
+        ranked_safe: true,
+    };
+    logged_apply("make ranked-safe", apply_source(&state, src, confirmed))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackCheck {
+    /// `owner/name#packId`, same as pin keys.
+    pub key: String,
+    /// Engine-section entries the pack changes; None when the pack couldn't be read.
+    pub ranked_changes: Option<usize>,
+}
+
+/// Ranked-safety for each pack, for the badges on pack rows. Uses cached pack files when the
+/// revision hasn't changed, so repeated checks don't download anything.
+#[tauri::command]
+pub async fn check_packs(state: State<'_, AppState>, packs: Vec<PackInfo>) -> Result<Vec<PackCheck>, String> {
+    let cache = state.dir.join("cache");
+    let installed = resolve(&state.snapshot()).gameinfo_path.and_then(|p| fs::read_to_string(p).ok());
+    tauri::async_runtime::spawn_blocking(move || {
+        let stock = stock::load(&cache, installed.as_deref());
+        packs
+            .iter()
+            .map(|p| PackCheck {
+                key: format!("{}#{}", p.repo, p.id),
+                ranked_changes: packs::fetch_pack(&p.repo, p, &cache)
+                    .ok()
+                    .and_then(|f| ranked::guarded_changes(&stock, &f.files.gameinfo).ok())
+                    .map(|c| c.len()),
+            })
+            .collect()
+    })
+    .await
+    .map_err(|e| e.to_string())
 }

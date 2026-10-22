@@ -22,6 +22,9 @@ pub struct AppliedRecord {
     /// Hash with the DMM region and SearchPaths stripped, see `gameinfo::normalized_hash`.
     pub gameinfo_normalized_sha256: String,
     pub video_sha256: Option<String>,
+    /// Applied with the engine sections put back to Valve's defaults.
+    #[serde(default)]
+    pub ranked_safe: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

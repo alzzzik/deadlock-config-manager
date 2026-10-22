@@ -31,6 +31,8 @@ pub struct Overview {
     pub preserved_keys: Vec<String>,
     pub optional_preserved: Vec<String>,
     pub always_preserved: Vec<String>,
+    /// Engine-section entries in the installed gameinfo.gi that differ from Valve's; None if unreadable.
+    pub ranked_changes: Option<usize>,
 }
 
 pub fn to_string(p: &Path) -> String {
@@ -73,18 +75,30 @@ pub fn resolve(s: &Settings) -> Overview {
         preserved_keys: s.preserved_keys.clone(),
         optional_preserved: video::DEFAULT_PRESERVED.iter().map(|k| k.to_string()).collect(),
         always_preserved: video::ALWAYS_PRESERVED.iter().map(|k| k.to_string()).collect(),
+        ranked_changes: None,
     }
+}
+
+/// `resolve` plus the ranked check of the installed file, which needs the cache folder.
+pub fn resolve_with_checks(s: &Settings, cache_dir: &Path) -> Overview {
+    let ov = resolve(s);
+    let installed = ov.gameinfo_path.as_ref().filter(|_| ov.gameinfo_found).and_then(|p| std::fs::read_to_string(p).ok());
+    let ranked_changes = installed.as_deref().and_then(|src| {
+        let stock = crate::stock::load(cache_dir, Some(src));
+        crate::ranked::guarded_changes(&stock, src).ok().map(|c| c.len())
+    });
+    Overview { ranked_changes, ..ov }
 }
 
 #[tauri::command]
 pub fn get_overview(state: State<AppState>) -> Overview {
-    resolve(&state.snapshot())
+    resolve_with_checks(&state.snapshot(), &state.dir.join("cache"))
 }
 
 #[tauri::command]
 pub fn set_account(state: State<AppState>, id: String) -> Result<Overview, String> {
     let s = state.update(|s| Settings { account_id: Some(id), video_path: None, ..s })?;
-    Ok(resolve(&s))
+    Ok(state.overview(&s))
 }
 
 fn is_named(p: &Path, name: &str) -> bool {
@@ -140,7 +154,7 @@ pub fn set_path(state: State<AppState>, kind: String, path: Option<String>) -> R
         "gameinfo" => Settings { gameinfo_path: path, ..s },
         _ => Settings { video_path: path, ..s },
     })?;
-    Ok(resolve(&s))
+    Ok(state.overview(&s))
 }
 
 #[tauri::command]
@@ -150,16 +164,19 @@ pub fn save_settings(state: State<AppState>, preserved_keys: Vec<String>) -> Res
         .filter(|k| video::DEFAULT_PRESERVED.iter().any(|d| d.eq_ignore_ascii_case(k)))
         .collect();
     let s = state.update(|s| Settings { preserved_keys: keys, ..s })?;
-    Ok(resolve(&s))
+    Ok(state.overview(&s))
 }
 
 #[tauri::command]
 pub async fn list_packs(state: State<'_, AppState>) -> Result<Vec<RepoGroup>, String> {
     let repos = state.snapshot().effective_repos();
     let cache = state.dir.join("cache");
-    tauri::async_runtime::spawn_blocking(move || packs::list_all(&repos, &cache))
-        .await
-        .map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::stock::refresh(&cache);
+        packs::list_all(&repos, &cache)
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// Packs from the on-disk cache only; instant, used to fill the list before the network refresh.
@@ -189,19 +206,19 @@ pub async fn add_repo(state: State<'_, AppState>, input: String) -> Result<Added
         return Err(group.error.unwrap_or_else(|| format!("{} has no config packs.", group.repo)));
     }
     let s = state.update(|s| Settings { repos: repos::add(&s.effective_repos(), &input).unwrap_or(next), ..s })?;
-    Ok(AddedRepo { overview: resolve(&s), group })
+    Ok(AddedRepo { overview: state.overview(&s), group })
 }
 
 #[tauri::command]
 pub fn remove_repo(state: State<AppState>, repo: String) -> Result<Overview, String> {
     let s = state.update(|s| Settings { repos: repos::remove(&s.effective_repos(), &repo), ..s })?;
-    Ok(resolve(&s))
+    Ok(state.overview(&s))
 }
 
 #[tauri::command]
 pub fn move_repo(state: State<AppState>, repo: String, delta: i32) -> Result<Overview, String> {
     let s = state.update(|s| Settings { repos: repos::shift(&s.effective_repos(), &repo, delta), ..s })?;
-    Ok(resolve(&s))
+    Ok(state.overview(&s))
 }
 
 /// Pins or unpins a pack; `key` is `owner/name#packId`.
@@ -212,7 +229,7 @@ pub fn toggle_pin(state: State<AppState>, key: String) -> Result<Overview, Strin
         return Err("That pack can't be pinned.".into());
     }
     let s = state.update(|s| Settings { pinned: repos::toggle(&s.pinned, &key), ..s })?;
-    Ok(resolve(&s))
+    Ok(state.overview(&s))
 }
 
 #[cfg(test)]

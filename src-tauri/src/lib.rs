@@ -1,7 +1,7 @@
 pub mod apply;
 pub mod backup;
 pub mod diag;
-mod diff;
+pub mod diff;
 pub mod github;
 mod commands;
 pub mod fsops;
@@ -10,8 +10,10 @@ pub mod kv;
 mod overview;
 pub mod packs;
 pub mod paths;
+pub mod ranked;
 pub mod repos;
 pub mod settings;
+pub mod stock;
 pub mod video;
 pub mod writer;
 
@@ -44,6 +46,8 @@ pub fn run() {
             commands::open_github,
             commands::get_diagnostics,
             commands::install_kind,
+            commands::make_ranked_safe,
+            commands::check_packs,
             overview::toggle_pin,
         ])
         .run(tauri::generate_context!())

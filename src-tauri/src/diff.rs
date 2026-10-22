@@ -24,7 +24,7 @@ pub struct FileDiff {
     pub unchanged: usize,
 }
 
-const SEP: &str = " › ";
+pub const SEP: &str = " › ";
 
 /// Flattens a KeyValues tree into (path, value) pairs. The root block name is dropped and
 /// SearchPaths is skipped (the app always enforces it, and DMM rewrites it).

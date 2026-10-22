@@ -24,14 +24,15 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { PreviewDialog } from "./components/PreviewDialog";
 import { ToastStack, useToasts } from "./components/Toasts";
 import { UpdateBar, useAppUpdate } from "./components/AppUpdate";
+import { PackChecks, PackChecksContext } from "./packChecks";
 
 type Dialog =
   | { kind: "none" }
   | { kind: "restore" }
   | { kind: "settings" }
-  | { kind: "preview"; preview: Preview; proceed: () => void };
+  | { kind: "preview"; preview: Preview; proceed: () => void; proceedSafe: () => void };
 
-type ApplyCall = (confirmed: boolean) => Promise<ApplyResponse>;
+type ApplyCall = (confirmed: boolean, rankedSafe: boolean) => Promise<ApplyResponse>;
 
 /** How often linked repos are re-checked while the app is open. */
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
@@ -60,6 +61,7 @@ export default function App() {
   /** True once packs have come from GitHub this session (not just the disk cache). */
   const [fresh, setFresh] = useState(false);
   const [ready, setReady] = useState(false);
+  const [checks, setChecks] = useState<PackChecks>({});
   const { toasts, push, dismiss } = useToasts();
   const appUpdate = useAppUpdate();
   const fail = useCallback((e: unknown) => push("error", errorText(e)), [push]);
@@ -139,6 +141,19 @@ export default function App() {
   }, [fresh, groups, overview, updateAvailable, appliedPack, push]);
 
   const allPacks = useMemo(() => groups?.flatMap((g) => g.packs) ?? [], [groups]);
+
+  // Ranked-safety badges: checked once per fresh pack list (cached pack files make this cheap).
+  useEffect(() => {
+    if (!fresh || allPacks.length === 0) return;
+    let cancelled = false;
+    api
+      .checkPacks(allPacks)
+      .then((list) => !cancelled && setChecks(Object.fromEntries(list.map((c) => [c.key, c.rankedChanges]))))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [fresh, allPacks]);
   const pinnedPacks = useMemo(
     () =>
       (overview?.pinned ?? [])
@@ -154,17 +169,21 @@ export default function App() {
     [groups, query],
   );
 
-  const runApply = async (call: ApplyCall, confirmed = false) => {
+  const runApply = async (call: ApplyCall, confirmed = false, rankedSafe = false) => {
     setBusy(true);
     try {
-      const res = await call(confirmed);
+      const res = await call(confirmed, rankedSafe);
       if (res.kind === "preview") {
         setDialog({
           kind: "preview",
           preview: res.preview,
           proceed: () => {
             setDialog({ kind: "none" });
-            void runApply(call, true);
+            void runApply(call, true, rankedSafe);
+          },
+          proceedSafe: () => {
+            setDialog({ kind: "none" });
+            void runApply(call, true, true);
           },
         });
         return;
@@ -179,16 +198,19 @@ export default function App() {
     }
   };
 
-  const applyPack = (p: PackInfo) => runApply((c) => api.applyPack(p, c));
+  const applyPack = (p: PackInfo, rankedSafe = false) => runApply((c, r) => api.applyPack(p, c, r), false, rankedSafe);
 
-  const applyLocal = async () => {
+  const applyLocal = async (rankedSafe = false) => {
     const folder = await open({ directory: true, title: "Folder with gameinfo.gi and video.txt" });
-    if (typeof folder === "string") void runApply((c) => api.applyLocal(folder, c));
+    if (typeof folder === "string") void runApply((c, r) => api.applyLocal(folder, c, r), false, rankedSafe);
   };
 
+  const makeRankedSafe = () => runApply((c) => api.makeRankedSafe(c));
+
   const reapply = () => {
-    if (appliedPack) return applyPack(appliedPack);
-    if (overview?.applied?.packId === "local") return applyLocal();
+    const safe = !!overview?.applied?.rankedSafe;
+    if (appliedPack) return applyPack(appliedPack, safe);
+    if (overview?.applied?.packId === "local") return applyLocal(safe);
     push("error", "That pack isn't in your linked repos anymore. Refresh, or pick a pack below.");
   };
 
@@ -293,6 +315,7 @@ export default function App() {
             updateNote={updateAvailable ? appliedPack?.commitMessage ?? null : null}
             canReapply={!!appliedPack || overview.applied?.packId === "local"}
             onReapply={reapply}
+            onMakeRankedSafe={makeRankedSafe}
             onAccount={(id) => api.setAccount(id).then(setOverview, fail)}
             onLocate={locate}
             onAuto={auto}
@@ -302,6 +325,7 @@ export default function App() {
           <section className="status is-loading" aria-busy="true" />
         )}
 
+        <PackChecksContext.Provider value={checks}>
         <section className="packs" aria-labelledby="packs-title">
           <div className="toolbar">
             <h2 id="packs-title">
@@ -317,7 +341,7 @@ export default function App() {
             <button className="icon-btn" onClick={() => refreshPacks()} disabled={loading} aria-label="Refresh all repos" title="Refresh all repos">
               <RefreshIcon className={loading ? "spin" : ""} />
             </button>
-            <button className="btn btn-quiet btn-sm" onClick={applyLocal} disabled={blocked} title="Apply a pack from a folder on this PC">
+            <button className="btn btn-quiet btn-sm" onClick={() => void applyLocal()} disabled={blocked} title="Apply a pack from a folder on this PC">
               <FolderIcon size={14} />
               From folder…
             </button>
@@ -369,6 +393,7 @@ export default function App() {
 
           <AddRepo linked={overview?.repos ?? []} onAdd={addRepo} onOpenGithub={openGithub} />
         </section>
+        </PackChecksContext.Provider>
       </main>
 
       {dialog.kind === "restore" && (
@@ -390,7 +415,7 @@ export default function App() {
         />
       )}
       {dialog.kind === "preview" && (
-        <PreviewDialog preview={dialog.preview} onCancel={() => setDialog({ kind: "none" })} onConfirm={dialog.proceed} />
+        <PreviewDialog preview={dialog.preview} onCancel={() => setDialog({ kind: "none" })} onConfirm={dialog.proceed} onConfirmSafe={dialog.proceedSafe} />
       )}
 
       <ToastStack toasts={toasts} onDismiss={dismiss} />

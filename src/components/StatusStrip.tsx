@@ -11,6 +11,7 @@ interface StatusStripProps {
   updateNote: string | null;
   canReapply: boolean;
   onReapply: () => void;
+  onMakeRankedSafe: () => void;
   onAccount: (id: string) => void;
   onLocate: (kind: PathKind) => void;
   onAuto: (kind: PathKind) => void;
@@ -47,7 +48,7 @@ function headline(s: Status, o: Overview, update: boolean): { tone: Tone; title:
       return {
         tone: update ? "warn" : "good",
         title: s.pack,
-        detail: s.kind === "appliedDmm" ? `${source} · edited by Deadlock Mod Manager` : source,
+        detail: [source, a?.rankedSafe && "ranked-safe", s.kind === "appliedDmm" && "edited by Deadlock Mod Manager"].filter(Boolean).join(" · "),
       };
     case "changed":
       return { tone: "warn", title: "Game updated", detail: `Deadlock replaced gameinfo.gi, so ${s.pack} is no longer applied.` };
@@ -110,7 +111,7 @@ function PathRow({ name, path, state, note, onLocate, onAuto, onOpen }: PathRowP
 }
 
 export function StatusStrip(props: StatusStripProps) {
-  const { overview: o, busy, updateAvailable, updateNote, canReapply, onReapply, onAccount, onLocate, onAuto, onOpen } = props;
+  const { overview: o, busy, updateAvailable, updateNote, canReapply, onReapply, onMakeRankedSafe, onAccount, onLocate, onAuto, onOpen } = props;
   const h = headline(o.status, o, updateAvailable);
   const gameState: FileState = o.gameinfoFound ? "ok" : o.gameinfoCreatable ? "new" : "bad";
   const videoState: FileState = o.videoFound ? "ok" : o.videoPath ? "new" : "bad";
@@ -160,6 +161,17 @@ export function StatusStrip(props: StatusStripProps) {
       </div>
 
       {o.deadlockRunning && <p className="notice is-warn">Deadlock is running. Close it before applying or restoring.</p>}
+      {!!o.rankedChanges && o.status.kind !== "missing" && (
+        <div className="notice is-warn notice-action">
+          <span>
+            Your gameinfo.gi changes {o.rankedChanges} engine setting{o.rankedChanges === 1 ? "" : "s"} that Valve checks
+            before ranked matchmaking, so ranked queueing may be blocked.
+          </span>
+          <button className="btn btn-secondary btn-sm" disabled={busy || o.deadlockRunning} onClick={onMakeRankedSafe}>
+            Make ranked-safe
+          </button>
+        </div>
+      )}
 
       <div className="status-files">
         <FileChip name="gameinfo.gi" state={gameState} />
