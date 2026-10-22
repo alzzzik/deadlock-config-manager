@@ -162,7 +162,9 @@ value. Each installer also has a GitHub build attestation, which you can check w
 <details>
 <summary><b>What does it connect to?</b></summary>
 
-Only GitHub, to list and download configs and to check for app updates. See the
+Only GitHub, to list and download configs and to check for app updates. It also downloads Valve's unmodified `gameinfo.gi` from the public
+[GameTracking-Deadlock](https://github.com/SteamTracking/GameTracking-Deadlock) repo to check configs for
+ranked safety. See the
 [privacy policy](#privacy-policy).
 </details>
 
@@ -172,7 +174,7 @@ Deadlock Config Manager doesn't collect, store or send personal data, and has no
 background service.
 
 To list and download configs, the app connects to GitHub (`github.com`, `api.github.com` and
-`raw.githubusercontent.com`) for the config repos linked in the app, and checks this repo's latest release
+`raw.githubusercontent.com`) and to jsDelivr (`data.jsdelivr.com`, a CDN that lists the files in a GitHub repo) for the config repos linked in the app, and checks this repo's latest release
 for app updates. `alzzzik/alz-deadlock-cfg` is linked by
 default and can be removed in Settings. These requests are covered by
 [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).

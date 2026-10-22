@@ -275,10 +275,14 @@ fn fetch_index(repo: &Repo, cache_root: &Path) -> Result<Vec<PackInfo>, String> 
     let base = match get_text(&raw_url(repo, "HEAD", "packs.json"))? {
         Some(json) => parse_index(&json)?,
         None => {
-            let tree = match get_api_json(&api_url(repo, "git/trees/HEAD?recursive=1"), cache_root) {
-                Ok(t) => t,
-                // API refused and nothing cached: a root pack can still be found via raw files (no API limit).
-                Err(e) => root_only_tree(repo).ok_or(e)?,
+            // jsDelivr first: it lists files without touching GitHub's hourly API limit.
+            let tree = match jsdelivr_tree(repo, cache_root) {
+                Some(t) => t,
+                None => match get_api_json(&api_url(repo, "git/trees/HEAD?recursive=1"), cache_root) {
+                    Ok(t) => t,
+                    // API refused and nothing cached: a root pack can still be found via raw files (no API limit).
+                    Err(e) => root_only_tree(repo).ok_or(e)?,
+                },
             };
             let paths = tree_paths(&tree);
             let mut used = std::collections::HashSet::new();
@@ -344,6 +348,40 @@ fn fetch_index(repo: &Repo, cache_root: &Path) -> Result<Vec<PackInfo>, String> 
             with_commit(p, c)
         })
         .collect())
+}
+
+/// jsDelivr's flat file list (`{"files":[{"name":"/a/b"}]}`) in the shape of a git tree listing.
+pub fn tree_from_jsdelivr(json: &serde_json::Value) -> Option<serde_json::Value> {
+    let files = json["files"].as_array()?;
+    let tree: Vec<serde_json::Value> = files
+        .iter()
+        .filter_map(|f| f["name"].as_str())
+        .map(|n| serde_json::json!({ "path": n.trim_start_matches('/') }))
+        .collect();
+    Some(serde_json::json!({ "tree": tree }))
+}
+
+/// File list for the repo's latest commit via jsDelivr, pinned to the SHA from the Atom feed.
+/// A listing for a given SHA never changes, so it's cached on disk forever.
+fn jsdelivr_tree(repo: &Repo, cache_root: &Path) -> Option<serde_json::Value> {
+    let sha = github::latest_commit(&repo.owner, &repo.name, "")?.sha;
+    let cache = repo_cache(cache_root, repo).join(format!("tree-{sha}.json"));
+    if let Some(t) = fs::read(&cache).ok().and_then(|b| serde_json::from_slice(&b).ok()) {
+        return Some(t);
+    }
+    let url = format!("https://data.jsdelivr.com/v1/packages/gh/{}/{}@{sha}?structure=flat", repo.owner, repo.name);
+    let json: serde_json::Value = serde_json::from_str(&get_text(&url).ok()??).ok()?;
+    let tree = tree_from_jsdelivr(&json).filter(|t| !tree_paths(t).is_empty())?;
+    if fs::create_dir_all(repo_cache(cache_root, repo)).is_ok() {
+        // Older listings of this repo are no longer needed.
+        if let Ok(rd) = fs::read_dir(repo_cache(cache_root, repo)) {
+            rd.filter_map(Result::ok)
+                .filter(|e| e.file_name().to_string_lossy().starts_with("tree-"))
+                .for_each(|e| drop(fs::remove_file(e.path())));
+        }
+        let _ = serde_json::to_vec(&tree).map(|b| fs::write(&cache, b));
+    }
+    Some(tree)
 }
 
 /// A minimal tree for a repo whose root is a pack, built from raw downloads.
@@ -544,6 +582,14 @@ mod tests {
         assert_eq!(parse_repo("github.com/alzzzik/alz-deadlock-cfg.git").unwrap(), want);
         assert!(parse_repo("alzzzik").is_err());
         assert!(parse_repo("../../etc/x").is_err());
+    }
+
+    #[test]
+    fn reads_jsdelivr_listing_as_tree() {
+        let json = serde_json::json!({ "files": [{ "name": "/stable/gameinfo.gi" }, { "name": "/stable/video.txt" }, { "name": "/gameinfo.gi" }] });
+        let tree = tree_from_jsdelivr(&json).unwrap();
+        assert_eq!(folders_from_tree(&tree), vec![String::new(), "stable".to_string()]);
+        assert!(tree_from_jsdelivr(&serde_json::json!({})).is_none());
     }
 
     #[test]
