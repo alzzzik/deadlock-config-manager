@@ -1,4 +1,5 @@
-//! Personal tweaks applied on top of any pack: common FAQ fixes, FOV and custom convar lines.
+//! Personal tweaks applied on top of any pack: view width, FPS caps, feel toggles, FAQ fixes and
+//! custom convar lines.
 //! They only touch the ConVars block, so they never affect ranked safety. The file format for import
 //! and export is the `overrides.gi` of Sqooky's OptimizationLock updater:
 //! `name value` sets a convar, `// name` comments it out, `#` starts a comment.
@@ -26,44 +27,86 @@ impl Entry {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Overrides {
-    /// Ids from [`FIXES`] that are turned on.
+    /// Ids from [`TOGGLES`] that are turned on.
     pub fixes: Vec<String>,
-    /// Hero camera field of view (`citadel_camera_hero_fov`).
-    pub fov: Option<u32>,
+    /// View width through `r_aspectratio` ("0" is the game's default). None keeps the pack's value.
+    pub aspect: Option<String>,
+    /// Frame rate cap in matches (`fps_max`, 0 = no cap). None keeps the pack's value.
+    pub fps_max: Option<u32>,
+    /// Frame rate cap in menus (`fps_max_ui`).
+    pub fps_max_ui: Option<u32>,
     pub custom: Vec<Entry>,
 }
 
-pub struct Fix {
+pub struct Toggle {
     pub id: &'static str,
+    /// "feel" for gameplay feel, "fix" for visibility fixes.
+    pub group: &'static str,
     pub label: &'static str,
+    pub hint: &'static str,
     pub entries: fn() -> Vec<Entry>,
 }
 
-/// Fixes from the OptimizationLock FAQ for things aggressive configs hide.
-pub const FIXES: [Fix; 8] = [
-    Fix { id: "portraits_dark", label: "Heroes look dark in the shop and end screen", entries: || vec![Entry::set("lb_enable_dynamic_lights", "true")] },
-    Fix { id: "portraits_missing", label: "Heroes missing in the shop and end screen", entries: || vec![Entry::off("citadel_portrait_world_renderer_off")] },
-    Fix { id: "doorman_ult", label: "Can't see the Doorman ult indicator", entries: || vec![Entry::set("cl_ragdoll_limit", "-1")] },
-    Fix { id: "far_boxes", label: "Boxes and health bars vanish at a distance", entries: || vec![Entry::set("r_size_cull_threshold", "0.7")] },
-    Fix { id: "buildings_pop", label: "Buildings pop in and out", entries: || vec![Entry::off("r_farz"), Entry::off("r_mapextents")] },
-    Fix { id: "lod_holes", label: "Holes in Victor and Paige, Sinner's lights are triangles", entries: || vec![Entry::off("sc_screen_size_lod_scale_override")] },
-    Fix { id: "decals", label: "Can't see Lash's ground slam", entries: || vec![Entry::off("r_drawdecals")] },
-    Fix { id: "far_effects", label: "Can't see blast vent wind or in-world text at range", entries: || vec![Entry::off("sc_fade_distance_scale_override"), Entry::off("citadel_in_world_item_panel_dpi")] },
+/// On/off tweaks. The "feel" ones are what the popular configs set; the "fix" ones come from the
+/// OptimizationLock FAQ and undo things aggressive configs hide.
+pub const TOGGLES: [Toggle; 10] = [
+    Toggle {
+        id: "no_shake",
+        group: "feel",
+        label: "No camera shake",
+        hint: "Turns off the screen shake on heavy melee and other shakes.",
+        entries: || vec![Entry::set("citadel_melee_shake_amplitude", "0"), Entry::set("citadel_melee_shake_duration", "0"), Entry::set("shake_show", "false")],
+    },
+    Toggle {
+        id: "interp",
+        group: "feel",
+        label: "Lowest network interpolation",
+        hint: "Shows enemies where they are more recently. On a poor connection movement can look jittery.",
+        entries: || vec![Entry::set("cl_interp_ratio", "0"), Entry::set("cl_interp_parallel", "1")],
+    },
+    Toggle { id: "portraits_dark", group: "fix", label: "Heroes look dark in the shop and end screen", hint: "", entries: || vec![Entry::set("lb_enable_dynamic_lights", "true")] },
+    Toggle { id: "portraits_missing", group: "fix", label: "Heroes missing in the shop and end screen", hint: "", entries: || vec![Entry::off("citadel_portrait_world_renderer_off")] },
+    Toggle { id: "doorman_ult", group: "fix", label: "Can't see the Doorman ult indicator", hint: "", entries: || vec![Entry::set("cl_ragdoll_limit", "-1")] },
+    Toggle { id: "far_boxes", group: "fix", label: "Boxes and health bars vanish at a distance", hint: "", entries: || vec![Entry::set("r_size_cull_threshold", "0.7")] },
+    Toggle { id: "buildings_pop", group: "fix", label: "Buildings pop in and out", hint: "", entries: || vec![Entry::off("r_farz"), Entry::off("r_mapextents")] },
+    Toggle { id: "lod_holes", group: "fix", label: "Holes in Victor and Paige, Sinner's lights are triangles", hint: "", entries: || vec![Entry::off("sc_screen_size_lod_scale_override")] },
+    Toggle { id: "decals", group: "fix", label: "Can't see Lash's ground slam", hint: "", entries: || vec![Entry::off("r_drawdecals")] },
+    Toggle {
+        id: "far_effects",
+        group: "fix",
+        label: "Can't see blast vent wind or in-world text at range",
+        hint: "",
+        entries: || vec![Entry::off("sc_fade_distance_scale_override"), Entry::off("citadel_in_world_item_panel_dpi")],
+    },
 ];
 
-pub const MIN_FOV: u32 = 60;
-pub const MAX_FOV: u32 = 120;
+/// `r_aspectratio` values with the field of view they roughly give (from the OptiLock and
+/// OptimizationLock configs: 1.75 ≈ 80, 2.15 ≈ 90, 2.49 ≈ 100). "0" is the game's own view.
+pub const ASPECT_PRESETS: [(&str, &str); 5] = [("Game default", "0"), ("About 80 FOV", "1.75"), ("About 90 FOV", "2.15"), ("About 95 FOV", "2.32"), ("About 100 FOV", "2.49")];
+const MAX_ASPECT: f64 = 4.0;
+pub const MAX_FPS: u32 = 1000;
+
+/// Accepts "0" or a positive number up to [`MAX_ASPECT`], written with a dot.
+pub fn parse_aspect(v: &str) -> Result<String, String> {
+    let t = v.trim().replace(',', ".");
+    match t.parse::<f64>() {
+        Ok(x) if (0.0..=MAX_ASPECT).contains(&x) => Ok(t),
+        _ => Err(format!("View width must be a number from 0 to {MAX_ASPECT} (e.g. 2.15).")),
+    }
+}
 
 impl Overrides {
     pub fn is_empty(&self) -> bool {
         self.effective().is_empty()
     }
 
-    /// All entries in apply order: fixes, then FOV, then custom lines (later ones win).
+    /// All entries in apply order: toggles, view width, FPS caps, then custom lines (later ones win).
     pub fn effective(&self) -> Vec<Entry> {
-        let fixes = FIXES.iter().filter(|f| self.fixes.iter().any(|id| id == f.id)).flat_map(|f| (f.entries)());
-        let fov = self.fov.map(|v| Entry::set("citadel_camera_hero_fov", &v.clamp(MIN_FOV, MAX_FOV).to_string()));
-        let all: Vec<Entry> = fixes.chain(fov).chain(self.custom.iter().cloned()).collect();
+        let toggles = TOGGLES.iter().filter(|t| self.fixes.iter().any(|id| id == t.id)).flat_map(|t| (t.entries)());
+        let aspect = self.aspect.as_deref().and_then(|a| parse_aspect(a).ok()).map(|a| Entry::set("r_aspectratio", &a));
+        let fps = self.fps_max.map(|v| Entry::set("fps_max", &v.min(MAX_FPS).to_string()));
+        let fps_ui = self.fps_max_ui.map(|v| Entry::set("fps_max_ui", &v.min(MAX_FPS).to_string()));
+        let all: Vec<Entry> = toggles.chain(aspect).chain(fps).chain(fps_ui).chain(self.custom.iter().cloned()).collect();
         // Keep only the last entry per convar.
         all.iter()
             .enumerate()
@@ -280,18 +323,26 @@ mod tests {
     }
 
     #[test]
-    fn effective_merges_fixes_fov_and_custom() {
+    fn effective_merges_toggles_view_fps_and_custom() {
         let o = Overrides {
-            fixes: vec!["doorman_ult".into(), "buildings_pop".into()],
-            fov: Some(200),
+            fixes: vec!["doorman_ult".into(), "buildings_pop".into(), "no_shake".into()],
+            aspect: Some("2,15".into()),
+            fps_max: Some(5000),
+            fps_max_ui: Some(60),
             custom: vec![Entry::set("cl_ragdoll_limit", "5")],
         };
         let e = o.effective();
-        assert!(e.contains(&Entry::set("citadel_camera_hero_fov", "120")));
+        assert!(e.contains(&Entry::set("r_aspectratio", "2.15")));
+        assert!(e.contains(&Entry::set("fps_max", "1000")));
+        assert!(e.contains(&Entry::set("fps_max_ui", "60")));
+        assert!(e.contains(&Entry::set("citadel_melee_shake_amplitude", "0")));
         assert!(e.contains(&Entry::set("cl_ragdoll_limit", "5")));
         assert!(!e.contains(&Entry::set("cl_ragdoll_limit", "-1")));
         assert!(e.contains(&Entry::off("r_mapextents")));
         assert!(Overrides::default().is_empty());
+        // Nonsense view widths are dropped rather than written.
+        assert!(Overrides { aspect: Some("wide".into()), ..Default::default() }.is_empty());
+        assert!(parse_aspect("9").is_err() && parse_aspect("0").is_ok());
     }
 
     #[test]

@@ -461,14 +461,28 @@ input::placeholder { color: var(--text-faint); }
 .guide-choice > span { display: grid; gap: 2px; }
 
 /* ---------- tweaks ---------- */
-.fov-input { width: 64px; height: 26px; padding: 0 6px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font: inherit; }
-.fov-input:disabled { opacity: 0.5; }
+.num-input { width: 72px; height: 26px; padding: 0 6px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font: 12px var(--mono); }
+.num-input:disabled { opacity: 0.5; }
 .tweak-lines {
   width: 100%; margin-top: 8px; padding: 8px 10px; resize: vertical;
   border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--surface);
   color: var(--text); font: 12px/1.5 var(--mono); user-select: text;
 }
-.tweak-lines:focus, .fov-input:focus { outline: none; border-color: var(--accent-line); }
-.fov-row { display: flex; align-items: center; gap: 10px; padding: 6px; }
-.fov-row > input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; }
-.fov-row code { color: var(--text-faint); font-size: 11px; }
+.tweak-lines:focus, .num-input:focus { outline: none; border-color: var(--accent-line); }
+.tweak-row { display: flex; align-items: flex-start; gap: 10px; padding: 7px 6px; border-radius: var(--r-sm); cursor: pointer; }
+.tweak-row:hover { background: var(--surface-2); }
+.tweak-row > input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; margin-top: 2px; flex: none; }
+.tweak-row .num-input { margin-left: auto; flex: none; }
+.tweak-text { display: grid; gap: 2px; min-width: 0; }
+.tweak-text code { color: var(--text-faint); font-size: 11px; overflow-wrap: anywhere; }
+.chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.chip {
+  display: inline-flex; align-items: center; height: 28px; padding: 0 10px; cursor: pointer;
+  border: 1px solid var(--line-strong); border-radius: 99px; font-size: var(--fs-sm); color: var(--text-dim);
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+.chip input { position: absolute; opacity: 0; pointer-events: none; }
+.chip:hover { color: var(--text); border-color: var(--accent-line); }
+.chip.is-on { color: var(--accent-text); border-color: var(--accent); background: var(--accent-wash); }
+.chip:focus-within { outline: 2px solid var(--accent-line); outline-offset: 1px; }
+.field-toggle { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }

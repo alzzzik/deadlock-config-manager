@@ -94,12 +94,19 @@ export type LibraryEntry = {
 };
 
 export type TweakEntry = { name: string; value: string | null };
-export type Overrides = { fixes: string[]; fov: number | null; custom: TweakEntry[] };
+export type Overrides = {
+  fixes: string[];
+  aspect: string | null;
+  fpsMax: number | null;
+  fpsMaxUi: number | null;
+  custom: TweakEntry[];
+};
+export type TweakToggle = { id: string; group: "feel" | "fix"; label: string; hint: string; lines: string[] };
 export type TweaksView = {
   overrides: Overrides;
-  fixes: { id: string; label: string; lines: string[] }[];
-  minFov: number;
-  maxFov: number;
+  toggles: TweakToggle[];
+  aspectPresets: { label: string; value: string }[];
+  maxFps: number;
 };
 
 export type ApplyResponse =

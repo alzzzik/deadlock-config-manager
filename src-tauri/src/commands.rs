@@ -419,20 +419,29 @@ pub async fn check_packs(state: State<'_, AppState>, packs: Vec<PackInfo>) -> Re
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FixInfo {
+pub struct ToggleInfo {
     pub id: &'static str,
+    pub group: &'static str,
     pub label: &'static str,
-    /// What the fix writes, e.g. `cl_ragdoll_limit "-1"` or `// r_farz`.
+    pub hint: &'static str,
+    /// What the toggle writes, e.g. `cl_ragdoll_limit "-1"` or `// r_farz`.
     pub lines: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AspectPreset {
+    pub label: &'static str,
+    pub value: &'static str,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TweaksView {
     pub overrides: Overrides,
-    pub fixes: Vec<FixInfo>,
-    pub min_fov: u32,
-    pub max_fov: u32,
+    pub toggles: Vec<ToggleInfo>,
+    pub aspect_presets: Vec<AspectPreset>,
+    pub max_fps: u32,
 }
 
 fn tweaks_view(o: Overrides) -> TweaksView {
@@ -440,11 +449,12 @@ fn tweaks_view(o: Overrides) -> TweaksView {
         Some(v) => format!("{} \"{v}\"", e.name),
         None => format!("// {}", e.name),
     };
-    let fixes = overrides::FIXES
+    let toggles = overrides::TOGGLES
         .iter()
-        .map(|f| FixInfo { id: f.id, label: f.label, lines: (f.entries)().iter().map(line).collect() })
+        .map(|t| ToggleInfo { id: t.id, group: t.group, label: t.label, hint: t.hint, lines: (t.entries)().iter().map(line).collect() })
         .collect();
-    TweaksView { overrides: o, fixes, min_fov: overrides::MIN_FOV, max_fov: overrides::MAX_FOV }
+    let aspect_presets = overrides::ASPECT_PRESETS.iter().map(|(label, value)| AspectPreset { label, value }).collect();
+    TweaksView { overrides: o, toggles, aspect_presets, max_fps: overrides::MAX_FPS }
 }
 
 #[tauri::command]
@@ -456,8 +466,9 @@ pub fn get_tweaks(state: State<AppState>) -> TweaksView {
 #[tauri::command]
 pub fn save_tweaks(state: State<AppState>, overrides: Overrides) -> Result<TweaksView, String> {
     overrides::validate(&overrides.custom)?;
-    let known: Vec<String> = overrides.fixes.into_iter().filter(|id| overrides::FIXES.iter().any(|f| f.id == id)).collect();
-    let clean = Overrides { fixes: known, ..overrides };
+    let aspect = overrides.aspect.as_deref().map(overrides::parse_aspect).transpose()?;
+    let known: Vec<String> = overrides.fixes.into_iter().filter(|id| overrides::TOGGLES.iter().any(|t| t.id == id)).collect();
+    let clean = Overrides { fixes: known, aspect, ..overrides };
     let s = state.update(|s| Settings { overrides: clean, ..s })?;
     Ok(tweaks_view(s.overrides))
 }
