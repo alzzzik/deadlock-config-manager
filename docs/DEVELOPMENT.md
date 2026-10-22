@@ -55,8 +55,8 @@ Publishing a release also runs the **Packages** workflow:
   `winget install alzzzik.DeadlockConfigManager` line to the README once it's listed.
 
 App updates are signed with a [Tauri updater key](https://v2.tauri.app/plugin/updater/). The workflow reads
-it from the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repository secrets and fails
-without them. The matching public key is in `tauri.conf.json`. If the private key is lost, installed copies
+it from the `TAURI_SIGNING_PRIVATE_KEY` repository secret (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if the key
+has a password) and fails without it. The matching public key is in `tauri.conf.json`. If the private key is lost, installed copies
 can't be updated anymore, so keep an offline backup.
 
 ## Source map (`src-tauri/src`)
