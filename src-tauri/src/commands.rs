@@ -761,3 +761,49 @@ pub fn update_report(state: State<AppState>) -> Option<crate::report::UpdateRepo
     let from = s.applied.and_then(|a| a.game_build);
     Some(crate::report::build(&pack.gameinfo, &installed, from, ov.game_build))
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchView {
+    pub options: String,
+    pub steam_running: bool,
+    /// Why the options can't be read or changed (no account found, file missing, …).
+    pub problem: Option<String>,
+}
+
+fn localconfig(state: &AppState) -> Result<PathBuf, String> {
+    let ov = resolve(&state.snapshot());
+    let root = ov.steam_root.ok_or("Steam wasn't found.")?;
+    let id = ov.account_id.ok_or("No Steam account was found.")?;
+    Ok(crate::launch::localconfig_path(Path::new(&root), &id))
+}
+
+#[tauri::command]
+pub fn get_launch_options(state: State<AppState>) -> LaunchView {
+    let steam_running = crate::launch::steam_running();
+    let read = localconfig(&state)
+        .and_then(|p| fs::read_to_string(&p).map_err(|_| "Steam hasn't saved settings for this account yet.".to_string()))
+        .and_then(|t| crate::launch::read(&t));
+    match read {
+        Ok(options) => LaunchView { options, steam_running, problem: None },
+        Err(e) => LaunchView { options: String::new(), steam_running, problem: Some(e) },
+    }
+}
+
+/// Writes Deadlock's launch options (Steam must be closed). The old localconfig.vdf goes to backups.
+#[tauri::command]
+pub fn set_launch_options(state: State<AppState>, options: String) -> Result<LaunchView, String> {
+    if crate::launch::steam_running() {
+        return Err("Close Steam first. It overwrites launch options when it exits.".into());
+    }
+    let path = localconfig(&state)?;
+    let src = fs::read_to_string(&path).map_err(|e| format!("Cannot read localconfig.vdf: {e}"))?;
+    let out = crate::launch::write(&src, &options)?;
+    let backups = state.backups_dir();
+    fs::create_dir_all(&backups).map_err(|e| e.to_string())?;
+    let stamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S");
+    fs::write(backups.join(format!("localconfig_{stamp}.vdf")), &src).map_err(|e| format!("Couldn't back up localconfig.vdf: {e}"))?;
+    crate::fsops::atomic_write(&path, out.as_bytes()).map_err(|e| format!("Couldn't save localconfig.vdf: {e}"))?;
+    diag::info(&format!("launch options set: {options}"));
+    Ok(LaunchView { options: crate::launch::read(&out)?, steam_running: false, problem: None })
+}

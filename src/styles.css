@@ -489,3 +489,18 @@ input::placeholder { color: var(--text-faint); }
 
 .update-report { display: grid; gap: 4px; align-items: start; }
 .update-report ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.tabs button {
+  height: 32px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: none;
+  color: var(--text-dim); font: 500 var(--fs-sm) var(--font); cursor: pointer;
+}
+.tabs button:hover { color: var(--text); }
+.tabs button.is-on { color: var(--text); border-bottom-color: var(--accent); }
+
+.text-field { display: grid; gap: 4px; margin-top: 10px; font-size: var(--fs-sm); color: var(--text-dim); }
+.text-field input {
+  height: 32px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--r);
+  background: var(--surface); color: var(--text); font: 12.5px var(--font); user-select: text;
+}
+.text-field input:focus { outline: none; border-color: var(--accent-line); }

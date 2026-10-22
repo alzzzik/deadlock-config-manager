@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { TweakToggle, TweaksView, api, errorText } from "../api";
 import { Modal } from "./Modal";
+import { LaunchOptions } from "./LaunchOptions";
 
 interface TweaksDialogProps {
   /** A pack is applied, so saving can re-apply it right away. */
@@ -75,6 +76,7 @@ export function TweaksDialog({ canReapply, onClose, onSaved, onNotify }: TweaksD
   const [custom, setCustom] = useState("");
   const [showFixes, setShowFixes] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"config" | "launch">("config");
 
   const load = async (v: TweaksView) => {
     setView(v);
@@ -143,6 +145,14 @@ export function TweaksDialog({ canReapply, onClose, onSaved, onNotify }: TweaksD
       onClose={onClose}
       wide
       footer={
+        tab === "launch" ? (
+          <>
+            <span className="spacer" />
+            <button className="btn btn-secondary" onClick={onClose}>
+              Close
+            </button>
+          </>
+        ) : (
         <>
           <button className="btn btn-quiet" onClick={importFile}>
             Import…
@@ -169,8 +179,20 @@ export function TweaksDialog({ canReapply, onClose, onSaved, onNotify }: TweaksD
             </button>
           )}
         </>
+        )
       }
     >
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === "config"} className={tab === "config" ? "is-on" : ""} onClick={() => setTab("config")}>
+          Config tweaks
+        </button>
+        <button role="tab" aria-selected={tab === "launch"} className={tab === "launch" ? "is-on" : ""} onClick={() => setTab("launch")}>
+          Launch options
+        </button>
+      </div>
+      {tab === "launch" && <LaunchOptions onNotify={onNotify} />}
+      {tab === "config" && (
+      <>
       <p className="muted small">
         Tweaks go on top of whichever config you apply and stay when you switch or update configs. They only change
         ConVars, so they never affect ranked matchmaking. Anything left unset keeps the config's own value.
@@ -258,6 +280,8 @@ export function TweaksDialog({ canReapply, onClose, onSaved, onNotify }: TweaksD
             />
           </section>
         </>
+      )}
+      </>
       )}
     </Modal>
   );

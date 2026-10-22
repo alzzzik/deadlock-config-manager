@@ -8,6 +8,7 @@ pub mod convars;
 pub mod fsops;
 pub mod gameinfo;
 pub mod kv;
+pub mod launch;
 pub mod library;
 mod overview;
 pub mod overlay;
@@ -147,6 +148,8 @@ pub fn run() {
             commands::get_automation,
             commands::set_automation,
             commands::update_report,
+            commands::get_launch_options,
+            commands::set_launch_options,
             overview::toggle_pin,
             overview::finish_guide,
         ])

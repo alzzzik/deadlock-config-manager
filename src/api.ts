@@ -90,6 +90,8 @@ export type UpdateReport = {
   engineChanges: number;
 };
 
+export type LaunchView = { options: string; steamRunning: boolean; problem: string | null };
+
 export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean };
 
 export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
@@ -184,6 +186,8 @@ export const api = {
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
+  getLaunchOptions: () => invoke<LaunchView>("get_launch_options"),
+  setLaunchOptions: (options: string) => invoke<LaunchView>("set_launch_options", { options }),
   setAutomation: (a: Automation) => invoke<Automation>("set_automation", a),
   installKind: () => invoke<InstallKind>("install_kind"),
 };
