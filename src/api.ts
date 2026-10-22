@@ -53,6 +53,7 @@ export type PackInfo = {
   commitMessage: string | null;
   htmlUrl: string;
   videoFile?: string | null;
+  gameinfoFile?: string | null;
 };
 
 export type RepoGroup = {

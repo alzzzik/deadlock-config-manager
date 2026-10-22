@@ -612,6 +612,7 @@ pub fn share_pack(state: State<AppState>, pack: PackInfo, ranked_safe: bool) -> 
         name: pack.name.clone(),
         rev: pack.revision.clone(),
         video_file: pack.video_file.clone(),
+        gameinfo_file: pack.gameinfo_file.clone(),
         safe: ranked_safe,
         tweaks: state.snapshot().overrides.effective(),
     };
@@ -644,7 +645,7 @@ pub async fn import_code(state: State<'_, AppState>, text: String) -> Result<cra
         let cache = dir.join("cache");
         let root = crate::library::dir(&dir);
         match shared {
-            crate::share::Shared::Pack { repo, folder, name, rev, video_file, safe, tweaks } => {
+            crate::share::Shared::Pack { repo, folder, name, rev, video_file, gameinfo_file, safe, tweaks } => {
                 let pack = PackInfo {
                     repo: repo.clone(),
                     id: packs::slug(&folder),
@@ -656,6 +657,7 @@ pub async fn import_code(state: State<'_, AppState>, text: String) -> Result<cra
                     commit_message: None,
                     html_url: String::new(),
                     video_file,
+                    gameinfo_file,
                 };
                 let fetched = packs::fetch_pack(&repo, &pack, &cache)?;
                 let stock = stock::load(&cache, None);

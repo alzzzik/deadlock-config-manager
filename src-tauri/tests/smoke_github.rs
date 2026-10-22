@@ -103,3 +103,15 @@ fn handles_pack_at_repo_root() {
     .unwrap();
     assert!(gameinfo::search_paths_ok(&plan.gameinfo_out).unwrap());
 }
+
+#[test]
+#[ignore]
+fn handles_gameinfo_variants_in_one_folder() {
+    let tmp = tempfile::tempdir().unwrap();
+    let cache = tmp.path().join("cache");
+    let list = packs::list_packs("Sqooky/OptimizationLock", &cache);
+    assert!(list.error.is_none(), "{:?}", list.error);
+    let variant = list.packs.iter().find(|p| p.gameinfo_file.is_some()).expect("a gameinfo-*.gi variant pack");
+    let fetched = packs::fetch_pack(&variant.repo, variant, &cache).unwrap();
+    assert!(gameinfo::validate(&fetched.files.gameinfo).is_ok(), "{}", variant.name);
+}

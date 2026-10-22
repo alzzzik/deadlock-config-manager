@@ -36,6 +36,8 @@ pub enum Shared {
         #[serde(default)]
         video_file: Option<String>,
         #[serde(default)]
+        gameinfo_file: Option<String>,
+        #[serde(default)]
         safe: bool,
         #[serde(default)]
         tweaks: Vec<Entry>,
@@ -149,6 +151,7 @@ mod tests {
             name: "Potato".into(),
             rev: Some("0123456789abcdef0123456789abcdef01234567".into()),
             video_file: None,
+            gameinfo_file: None,
             safe: true,
             tweaks: vec![Entry { name: "citadel_camera_hero_fov".into(), value: Some("100".into()) }],
         };

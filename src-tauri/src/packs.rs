@@ -37,6 +37,9 @@ pub struct PackInfo {
     /// Exact file name of the pack's video file (e.g. "Video.txt", "video(Shadows).txt"); None = "video.txt".
     #[serde(default)]
     pub video_file: Option<String>,
+    /// Exact file name of a gameinfo variant (e.g. "gameinfo-EXTREME-LOW.gi"); None = "gameinfo.gi".
+    #[serde(default)]
+    pub gameinfo_file: Option<String>,
 }
 
 /// One linked repo and its packs, as shown in the UI.
@@ -225,15 +228,46 @@ pub fn folders_from_tree(tree: &serde_json::Value) -> Vec<String> {
     let paths = tree_paths(tree);
     let mut folders: Vec<String> = paths
         .iter()
-        .filter_map(|p| p.strip_suffix("/gameinfo.gi"))
-        .filter(|f| !f.contains('/') && is_safe_folder(f))
-        .map(str::to_string)
+        .filter_map(|p| p.rsplit_once('/'))
+        .filter(|(f, name)| is_gameinfo_name(name) && !f.contains('/') && is_safe_folder(f))
+        .map(|(f, _)| f.to_string())
         .collect();
     folders.sort();
-    if paths.iter().any(|p| p == "gameinfo.gi") {
+    folders.dedup();
+    if paths.iter().any(|p| !p.contains('/') && is_gameinfo_name(p)) {
         folders.insert(0, String::new());
     }
     folders
+}
+
+/// `gameinfo.gi` or a variant such as `gameinfo-EXTREME-LOW.gi` / `gameinfo (low).gi`.
+fn is_gameinfo_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("gameinfo") && lower.ends_with(".gi") && !name.contains(['/', '\\'])
+}
+
+/// Variant gameinfo files directly in `folder`, not counting plain `gameinfo.gi`.
+pub fn gameinfo_variants(paths: &[String], folder: &str) -> Vec<String> {
+    let prefix = in_folder(folder, "");
+    let mut files: Vec<String> = paths
+        .iter()
+        .filter_map(|p| p.strip_prefix(&prefix))
+        .filter(|name| !name.contains('/') && is_gameinfo_name(name) && !name.eq_ignore_ascii_case("gameinfo.gi"))
+        .map(str::to_string)
+        .collect();
+    files.sort();
+    files
+}
+
+/// "gameinfo-EXTREME-LOW.gi" -> "EXTREME-LOW".
+pub fn gameinfo_variant_label(file: &str) -> String {
+    let stem = file.get(8..file.len().saturating_sub(3)).unwrap_or("");
+    let label = stem.trim_matches(|c: char| "()[]_- ".contains(c));
+    if label.is_empty() {
+        file.to_string()
+    } else {
+        label.to_string()
+    }
 }
 
 fn tree_paths(tree: &serde_json::Value) -> Vec<String> {
@@ -299,27 +333,53 @@ fn fetch_index(repo: &Repo, cache_root: &Path) -> Result<Vec<PackInfo>, String> 
                     // One pack per video variant; a single (or missing) video file is just the folder.
                     let variants: Vec<Option<String>> = if videos.len() > 1 { videos.into_iter().map(Some).collect() } else { vec![videos.into_iter().next()] };
                     let many = variants.len() > 1;
-                    variants
-                        .into_iter()
-                        .map(|video| {
-                            let (name, id) = match (&video, many) {
-                                (Some(v), true) => (format!("{} · {}", title_case(&label), variant_label(v)), slug(&format!("{label} {}", variant_label(v)))),
-                                _ => (title_case(&label), slug(&label)),
-                            };
-                            PackInfo {
-                                repo: String::new(),
-                                commit_message: None,
-                                html_url: String::new(),
-                                description: description.clone(),
-                                id: unique(id),
-                                name,
-                                folder: folder.clone(),
-                                last_commit_date: None,
-                                revision: None,
-                                video_file: video,
-                            }
-                        })
-                        .collect::<Vec<_>>()
+                    let has_main = paths.iter().any(|p| p.eq_ignore_ascii_case(&in_folder(&folder, "gameinfo.gi")));
+                    let main_packs: Vec<PackInfo> = if has_main {
+                        variants
+                            .into_iter()
+                            .map(|video| {
+                                let (name, id) = match (&video, many) {
+                                    (Some(v), true) => (format!("{} · {}", title_case(&label), variant_label(v)), slug(&format!("{label} {}", variant_label(v)))),
+                                    _ => (title_case(&label), slug(&label)),
+                                };
+                                PackInfo {
+                                    repo: String::new(),
+                                    commit_message: None,
+                                    html_url: String::new(),
+                                    description: description.clone(),
+                                    id: unique(id),
+                                    name,
+                                    folder: folder.clone(),
+                                    last_commit_date: None,
+                                    revision: None,
+                                    video_file: video,
+                                    gameinfo_file: None,
+                                }
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
+                    // Extra gameinfo files in the same folder (e.g. an "EXTREME-LOW" version) are packs of
+                    // their own, sharing the folder's first video file.
+                    let first_video = video_files(&paths, &folder).into_iter().next();
+                    let variant_packs = gameinfo_variants(&paths, &folder).into_iter().map(|gi| {
+                        let v = gameinfo_variant_label(&gi);
+                        PackInfo {
+                            repo: String::new(),
+                            commit_message: None,
+                            html_url: String::new(),
+                            description: description.clone(),
+                            id: unique(slug(&format!("{label} {v}"))),
+                            name: format!("{} · {v}", title_case(&label)),
+                            folder: folder.clone(),
+                            last_commit_date: None,
+                            revision: None,
+                            video_file: first_video.clone(),
+                            gameinfo_file: Some(gi),
+                        }
+                    });
+                    main_packs.into_iter().chain(variant_packs).collect::<Vec<_>>()
                 })
                 .collect()
         }
@@ -538,7 +598,8 @@ pub fn fetch_pack(repo_input: &str, pack: &PackInfo, cache_root: &Path) -> Resul
     }
     let rev = pack.revision.clone().unwrap_or_else(|| "HEAD".into());
     let download = || -> Result<PackFiles, String> {
-        let gi = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, "gameinfo.gi")))?
+        let gi_name = pack.gameinfo_file.as_deref().filter(|g| is_gameinfo_name(g)).unwrap_or("gameinfo.gi");
+        let gi = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, gi_name)))?
             .ok_or("The pack has no gameinfo.gi.")?;
         let video_name = pack.video_file.as_deref().filter(|v| !v.contains(['/', '\\'])).unwrap_or("video.txt");
         let video = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, video_name)))?;
@@ -590,6 +651,16 @@ mod tests {
         let tree = tree_from_jsdelivr(&json).unwrap();
         assert_eq!(folders_from_tree(&tree), vec![String::new(), "stable".to_string()]);
         assert!(tree_from_jsdelivr(&serde_json::json!({})).is_none());
+    }
+
+    #[test]
+    fn finds_gameinfo_variants() {
+        let paths: Vec<String> = ["kaiz/gameinfo.gi", "kaiz/gameinfo-EXTREME-LOW.gi", "kaiz/readme.md", "only/gameinfo (low).gi"].map(String::from).to_vec();
+        assert_eq!(gameinfo_variants(&paths, "kaiz"), vec!["gameinfo-EXTREME-LOW.gi".to_string()]);
+        assert_eq!(gameinfo_variant_label("gameinfo-EXTREME-LOW.gi"), "EXTREME-LOW");
+        assert_eq!(gameinfo_variant_label("gameinfo (low).gi"), "low");
+        let tree = serde_json::json!({ "tree": paths.iter().map(|p| serde_json::json!({ "path": p })).collect::<Vec<_>>() });
+        assert_eq!(folders_from_tree(&tree), vec!["kaiz".to_string(), "only".to_string()]);
     }
 
     #[test]
@@ -675,7 +746,7 @@ mod tests {
         let pack = PackInfo {
             repo: "alzzzik/alz-deadlock-cfg".into(), id: "stable".into(), name: "Stable".into(), description: String::new(),
             folder: "stable".into(), last_commit_date: None, revision: Some("abc123".into()), commit_message: None,
-            html_url: String::new(), video_file: None,
+            html_url: String::new(), video_file: None, gameinfo_file: None,
         };
         let got = fetch_pack("alzzzik/alz-deadlock-cfg", &pack, tmp.path()).unwrap();
         assert!(got.from_cache);
@@ -688,7 +759,7 @@ mod tests {
         let repo = parse_repo("o/r").unwrap();
         let pack = |id: &str, date: &str| PackInfo {
             repo: String::new(), id: id.into(), name: id.into(), description: String::new(), folder: id.into(),
-            last_commit_date: Some(date.into()), revision: None, commit_message: None, html_url: String::new(), video_file: None,
+            last_commit_date: Some(date.into()), revision: None, commit_message: None, html_url: String::new(), video_file: None, gameinfo_file: None,
         };
         let packs = with_repo_fields(&repo, vec![pack("a", "2026-09-01T00:00:00Z"), pack("b", "2026-10-19T00:00:00Z")]);
         let g = group(&repo, packs, false, None);
