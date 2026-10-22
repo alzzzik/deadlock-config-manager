@@ -184,6 +184,7 @@ export const api = {
   sharePack: (pack: PackInfo, rankedSafe: boolean) => invoke<string>("share_pack", { pack, rankedSafe }),
   shareConfig: (id: string) => invoke<string>("share_config", { id }),
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
+  importGamebanana: (url: string) => invoke<LibraryEntry>("import_gamebanana", { url }),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
   getLaunchOptions: () => invoke<LaunchView>("get_launch_options"),

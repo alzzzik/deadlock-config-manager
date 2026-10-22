@@ -807,3 +807,19 @@ pub fn set_launch_options(state: State<AppState>, options: String) -> Result<Lau
     diag::info(&format!("launch options set: {options}"));
     Ok(LaunchView { options: crate::launch::read(&out)?, steam_running: false, problem: None })
 }
+
+/// Imports a config posted on GameBanana into My configs (download checked against GameBanana's MD5).
+#[tauri::command]
+pub async fn import_gamebanana(state: State<'_, AppState>, url: String) -> Result<crate::library::Entry, String> {
+    let id = crate::gamebanana::parse_mod_id(&url)?;
+    let root = crate::library::dir(&state.dir);
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<crate::library::Entry, String> {
+        let info = crate::gamebanana::fetch_info(id)?;
+        let (files, file, md5) = crate::gamebanana::fetch_config(&info)?;
+        let notes = format!("By {} on GameBanana (gamebanana.com/mods/{}). File {file}, MD5 {md5}.", info.author, info.id);
+        crate::library::save(&root, &info.name, &notes, &files, &format!("GameBanana: {} by {}", info.name, info.author))
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    diag::logged("import from GameBanana", result)
+}

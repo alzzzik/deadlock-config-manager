@@ -258,7 +258,8 @@ export default function App() {
   const importCode = async (text: string) => {
     setBusy(true);
     try {
-      addedToLibrary(await api.importCode(text), "Added");
+      const isBanana = !text.includes("DCM1-") && /gamebanana\.com\/mods\/\d+/i.test(text);
+      addedToLibrary(await (isBanana ? api.importGamebanana(text.trim()) : api.importCode(text)), "Added");
       setDialog({ kind: "none" });
     } catch (e) {
       fail(e);

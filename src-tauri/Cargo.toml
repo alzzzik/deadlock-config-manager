@@ -34,6 +34,8 @@ ureq = { version = "2", features = ["json"] }
 winreg = "0.52"
 base64 = "0.22"
 flate2 = "1"
+md-5 = "0.10"
+sevenz-rust = { version = "0.6", default-features = false }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 windows-sys = { version = "0.59", features = [
   "Win32_Foundation",

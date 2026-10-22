@@ -130,7 +130,7 @@ pub fn rename(root: &Path, id: &str, name: &str, notes: &str) -> Result<Entry, S
     Ok(entry)
 }
 
-fn read_zip_file(zip: &mut zip::ZipArchive<fs::File>, wanted: &str) -> Result<Option<String>, String> {
+fn read_zip_file<R: Read + std::io::Seek>(zip: &mut zip::ZipArchive<R>, wanted: &str) -> Result<Option<String>, String> {
     // Shortest matching path wins, so "pack/gameinfo.gi" beats "pack/old/gameinfo.gi".
     let mut names: Vec<String> = zip
         .file_names()
@@ -157,11 +157,53 @@ pub fn read_import(path: &Path) -> Result<PackFiles, String> {
     if !is_zip {
         return Err("Pick a .zip file or a folder with gameinfo.gi in it.".into());
     }
-    let file = fs::File::open(path).map_err(|e| format!("Can't open {}: {e}", path.display()))?;
-    let mut zip = zip::ZipArchive::new(file).map_err(|e| format!("That isn't a readable zip file: {e}"))?;
-    let gameinfo = read_zip_file(&mut zip, "gameinfo.gi")?.ok_or("The zip has no gameinfo.gi.")?;
-    let video = read_zip_file(&mut zip, "video.txt")?;
-    Ok(PackFiles { gameinfo, video })
+    let bytes = fs::read(path).map_err(|e| format!("Can't open {}: {e}", path.display()))?;
+    files_from_archive("x.zip", &bytes)
+}
+
+/// Shortest-path entry named `wanted` (any case) from a list of (path, text) pairs.
+fn pick<'a>(entries: &'a [(String, String)], wanted: &str) -> Option<&'a String> {
+    entries
+        .iter()
+        .filter(|(p, _)| Path::new(p).file_name().is_some_and(|f| f.to_string_lossy().eq_ignore_ascii_case(wanted)))
+        .min_by_key(|(p, _)| p.len())
+        .map(|(_, t)| t)
+}
+
+/// gameinfo.gi (and video.txt) from a downloaded file: a .zip, a .7z or a bare .gi.
+pub fn files_from_archive(name: &str, bytes: &[u8]) -> Result<PackFiles, String> {
+    let lower = name.to_ascii_lowercase();
+    if lower.ends_with(".gi") {
+        let gameinfo = String::from_utf8_lossy(bytes).into_owned();
+        return Ok(PackFiles { gameinfo, video: None });
+    }
+    if lower.ends_with(".zip") {
+        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| format!("That isn't a readable zip file: {e}"))?;
+        let gameinfo = read_zip_file(&mut zip, "gameinfo.gi")?.ok_or("The zip has no gameinfo.gi.")?;
+        let video = read_zip_file(&mut zip, "video.txt")?;
+        return Ok(PackFiles { gameinfo, video });
+    }
+    if lower.ends_with(".7z") {
+        let mut found: Vec<(String, String)> = Vec::new();
+        let mut reader = sevenz_rust::SevenZReader::new(std::io::Cursor::new(bytes), bytes.len() as u64, sevenz_rust::Password::empty())
+            .map_err(|e| format!("That isn't a readable 7z file: {e}"))?;
+        reader
+            .for_each_entries(|entry, r| {
+                let file = Path::new(entry.name()).file_name().map(|f| f.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
+                if !entry.is_directory() && (file == "gameinfo.gi" || file == "video.txt") && entry.size() <= MAX_FILE_BYTES {
+                    let mut text = String::new();
+                    r.take(MAX_FILE_BYTES).read_to_string(&mut text)?;
+                    found.push((entry.name().to_string(), text));
+                } else {
+                    std::io::copy(r, &mut std::io::sink())?;
+                }
+                Ok(true)
+            })
+            .map_err(|e| format!("Couldn't unpack the 7z file: {e}"))?;
+        let gameinfo = pick(&found, "gameinfo.gi").cloned().ok_or("The 7z file has no gameinfo.gi.")?;
+        return Ok(PackFiles { gameinfo, video: pick(&found, "video.txt").cloned() });
+    }
+    Err(format!("{name} isn't a .zip, .7z or .gi file."))
 }
 
 /// Writes a saved config as a zip with gameinfo.gi, video.txt (if any) and a short README.

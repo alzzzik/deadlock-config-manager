@@ -6,6 +6,7 @@ pub mod github;
 mod commands;
 pub mod convars;
 pub mod fsops;
+pub mod gamebanana;
 pub mod gameinfo;
 pub mod kv;
 pub mod launch;
@@ -150,6 +151,7 @@ pub fn run() {
             commands::update_report,
             commands::get_launch_options,
             commands::set_launch_options,
+            commands::import_gamebanana,
             overview::toggle_pin,
             overview::finish_guide,
         ])

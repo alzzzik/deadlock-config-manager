@@ -12,7 +12,7 @@ interface ImportDialogProps {
 /** Add a config to My configs from a share code, a zip or a folder. */
 export function ImportDialog({ busy, onCancel, onCode, onZip, onFolder }: ImportDialogProps) {
   const [text, setText] = useState("");
-  const hasCode = text.includes("DCM1-");
+  const hasCode = text.includes("DCM1-") || /gamebanana\.com\/mods\/\d+/i.test(text);
   return (
     <Modal
       title="Import a config"
@@ -30,21 +30,21 @@ export function ImportDialog({ busy, onCancel, onCode, onZip, onFolder }: Import
             Cancel
           </button>
           <button className="btn btn-primary" onClick={() => onCode(text)} disabled={busy || !hasCode}>
-            Import code
+            Import
           </button>
         </>
       }
     >
       <p className="muted small">
-        Paste a share code (or the whole message someone sent you). It's added to My configs, where you can preview it
-        before applying.
+        Paste a share code (or the whole message someone sent you), or a GameBanana config link
+        (gamebanana.com/mods/…). It's added to My configs, where you can preview it before applying.
       </p>
       <textarea
         className="tweak-lines"
         rows={4}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="DCM1-…"
+        placeholder="DCM1-…  or  https://gamebanana.com/mods/…"
         spellCheck={false}
         autoFocus
       />

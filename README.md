@@ -178,7 +178,8 @@ To list and download configs, the app connects to GitHub (`github.com`, `api.git
 for app updates. `alzzzik/alz-deadlock-cfg` is linked by
 default and can be removed in Settings. These requests are covered by
 [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
-The app makes no other network connections.
+If you import a config from GameBanana, it downloads that file from `gamebanana.com`. The app makes no other
+network connections.
 
 Everything else stays on your PC: settings, backups, downloaded configs and a small log file are stored in
 `%APPDATA%\DeadlockConfigManager\`, and the only files it changes are Deadlock's `gameinfo.gi` and
