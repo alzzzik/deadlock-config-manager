@@ -247,7 +247,10 @@ input::placeholder { color: var(--text-faint); }
 .group-link:hover:not(:disabled) { color: var(--accent-text); }
 .group-meta { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--text-faint); }
 
-.pack-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.pack-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+/* No overflow: hidden on the list: it would cut off row menus that open past the last row. */
+.pack-row:first-child { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.pack-row:last-child { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
 .pack-row {
   position: relative;
   display: grid; grid-template-columns: 26px minmax(0, 1fr) 210px 150px; align-items: center; gap: 12px;
