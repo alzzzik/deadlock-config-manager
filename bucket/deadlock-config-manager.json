@@ -1,13 +1,13 @@
 {
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Installs community FPS configs for Deadlock from GitHub, with a preview, backups and restore.",
   "homepage": "https://github.com/alzzzik/deadlock-config-manager",
   "license": "MIT",
   "notes": "Updates come through 'scoop update deadlock-config-manager'. Settings and backups live in %APPDATA%\\DeadlockConfigManager.",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/alzzzik/deadlock-config-manager/releases/download/v0.8.0/Deadlock.Config.Manager_0.8.0_x64_portable.zip",
-      "hash": "77441bdf991fd00f41bdcb46c9545b4ca319cbc141b64a178173b12a0a0e631a"
+      "url": "https://github.com/alzzzik/deadlock-config-manager/releases/download/v0.8.1/Deadlock.Config.Manager_0.8.1_x64_portable.zip",
+      "hash": "45112114d2bf178aab5c08de5eedb149cb85b84077fa5f47a4fb9a68bafb17f8"
     }
   },
   "bin": "deadlock-config-manager.exe",
