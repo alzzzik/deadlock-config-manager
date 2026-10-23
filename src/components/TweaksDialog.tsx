@@ -5,6 +5,7 @@ import { Modal } from "./Modal";
 import { LaunchOptions } from "./LaunchOptions";
 
 interface TweaksDialogProps {
+  initialTab?: "config" | "launch";
   /** A pack is applied, so saving can re-apply it right away. */
   canReapply: boolean;
   onClose: () => void;
@@ -66,7 +67,7 @@ function ToggleRow({ t, on, onToggle }: { t: TweakToggle; on: boolean; onToggle:
 }
 
 /** Personal changes kept on top of every pack. */
-export function TweaksDialog({ canReapply, onClose, onSaved, onNotify }: TweaksDialogProps) {
+export function TweaksDialog({ initialTab, canReapply, onClose, onSaved, onNotify }: TweaksDialogProps) {
   const [view, setView] = useState<TweaksView | null>(null);
   const [fixes, setFixes] = useState<string[]>([]);
   const [aspect, setAspect] = useState<string>(PACK_VALUE);
@@ -76,7 +77,7 @@ export function TweaksDialog({ canReapply, onClose, onSaved, onNotify }: TweaksD
   const [custom, setCustom] = useState("");
   const [showFixes, setShowFixes] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"config" | "launch">("config");
+  const [tab, setTab] = useState<"config" | "launch">(initialTab ?? "config");
 
   const load = async (v: TweaksView) => {
     setView(v);

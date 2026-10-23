@@ -18,6 +18,7 @@ pub mod overlay;
 pub mod overrides;
 pub mod packs;
 pub mod paths;
+pub mod perf;
 pub mod ranked;
 pub mod repos;
 pub mod report;
@@ -160,6 +161,8 @@ pub fn run() {
             commands::import_gamebanana,
             commands::get_store,
             commands::github_status,
+            commands::get_perf,
+            commands::clear_perf,
             commands::github_sign_in,
             commands::github_poll,
             commands::github_sign_out,

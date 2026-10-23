@@ -11,14 +11,22 @@ use tauri_plugin_notification::NotificationExt;
 const CHECK_EVERY: Duration = Duration::from_secs(10);
 /// UI event telling the window to refresh its status.
 pub const FILES_CHANGED: &str = "files-changed";
+/// UI event: new performance reports were recorded.
+pub const PERF_CHANGED: &str = "perf-changed";
 
 pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
         // Hash of the installed gameinfo.gi we last failed to fix, so a failure isn't retried every tick.
         let mut gave_up_on: Option<String> = None;
+        let mut log_seen: Option<std::time::SystemTime> = None;
         loop {
-            std::thread::sleep(CHECK_EVERY);
             let state = app.state::<AppState>();
+            if let Some(new) = commands::collect_perf(&state, &mut log_seen) {
+                if new > 0 {
+                    let _ = app.emit(PERF_CHANGED, ());
+                }
+            }
+            std::thread::sleep(CHECK_EVERY);
             let s = state.snapshot();
             if !s.auto_reapply || s.applied.is_none() || crate::fsops::deadlock_running() {
                 continue;

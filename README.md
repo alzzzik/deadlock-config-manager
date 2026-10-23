@@ -41,6 +41,8 @@ config, see what it changes, apply it, and restore your old files if you want th
 - **Browse…** a community list of config repos and shared configs; import configs from GameBanana links.
 - Optional: re-applies your config by itself after game updates (tray mode), and keeps settings Valve adds
   (overlay mode).
+- **Performance**: real-game FPS (average and 1% low) per config, from Deadlock's own reports, so you can see
+  what a config does on your PC. Needs the `-condebug` launch option.
 - Works alongside Deadlock Mod Manager and Grimoire.
 
 ## Settings
@@ -187,7 +189,8 @@ network connections.
 
 Everything else stays on your PC: settings, backups, downloaded configs and a small log file are stored in
 `%APPDATA%\DeadlockConfigManager\`, and the only files it changes are Deadlock's `gameinfo.gi` and
-`video.txt`, after showing you the changes.
+`video.txt`, after showing you the changes. For **Performance**, it reads Deadlock's own `console.log` (written only
+with the `-condebug` launch option) and keeps the FPS numbers in `perf.json` in the same folder.
 
 ## Code signing policy
 

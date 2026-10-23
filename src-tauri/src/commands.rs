@@ -940,3 +940,78 @@ pub async fn github_poll(device_code: String, interval: u64) -> Result<crate::au
 pub fn github_sign_out() -> Result<(), String> {
     crate::auth::sign_out()
 }
+
+fn console_log_path(state: &AppState) -> Option<PathBuf> {
+    let ov = resolve(&state.snapshot());
+    ov.gameinfo_path.map(PathBuf::from).and_then(|p| p.parent().map(|d| d.join("console.log")))
+}
+
+/// Reads new VProf reports from console.log when it changed since `seen`, labelled with the config that
+/// is applied now. Returns the number of new reports, or None when there's no log.
+pub fn collect_perf(state: &AppState, seen: &mut Option<std::time::SystemTime>) -> Option<usize> {
+    let path = console_log_path(state)?;
+    let modified = fs::metadata(&path).and_then(|m| m.modified()).ok()?;
+    if *seen == Some(modified) {
+        return Some(0);
+    }
+    *seen = Some(modified);
+    let text = String::from_utf8_lossy(&fs::read(&path).ok()?).into_owned();
+    let reports = crate::perf::parse(&text);
+    let s = state.snapshot();
+    let ov = state.overview(&s);
+    let managed = matches!(ov.status, crate::apply::Status::Applied { .. } | crate::apply::Status::AppliedDmm { .. });
+    let (key, name, safe) = match (&s.applied, managed) {
+        (Some(a), true) => (format!("{}#{}", a.repo.as_deref().unwrap_or("local"), a.pack_id), a.pack_name.clone(), a.ranked_safe),
+        _ => ("unmanaged".to_string(), "Not applied by this app".to_string(), false),
+    };
+    let now = chrono::Local::now().to_rfc3339();
+    let label = |r: &crate::perf::Report| crate::perf::Session {
+        report: r.clone(),
+        config_key: key.clone(),
+        config_name: name.clone(),
+        ranked_safe: safe,
+        game_build: ov.game_build.clone(),
+        recorded_at: now.clone(),
+    };
+    match crate::perf::record(&state.dir, &reports, label) {
+        Ok(n) => {
+            if n > 0 {
+                diag::info(&format!("recorded {n} performance report(s) for {name}"));
+            }
+            Some(n)
+        }
+        Err(e) => {
+            diag::error(&e);
+            None
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerfView {
+    pub stats: Vec<crate::perf::ConfigStats>,
+    /// Latest sessions long enough to count, newest first.
+    pub recent: Vec<crate::perf::Session>,
+    /// console.log exists and its last launch used -condebug.
+    pub logging: bool,
+    pub min_seconds: u64,
+    pub min_sessions: usize,
+}
+
+#[tauri::command]
+pub fn get_perf(state: State<AppState>) -> PerfView {
+    let mut seen = None;
+    let _ = collect_perf(&state, &mut seen);
+    let logging = console_log_path(&state)
+        .and_then(|p| fs::read(p).ok())
+        .is_some_and(|b| crate::perf::condebug_on(&String::from_utf8_lossy(&b)));
+    let sessions = crate::perf::load(&state.dir);
+    let recent = sessions.iter().rev().filter(|s| s.report.seconds >= crate::perf::MIN_SECONDS).take(20).cloned().collect();
+    PerfView { stats: crate::perf::summarize(&sessions), recent, logging, min_seconds: crate::perf::MIN_SECONDS, min_sessions: crate::perf::MIN_SESSIONS }
+}
+
+#[tauri::command]
+pub fn clear_perf(state: State<AppState>) -> Result<(), String> {
+    crate::perf::clear(&state.dir)
+}

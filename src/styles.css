@@ -510,3 +510,11 @@ input::placeholder { color: var(--text-faint); }
 .store-search input { width: 100%; padding-left: 10px; }
 .store-row { grid-template-columns: minmax(0, 1fr) 180px 140px; padding-left: 14px; }
 .store-list { max-height: 52vh; overflow: auto; }
+
+/* ---------- performance ---------- */
+.perf-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: var(--fs-sm); }
+.perf-table th { text-align: left; font-weight: 500; color: var(--text-dim); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.perf-table td { padding: 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.perf-table tr.is-few td:not(:first-child) { color: var(--text-faint); }
+.perf-recent { margin-top: 12px; }
+.perf-recent ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }

@@ -8,6 +8,11 @@ interface LaunchOptionsProps {
 /** Launch flags with some evidence they help; everything else can be typed in the line below. */
 const FLAGS = [
   {
+    flag: "-condebug",
+    label: "Write the game's log (for Performance)",
+    hint: "The game saves its console to console.log, including its own FPS report after each match.",
+  },
+  {
     flag: "+exec autoexec",
     label: "Run autoexec.cfg",
     hint: "Needed for the autoexec.cfg lines some configs include. Harmless if you have no autoexec.cfg.",

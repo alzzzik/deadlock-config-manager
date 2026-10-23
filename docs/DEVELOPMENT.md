@@ -90,7 +90,8 @@ needed. Until then the sign-in section is hidden.
 | `autoexec.rs` | A pack's `autoexec.cfg` lines, merged into the game's `cfgutoexec.cfg` |
 | `auth.rs` | Optional Sign in with GitHub (device flow, token in Credential Manager) |
 | `report.rs` | What a game update changed for the applied config |
-| `watch.rs` | Background re-apply after game updates |
+| `watch.rs` | Background re-apply after game updates and performance collection |
+| `perf.rs` | Parses Deadlock's VProf reports from `console.log`, per-config FPS stats |
 | `diag.rs` | Local log, panic hook and the diagnostics report |
 | `overview.rs`, `commands.rs` | Tauri commands used by the UI |
 

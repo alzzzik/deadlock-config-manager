@@ -34,16 +34,18 @@ import { TweaksDialog } from "./components/TweaksDialog";
 import { MyConfigs, SaveConfigDialog } from "./components/MyConfigs";
 import { ImportDialog } from "./components/ImportDialog";
 import { StoreDialog } from "./components/StoreDialog";
+import { PerfDialog } from "./components/PerfDialog";
 
 type Dialog =
   | { kind: "none" }
   | { kind: "restore" }
   | { kind: "settings" }
   | { kind: "guide" }
-  | { kind: "tweaks" }
+  | { kind: "tweaks"; tab?: "config" | "launch" }
   | { kind: "saveConfig" }
   | { kind: "import" }
   | { kind: "store" }
+  | { kind: "perf" }
   | { kind: "preview"; preview: Preview; proceed: () => void; proceedSafe: () => void };
 
 type ApplyCall = (confirmed: boolean, rankedSafe: boolean) => Promise<ApplyResponse>;
@@ -448,6 +450,9 @@ export default function App() {
             {overview.deadlockRunning ? "Deadlock running" : "Deadlock closed"}
           </span>
         )}
+        <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "perf" })} disabled={!overview}>
+          Performance
+        </button>
         <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "tweaks" })} disabled={!overview}>
           Tweaks
         </button>
@@ -590,6 +595,7 @@ export default function App() {
       )}
       {dialog.kind === "tweaks" && (
         <TweaksDialog
+          initialTab={dialog.tab}
           canReapply={!!appliedPack || overview?.applied?.packId === "local" || isLibraryApplied}
           onClose={() => setDialog({ kind: "none" })}
           onNotify={push}
@@ -625,6 +631,9 @@ export default function App() {
           onAddCode={(code) => void importCode(code)}
           onOpenGithub={openGithub}
         />
+      )}
+      {dialog.kind === "perf" && (
+        <PerfDialog onClose={() => setDialog({ kind: "none" })} onOpenLaunchOptions={() => setDialog({ kind: "tweaks", tab: "launch" })} onNotify={push} />
       )}
       {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} />}
       {dialog.kind === "preview" && (
