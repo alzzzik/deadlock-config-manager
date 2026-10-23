@@ -1,17 +1,16 @@
 //! Config store: one list of config repos, GameBanana configs and shared configs to browse in the app.
 //!
-//! The list lives in a public GitHub repo (`index.json` in alzzzik/deadlock-config-index), read through
-//! jsDelivr so there's no server and no GitHub API limit. People add entries by pull request or issue.
-//! The app also ships a checked list (`data/config_catalog.json`, same format) that fills in whatever the
-//! online list (or its last download) doesn't have.
+//! The list is `src-tauri/data/config_catalog.json` in this app's repo. The app ships the copy it was built
+//! with and also reads the current one from `main` through jsDelivr (no server, no GitHub API limit), so new
+//! entries show up without a release. People suggest entries with the "Submit a config" issue form.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
-pub const INDEX_URL: &str = "https://cdn.jsdelivr.net/gh/alzzzik/deadlock-config-index@main/index.json";
-pub const SUBMIT_URL: &str = "https://github.com/alzzzik/deadlock-config-index/issues/new/choose";
+pub const INDEX_URL: &str = "https://cdn.jsdelivr.net/gh/alzzzik/deadlock-config-manager@main/src-tauri/data/config_catalog.json";
+pub const SUBMIT_URL: &str = "https://github.com/alzzzik/deadlock-config-manager/issues/new?template=submit_config.yml";
 const MAX_ENTRIES: usize = 500;
 const MAX_TEXT: usize = 300;
 const MAX_CONFIGS: usize = 20;

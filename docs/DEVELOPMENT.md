@@ -85,7 +85,7 @@ needed. Until then the sign-in section is hidden.
 | `library.rs` | Saved configs (My configs), zip/7z import and export |
 | `share.rs` | DCM1 share codes |
 | `gamebanana.rs` | Importing configs from GameBanana |
-| `store.rs` | Config store list (`index.json` via jsDelivr) |
+| `store.rs` | Config list: `data/config_catalog.json` (built in, and the current copy on `main` via jsDelivr). `scripts/refresh_catalog.py` updates dates, `tests/smoke_catalog.rs` checks every entry |
 | `launch.rs` | Reads and edits Deadlock's LaunchOptions in `localconfig.vdf` (used by tests; the app only offers the recommended line) |
 | `autoexec.rs` | A pack's `autoexec.cfg` lines, merged into the game's `cfgutoexec.cfg` |
 | `auth.rs` | Optional Sign in with GitHub (device flow, token in Credential Manager) |

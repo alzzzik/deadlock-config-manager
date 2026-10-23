@@ -57,7 +57,7 @@ export function StoreDialog({ linked, busy, onClose, onLinkRepo, onAddCode, onAd
       footer={
         <>
           <span className="muted small">
-            {view?.online ? "Community list, added by pull request." : "Built-in list"}
+            {view?.online ? "Online list" : "Built-in list (the online list isn't reachable)"}
             {view?.checked ? `, dates checked ${shortDate(view.checked)}.` : "."}
           </span>
           <span className="spacer" />
