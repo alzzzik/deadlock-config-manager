@@ -1,4 +1,5 @@
 pub mod apply;
+pub mod autoexec;
 pub mod backup;
 pub mod diag;
 pub mod diff;

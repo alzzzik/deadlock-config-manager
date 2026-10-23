@@ -7,6 +7,11 @@ interface LaunchOptionsProps {
 
 /** Launch flags with some evidence they help; everything else can be typed in the line below. */
 const FLAGS = [
+  {
+    flag: "+exec autoexec",
+    label: "Run autoexec.cfg",
+    hint: "Needed for the autoexec.cfg lines some configs include. Harmless if you have no autoexec.cfg.",
+  },
   { flag: "-vulkan", label: "Use Vulkan", hint: "DirectX 11 is the default and most stable. Vulkan can run better on some AMD GPUs." },
   {
     flag: "-noreflex",
@@ -15,9 +20,18 @@ const FLAGS = [
   },
 ];
 
-const hasFlag = (opts: string, flag: string) => opts.split(/\s+/).some((p) => p.toLowerCase() === flag);
-const withFlag = (opts: string, flag: string, on: boolean) =>
-  [...opts.split(/\s+/).filter((p) => p && p.toLowerCase() !== flag), ...(on ? [flag] : [])].join(" ");
+/** Flags can be several words ("+exec autoexec"); matching is on whole words, ignoring case. */
+const words = (s: string) => s.split(/\s+/).filter(Boolean);
+const findFlag = (opts: string[], flag: string[]) =>
+  opts.findIndex((_, i) => flag.every((f, j) => opts[i + j]?.toLowerCase() === f.toLowerCase()));
+const hasFlag = (opts: string, flag: string) => findFlag(words(opts), words(flag)) >= 0;
+const withFlag = (opts: string, flag: string, on: boolean) => {
+  const list = words(opts);
+  const f = words(flag);
+  const at = findFlag(list, f);
+  if (at >= 0) list.splice(at, f.length);
+  return [...list, ...(on ? f : [])].join(" ");
+};
 
 /** Deadlock's Steam launch options, edited in localconfig.vdf while Steam is closed. */
 export function LaunchOptions({ onNotify }: LaunchOptionsProps) {

@@ -88,6 +88,8 @@ struct Source {
     ranked_safe: bool,
     /// Background re-apply: no UAC prompt.
     quiet: bool,
+    /// The pack's own autoexec.cfg, if it has one.
+    autoexec: Option<String>,
 }
 
 /// `quiet` writes never show a UAC prompt (background re-apply); access denied is an error instead.
@@ -150,12 +152,31 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         gameinfo: overrides::apply(&merged, &tweaks).map_err(|e| format!("Your tweaks couldn't be applied: {e}"))?,
         video: src.files.video.clone(),
     };
-    let plan = apply::build_plan(&files, installed.as_deref(), video_in, &s.preserved_keys)?;
+    let mut plan = apply::build_plan(&files, installed.as_deref(), video_in, &s.preserved_keys)?;
+    // autoexec.cfg: (path, current text, new text), only when the pack has one.
+    let autoexec_out = match (&src.autoexec, gi_path.parent()) {
+        (Some(pack_exec), Some(dir)) => {
+            let path = dir.join("cfg").join("autoexec.cfg");
+            let old = read_optional(&path, "autoexec.cfg")?;
+            let (lines, dropped) = crate::autoexec::filter(pack_exec);
+            if dropped > 0 {
+                plan.warnings.push(format!(
+                    "{dropped} line(s) in the pack's autoexec.cfg were skipped (key binds, connect, exec and similar commands aren't copied)."
+                ));
+            }
+            plan.warnings.push("This pack has an autoexec.cfg. Deadlock only runs it with the +exec autoexec launch option (Tweaks › Launch options).".into());
+            let new = crate::autoexec::merge(old.as_deref(), &lines);
+            Some((path, old, new))
+        }
+        _ => None,
+    };
     if !confirmed {
         let gameinfo_diff = diff::diff_file("gameinfo.gi", installed.as_deref(), &plan.gameinfo_out);
         let convars = crate::convars::infos_for(&gameinfo_diff.changes);
+        let autoexec_diff = autoexec_out.as_ref().map(|(_, old, new)| crate::autoexec::diff(old.as_deref(), new));
         let files = std::iter::once(gameinfo_diff)
             .chain(plan.video_out.as_deref().map(|v| diff::diff_file("video.txt", user_video.as_deref(), v)))
+            .chain(autoexec_diff)
             .collect();
         let ranked_changes = ranked::guarded_changes(&stock, &plan.gameinfo_out).unwrap_or_default();
         let preview = Preview {
@@ -175,7 +196,19 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
     let backups = state.backups_dir();
     let sources = Sources { gameinfo: &gi_path, video: video_path.as_deref() };
     let meta = backup::create(&backups, &sources, Some(&src.name), &format!("Before applying {}", src.name))?;
-    let writes = apply::plan_writes(&plan, &gi_path, video_path.as_deref());
+    let mut writes = apply::plan_writes(&plan, &gi_path, video_path.as_deref());
+    if let Some((path, old, new)) = &autoexec_out {
+        // The old autoexec.cfg is kept next to the backups; Restore… doesn't touch autoexec.cfg.
+        if let Some(old) = old {
+            let dir = backups.join("autoexec");
+            let _ = fs::create_dir_all(&dir).and_then(|_| fs::write(dir.join(format!("{}.cfg", meta.id)), old));
+        }
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        // Written last, so a failed gameinfo.gi/video.txt write never leaves it changed.
+        writes.push((path.clone(), new.as_bytes().to_vec()));
+    }
     let write = real_writer(state.dir.join("jobs"), src.quiet);
     let rollback = || backup::restore(&backups, &meta, &|files| write(files).map(|_| ()));
     let outcome = apply::write_verified(&writes, &write, &|| apply::verify(&gi_path, video_path.as_deref(), &plan), &rollback)?;
@@ -192,7 +225,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         ranked_safe: src.ranked_safe,
         game_build: crate::paths::game_build(&gi_path),
     };
-    if let Err(e) = save_applied_source(&state.dir, &src.files) {
+    if let Err(e) = save_applied_source(&state.dir, &src.files, src.autoexec.as_deref()) {
         diag::error(&format!("saving the applied config's files: {e}"));
     }
     state.update(|s| Settings { applied: Some(record), onboarded: true, ..s })?;
@@ -212,10 +245,15 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
     ensure_closed()?;
     let cache = state.dir.join("cache");
     let p = pack.clone();
-    let fetched = tauri::async_runtime::spawn_blocking(move || packs::fetch_pack(&p.repo, &p, &cache))
-        .await
-        .map_err(|e| e.to_string())?;
-    let fetched = diag::logged(&format!("download {}#{}", pack.repo, pack.id), fetched)?;
+    let fetched = tauri::async_runtime::spawn_blocking(move || {
+        packs::fetch_pack(&p.repo, &p, &cache).map(|f| {
+            let autoexec = packs::fetch_autoexec(&p, f.revision.as_deref(), &cache);
+            (f, autoexec)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    let (fetched, pack_autoexec) = diag::logged(&format!("download {}#{}", pack.repo, pack.id), fetched)?;
     let notes = if fetched.from_cache && pack.revision != fetched.revision {
         vec!["GitHub was unreachable, so the cached copy of this pack was used.".to_string()]
     } else {
@@ -230,6 +268,7 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
         notes,
         ranked_safe,
         quiet: false,
+        autoexec: pack_autoexec,
     };
     let label = format!("apply {}#{}", src.repo.as_deref().unwrap_or("?"), src.id);
     logged_apply(&label, apply_source(&state, src, confirmed))
@@ -240,7 +279,7 @@ pub fn apply_local(state: State<AppState>, folder: String, confirmed: bool, rank
     let dir = PathBuf::from(&folder);
     let files = diag::logged("read local folder", packs::read_local(&dir))?;
     let name = dir.file_name().map(|n| format!("Local: {}", n.to_string_lossy())).unwrap_or_else(|| "Local folder".into());
-    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![], ranked_safe, quiet: false };
+    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![], ranked_safe, quiet: false, autoexec: packs::read_local_autoexec(&dir) };
     logged_apply("apply local folder", apply_source(&state, src, confirmed))
 }
 
@@ -409,6 +448,7 @@ pub fn make_ranked_safe(state: State<AppState>, confirmed: bool) -> Result<Apply
         notes: vec![],
         ranked_safe: true,
         quiet: false,
+        autoexec: None,
     };
     logged_apply("make ranked-safe", apply_source(&state, src, confirmed))
 }
@@ -602,6 +642,7 @@ pub fn apply_library(state: State<AppState>, id: String, confirmed: bool, ranked
         notes: vec![],
         ranked_safe,
         quiet: false,
+        autoexec: None,
     };
     logged_apply(&format!("apply saved config {id}"), apply_source(&state, src, confirmed))
 }
@@ -690,7 +731,7 @@ pub async fn import_code(state: State<'_, AppState>, text: String) -> Result<cra
 const APPLIED_DIR: &str = "applied";
 
 /// Writes the files to a fresh folder, then swaps it in, so a reader never sees a half-written set.
-fn save_applied_source(app_dir: &Path, files: &PackFiles) -> std::io::Result<()> {
+fn save_applied_source(app_dir: &Path, files: &PackFiles, autoexec: Option<&str>) -> std::io::Result<()> {
     let dir = app_dir.join(APPLIED_DIR);
     let tmp = app_dir.join(format!("{APPLIED_DIR}.new"));
     let _ = fs::remove_dir_all(&tmp);
@@ -698,6 +739,9 @@ fn save_applied_source(app_dir: &Path, files: &PackFiles) -> std::io::Result<()>
     fs::write(tmp.join("gameinfo.gi"), files.gameinfo.as_bytes())?;
     if let Some(v) = &files.video {
         fs::write(tmp.join("video.txt"), v.as_bytes())?;
+    }
+    if let Some(a) = autoexec {
+        fs::write(tmp.join("autoexec.cfg"), a.as_bytes())?;
     }
     let _ = fs::remove_dir_all(&dir);
     fs::rename(&tmp, &dir)
@@ -722,6 +766,7 @@ pub fn reapply_saved(state: &AppState, quiet: bool) -> Result<String, String> {
         notes: vec![],
         ranked_safe: rec.ranked_safe,
         quiet,
+        autoexec: fs::read_to_string(state.dir.join(APPLIED_DIR).join("autoexec.cfg")).ok(),
     };
     match apply_source(state, src, true)? {
         ApplyResponse::Done { message, .. } => Ok(message),

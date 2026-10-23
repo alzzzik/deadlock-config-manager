@@ -640,6 +640,38 @@ pub fn fetch_pack(repo_input: &str, pack: &PackInfo, cache_root: &Path) -> Resul
     }
 }
 
+/// The pack folder's autoexec.cfg at `rev`, cached next to the pack files. None if it has none.
+pub fn fetch_autoexec(pack: &PackInfo, rev: Option<&str>, cache_root: &Path) -> Option<String> {
+    let repo = parse_repo(&pack.repo).ok()?;
+    let rev = rev.filter(|r| is_revision(r)).unwrap_or("HEAD");
+    if !is_safe_segment(&pack.id) || !is_safe_folder(&pack.folder) {
+        return None;
+    }
+    let cached = repo_cache(cache_root, &repo).join(&pack.id).join(rev).join("autoexec.cfg");
+    let missing_marker = cached.with_extension("none");
+    if rev != "HEAD" {
+        if let Ok(t) = fs::read_to_string(&cached) {
+            return Some(t);
+        }
+        if missing_marker.exists() {
+            return None;
+        }
+    }
+    let text = get_text(&raw_url(&repo, rev, &in_folder(&pack.folder, "autoexec.cfg"))).ok()?;
+    if let Some(parent) = cached.parent() {
+        let _ = fs::create_dir_all(parent);
+        let _ = match &text {
+            Some(t) => fs::write(&cached, t),
+            None => fs::write(&missing_marker, ""),
+        };
+    }
+    text
+}
+
+pub fn read_local_autoexec(folder: &Path) -> Option<String> {
+    fs::read_to_string(folder.join("autoexec.cfg")).ok()
+}
+
 /// A pack from a local folder (offline/testing).
 pub fn read_local(folder: &Path) -> Result<PackFiles, String> {
     let gi = fs::read_to_string(folder.join("gameinfo.gi"))

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 pub type FileWrite = (PathBuf, Vec<u8>);
 
 /// Only these file names may be written by the elevated helper.
-const ALLOWED_NAMES: [&str; 2] = ["gameinfo.gi", "video.txt"];
+const ALLOWED_NAMES: [&str; 3] = ["gameinfo.gi", "video.txt", "autoexec.cfg"];
 
 #[derive(Debug, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
