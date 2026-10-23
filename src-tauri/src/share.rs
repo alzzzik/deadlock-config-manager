@@ -96,6 +96,9 @@ fn check_denied(entries: &[Entry]) -> Result<(), String> {
 
 fn validate(s: &Shared) -> Result<(), String> {
     match s {
+        Shared::Pack { repo, rev, .. } if rev.as_deref().is_some_and(|r| !crate::packs::is_revision(r)) => {
+            Err(format!("That share code for {repo} has an invalid commit."))
+        }
         Shared::Pack { repo, tweaks, .. } => {
             crate::repos::canonical(repo)?;
             crate::overrides::validate(tweaks)?;

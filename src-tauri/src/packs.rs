@@ -61,6 +61,11 @@ pub struct FetchedPack {
     pub from_cache: bool,
 }
 
+/// A git commit SHA (or "HEAD"), safe to use as a cache folder name and in URLs.
+pub fn is_revision(s: &str) -> bool {
+    s == "HEAD" || ((7..=40).contains(&s.len()) && s.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
 fn is_safe_segment(s: &str) -> bool {
     !s.is_empty() && s != "." && s != ".." && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
 }
@@ -238,6 +243,11 @@ pub fn folders_from_tree(tree: &serde_json::Value) -> Vec<String> {
         folders.insert(0, String::new());
     }
     folders
+}
+
+/// A plain file name (no folders, not "." or ".."), e.g. "video(No Shadows).txt".
+fn is_safe_file_name(name: &str) -> bool {
+    !name.is_empty() && name != "." && name != ".." && !name.contains(['/', '\\', ':']) && !name.chars().any(char::is_control)
 }
 
 /// `gameinfo.gi` or a variant such as `gameinfo-EXTREME-LOW.gi` / `gameinfo (low).gi`.
@@ -587,7 +597,13 @@ fn newest_cached(pack_dir: &Path) -> Option<(PathBuf, String)> {
 
 pub fn fetch_pack(repo_input: &str, pack: &PackInfo, cache_root: &Path) -> Result<FetchedPack, String> {
     let repo = parse_repo(repo_input)?;
-    if !is_safe_segment(&pack.id) || !is_safe_folder(&pack.folder) {
+    let bad_file = |f: &Option<String>| f.as_deref().is_some_and(|n| !is_safe_file_name(n));
+    if !is_safe_segment(&pack.id)
+        || !is_safe_folder(&pack.folder)
+        || pack.revision.as_deref().is_some_and(|r| !is_revision(r))
+        || bad_file(&pack.video_file)
+        || bad_file(&pack.gameinfo_file)
+    {
         return Err("Invalid pack.".into());
     }
     let pack_dir = repo_cache(cache_root, &repo).join(&pack.id);
@@ -601,7 +617,7 @@ pub fn fetch_pack(repo_input: &str, pack: &PackInfo, cache_root: &Path) -> Resul
         let gi_name = pack.gameinfo_file.as_deref().filter(|g| is_gameinfo_name(g)).unwrap_or("gameinfo.gi");
         let gi = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, gi_name)))?
             .ok_or("The pack has no gameinfo.gi.")?;
-        let video_name = pack.video_file.as_deref().filter(|v| !v.contains(['/', '\\'])).unwrap_or("video.txt");
+        let video_name = pack.video_file.as_deref().unwrap_or("video.txt");
         let video = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, video_name)))?;
         Ok(PackFiles { gameinfo: gi, video })
     };
@@ -651,6 +667,20 @@ mod tests {
         let tree = tree_from_jsdelivr(&json).unwrap();
         assert_eq!(folders_from_tree(&tree), vec![String::new(), "stable".to_string()]);
         assert!(tree_from_jsdelivr(&serde_json::json!({})).is_none());
+    }
+
+    #[test]
+    fn rejects_unsafe_revisions_and_file_names() {
+        let tmp = tempfile::tempdir().unwrap();
+        let base = PackInfo {
+            repo: "a/b".into(), id: "p".into(), name: "P".into(), description: String::new(), folder: "p".into(),
+            last_commit_date: None, revision: Some("../../../x/y/z".into()), commit_message: None, html_url: String::new(),
+            video_file: None, gameinfo_file: None,
+        };
+        assert_eq!(fetch_pack("a/b", &base, tmp.path()).err().as_deref(), Some("Invalid pack."));
+        let bad_video = PackInfo { revision: None, video_file: Some("..".into()), ..base.clone() };
+        assert!(fetch_pack("a/b", &bad_video, tmp.path()).is_err());
+        assert!(is_revision("0123abc") && is_revision("HEAD") && !is_revision("main") && !is_revision(".."));
     }
 
     #[test]
@@ -740,12 +770,12 @@ mod tests {
     #[test]
     fn reads_cached_pack_by_revision_without_network() {
         let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path().join("alzzzik__alz-deadlock-cfg").join("stable").join("abc123");
+        let dir = tmp.path().join("alzzzik__alz-deadlock-cfg").join("stable").join("abc1234");
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("gameinfo.gi"), "GameInfo { }").unwrap();
         let pack = PackInfo {
             repo: "alzzzik/alz-deadlock-cfg".into(), id: "stable".into(), name: "Stable".into(), description: String::new(),
-            folder: "stable".into(), last_commit_date: None, revision: Some("abc123".into()), commit_message: None,
+            folder: "stable".into(), last_commit_date: None, revision: Some("abc1234".into()), commit_message: None,
             html_url: String::new(), video_file: None, gameinfo_file: None,
         };
         let got = fetch_pack("alzzzik/alz-deadlock-cfg", &pack, tmp.path()).unwrap();

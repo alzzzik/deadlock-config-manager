@@ -22,6 +22,8 @@ use tauri::State;
 pub struct AppState {
     pub dir: PathBuf,
     pub settings: Mutex<Settings>,
+    /// Held for a whole apply or restore so the UI and the background re-apply never write at once.
+    pub apply_lock: Mutex<()>,
 }
 
 impl AppState {
@@ -114,6 +116,7 @@ fn read_optional(path: &Path, what: &str) -> Result<Option<String>, String> {
 }
 
 fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyResponse, String> {
+    let _guard = if confirmed { Some(state.apply_lock.lock().map_err(|_| "Another apply failed; restart the app.")?) } else { None };
     ensure_closed()?;
     let s = state.snapshot();
     let ov = resolve(&s);
@@ -189,8 +192,10 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         ranked_safe: src.ranked_safe,
         game_build: crate::paths::game_build(&gi_path),
     };
+    if let Err(e) = save_applied_source(&state.dir, &src.files) {
+        diag::error(&format!("saving the applied config's files: {e}"));
+    }
     state.update(|s| Settings { applied: Some(record), onboarded: true, ..s })?;
-    save_applied_source(&state.dir, &src.files);
 
     let notes = src
         .notes
@@ -262,6 +267,7 @@ pub fn restore_backup(state: State<AppState>, id: String) -> Result<String, Stri
 }
 
 fn restore_inner(state: &AppState, id: &str) -> Result<String, String> {
+    let _guard = state.apply_lock.lock().map_err(|_| "Another apply failed; restart the app.")?;
     ensure_closed()?;
     let backups = state.backups_dir();
     let meta = backup::find(&backups, id).ok_or("That backup no longer exists.")?;
@@ -683,16 +689,18 @@ pub async fn import_code(state: State<'_, AppState>, text: String) -> Result<cra
 /// re-apply after a game update without the network or the original repo.
 const APPLIED_DIR: &str = "applied";
 
-fn save_applied_source(app_dir: &Path, files: &PackFiles) {
+/// Writes the files to a fresh folder, then swaps it in, so a reader never sees a half-written set.
+fn save_applied_source(app_dir: &Path, files: &PackFiles) -> std::io::Result<()> {
     let dir = app_dir.join(APPLIED_DIR);
-    let _ = fs::remove_dir_all(&dir);
-    if fs::create_dir_all(&dir).is_err() {
-        return;
-    }
-    let _ = crate::fsops::atomic_write(&dir.join("gameinfo.gi"), files.gameinfo.as_bytes());
+    let tmp = app_dir.join(format!("{APPLIED_DIR}.new"));
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(&tmp)?;
+    fs::write(tmp.join("gameinfo.gi"), files.gameinfo.as_bytes())?;
     if let Some(v) = &files.video {
-        let _ = crate::fsops::atomic_write(&dir.join("video.txt"), v.as_bytes());
+        fs::write(tmp.join("video.txt"), v.as_bytes())?;
     }
+    let _ = fs::remove_dir_all(&dir);
+    fs::rename(&tmp, &dir)
 }
 
 pub fn applied_source(app_dir: &Path) -> Option<PackFiles> {
@@ -801,12 +809,19 @@ pub fn set_launch_options(state: State<AppState>, options: String) -> Result<Lau
     let path = localconfig(&state)?;
     let src = fs::read_to_string(&path).map_err(|e| format!("Cannot read localconfig.vdf: {e}"))?;
     let out = crate::launch::write(&src, &options)?;
-    let backups = state.backups_dir();
+    let backups = state.backups_dir().join("localconfig");
     fs::create_dir_all(&backups).map_err(|e| e.to_string())?;
-    let stamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S");
-    fs::write(backups.join(format!("localconfig_{stamp}.vdf")), &src).map_err(|e| format!("Couldn't back up localconfig.vdf: {e}"))?;
+    let stamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S%.3f");
+    crate::fsops::atomic_write(&backups.join(format!("localconfig_{stamp}.vdf")), src.as_bytes())
+        .map_err(|e| format!("Couldn't back up localconfig.vdf: {e}"))?;
+    prune_launch_backups(&backups);
+    // Steam may have started while the user was editing.
+    if crate::launch::steam_running() {
+        return Err("Close Steam first. It overwrites launch options when it exits.".into());
+    }
     crate::fsops::atomic_write(&path, out.as_bytes()).map_err(|e| format!("Couldn't save localconfig.vdf: {e}"))?;
-    diag::info(&format!("launch options set: {options}"));
+    // The options themselves aren't logged: they can hold passwords (e.g. +connect).
+    diag::info("launch options changed");
     Ok(LaunchView { options: crate::launch::read(&out)?, steam_running: false, problem: None })
 }
 
@@ -831,4 +846,15 @@ pub async fn import_gamebanana(state: State<'_, AppState>, url: String) -> Resul
 pub async fn get_store(state: State<'_, AppState>) -> Result<crate::store::StoreView, String> {
     let cache = state.dir.join("cache");
     tauri::async_runtime::spawn_blocking(move || crate::store::load(&cache)).await.map_err(|e| e.to_string())
+}
+
+/// Keeps the newest localconfig.vdf backups only.
+const LAUNCH_BACKUPS_KEPT: usize = 10;
+
+fn prune_launch_backups(dir: &Path) {
+    let Ok(rd) = fs::read_dir(dir) else { return };
+    let mut files: Vec<PathBuf> = rd.filter_map(Result::ok).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "vdf")).collect();
+    files.sort();
+    let extra = files.len().saturating_sub(LAUNCH_BACKUPS_KEPT);
+    files.into_iter().take(extra).for_each(|p| drop(fs::remove_file(p)));
 }

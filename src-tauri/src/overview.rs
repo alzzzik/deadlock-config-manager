@@ -88,12 +88,11 @@ pub fn resolve(s: &Settings) -> Overview {
     }
 }
 
-/// Best guess at who changed an applied gameinfo.gi: a new game build or a file that matches Valve's
-/// ConVars means a game update; markers point at Deadlock Mod Manager or Grimoire.
-pub fn changed_by(current: &str, stock: &str, applied_build: Option<&str>, game_build: Option<&str>) -> &'static str {
-    if applied_build.zip(game_build).is_some_and(|(a, b)| a != b) {
-        return "game";
-    }
+/// Best guess at who changed an applied gameinfo.gi. Mod manager markers win. Otherwise it's a game
+/// update when the ConVars match Valve's file, or when the build changed and none of the config's own
+/// ConVars changes (`applied`: the config's file) are left. Anything else is "other", which the
+/// background re-apply never touches.
+pub fn changed_by(current: &str, stock: &str, applied: Option<&str>, applied_build: Option<&str>, game_build: Option<&str>) -> &'static str {
     if crate::gameinfo::has_dmm_markers(current) {
         return "dmm";
     }
@@ -110,6 +109,18 @@ pub fn changed_by(current: &str, stock: &str, applied_build: Option<&str>, game_
     };
     let (changes, _) = crate::diff::diff_pairs(&convars(stock), &convars(current));
     if changes.is_empty() {
+        return "game";
+    }
+    let build_changed = applied_build.zip(game_build).is_some_and(|(a, b)| a != b);
+    let ours_gone = applied.and_then(|a| crate::share::convar_delta(stock, a).ok()).is_some_and(|delta| {
+        let now = convars(current);
+        !delta.is_empty()
+            && delta.iter().all(|e| {
+                let value = now.iter().find(|(k, _)| crate::convars::convar_of(k).is_some_and(|n| n.eq_ignore_ascii_case(&e.name))).map(|(_, v)| v);
+                value != e.value.as_ref()
+            })
+    });
+    if build_changed && ours_gone {
         "game"
     } else {
         "other"
@@ -126,7 +137,8 @@ pub fn resolve_with_checks(s: &Settings, cache_dir: &Path) -> Overview {
     let changed_by = match (&ov.status, installed.as_deref()) {
         (apply::Status::Changed { .. }, Some(src)) => {
             let applied_build = s.applied.as_ref().and_then(|a| a.game_build.as_deref());
-            Some(changed_by(src, &stock, applied_build, game_build.as_deref()).to_string())
+            let applied_src = cache_dir.parent().and_then(crate::commands::applied_source).map(|f| f.gameinfo);
+            Some(changed_by(src, &stock, applied_src.as_deref(), applied_build, game_build.as_deref()).to_string())
         }
         _ => None,
     };
@@ -288,15 +300,19 @@ mod tests {
     #[test]
     fn tells_who_changed_the_file() {
         let stock = crate::stock::EMBEDDED;
-        assert_eq!(changed_by(stock, stock, Some("1"), Some("2")), "game");
-        assert_eq!(changed_by(stock, stock, None, None), "game");
+        assert_eq!(changed_by(stock, stock, None, Some("1"), Some("2")), "game");
+        assert_eq!(changed_by(stock, stock, None, None, None), "game");
         let tweaked = stock.replacen("\"rate\"", "\"r_fog\" \"0\"\n\t\t\"rate\"", 1);
-        assert_eq!(changed_by(&tweaked, stock, Some("1"), Some("1")), "other");
+        assert_eq!(changed_by(&tweaked, stock, None, Some("1"), Some("1")), "other");
+        // A new build alone isn't enough: someone may have edited the file after the update.
+        assert_eq!(changed_by(&tweaked, stock, Some(&tweaked), Some("1"), Some("2")), "other");
+        // New build and the config's own changes are gone (Valve's newer file, stock snapshot stale): game.
+        let pack = stock.replacen("\"rate\"", "\"r_ssao\" \"0\"\n\t\t\"rate\"", 1);
+        assert_eq!(changed_by(&tweaked, stock, Some(&pack), Some("1"), Some("2")), "game");
         let dmm = format!("{tweaked}\n{}\n{}\n", crate::gameinfo::DMM_START, crate::gameinfo::DMM_END);
-        assert_eq!(changed_by(&dmm, stock, None, None), "dmm");
-        let grim = tweaked.replacen("Game_LowViolence", "Game citadel/grimoire
-			Game_LowViolence", 1);
-        assert_eq!(changed_by(&grim, stock, None, None), "grimoire");
+        assert_eq!(changed_by(&dmm, stock, Some(&pack), Some("1"), Some("2")), "dmm");
+        let grim = tweaked.replacen("Game_LowViolence", "Game citadel/grimoire\n\t\t\tGame_LowViolence", 1);
+        assert_eq!(changed_by(&grim, stock, None, None, None), "grimoire");
     }
 
     use super::*;

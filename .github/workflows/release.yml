@@ -16,6 +16,8 @@ permissions:
 
 jobs:
   build:
+    # Releases are only made from version tags (a manual run from a branch would name a release after it).
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,7 +105,9 @@ jobs:
           Stop-Process -Id $p.Id -Force
           $uninstaller = (Get-ItemProperty $key.PSPath).UninstallString.Trim('"')
           Start-Process -FilePath $uninstaller -ArgumentList "/S" -Wait
-          Start-Sleep -Seconds 5
+          # NSIS uninstallers copy themselves to %TEMP% and return early; wait for the files to go.
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Test-Path $exe) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
           if (Test-Path $exe) { throw "Still installed after uninstall" }
 
       - name: Attest build provenance

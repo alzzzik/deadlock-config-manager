@@ -307,7 +307,16 @@ export default function App() {
   const importCodeRef = useRef(importCode);
   importCodeRef.current = importCode;
   useEffect(() => {
-    const handle = (urls: string[] | null) => urls?.filter((u) => u.includes("DCM1-")).forEach((u) => void importCodeRef.current(u));
+    // Links can come from any web page, so ask before adding anything.
+    const handle = (urls: string[] | null) =>
+      urls
+        ?.filter((u) => u.includes("DCM1-"))
+        .slice(0, 1)
+        .forEach((u) => {
+          if (window.confirm("A deadlockcfg:// link wants to add a shared config to My configs. Nothing is applied until you choose to. Add it?")) {
+            void importCodeRef.current(u);
+          }
+        });
     getDeepLinks().then(handle, () => undefined);
     let unlisten: (() => void) | undefined;
     onOpenUrl(handle).then((u) => (unlisten = u), () => undefined);

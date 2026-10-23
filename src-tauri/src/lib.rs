@@ -72,7 +72,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
 pub fn run() {
     let dir = settings::app_dir();
     diag::init(&dir);
-    let state = commands::AppState { settings: Mutex::new(settings::load(&dir)), dir };
+    let state = commands::AppState { settings: Mutex::new(settings::load(&dir)), dir, apply_lock: Mutex::new(()) };
     tauri::Builder::default()
         // A second launch (e.g. from a deadlockcfg:// link) focuses this window; the deep-link
         // plugin forwards the link to the running app.

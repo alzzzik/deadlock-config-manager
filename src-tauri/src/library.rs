@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 
 /// Largest file accepted from a zip; real configs are a few KB.
 const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
+/// Most data a .7z may unpack to while looking for gameinfo.gi.
+const MAX_7Z_UNPACKED: u64 = 16 * 1024 * 1024;
 const MAX_NAME_CHARS: usize = 60;
 const MAX_NOTES_CHARS: usize = 500;
 
@@ -185,6 +187,7 @@ pub fn files_from_archive(name: &str, bytes: &[u8]) -> Result<PackFiles, String>
     }
     if lower.ends_with(".7z") {
         let mut found: Vec<(String, String)> = Vec::new();
+        let mut unpacked: u64 = 0;
         let mut reader = sevenz_rust::SevenZReader::new(std::io::Cursor::new(bytes), bytes.len() as u64, sevenz_rust::Password::empty())
             .map_err(|e| format!("That isn't a readable 7z file: {e}"))?;
         reader
@@ -195,9 +198,11 @@ pub fn files_from_archive(name: &str, bytes: &[u8]) -> Result<PackFiles, String>
                     r.take(MAX_FILE_BYTES).read_to_string(&mut text)?;
                     found.push((entry.name().to_string(), text));
                 } else {
-                    std::io::copy(r, &mut std::io::sink())?;
+                    // Skipped entries still have to be decoded; stop at a cap so a tiny archive can't
+                    // expand to gigabytes.
+                    unpacked += std::io::copy(&mut r.take(MAX_7Z_UNPACKED + 1), &mut std::io::sink())?;
                 }
-                Ok(true)
+                Ok(unpacked <= MAX_7Z_UNPACKED)
             })
             .map_err(|e| format!("Couldn't unpack the 7z file: {e}"))?;
         let gameinfo = pick(&found, "gameinfo.gi").cloned().ok_or("The 7z file has no gameinfo.gi.")?;
