@@ -533,14 +533,16 @@ fn apply_tweaks_now(state: &AppState) -> Result<String, String> {
     let ov = resolve(&state.snapshot());
     let path = ov.gameinfo_path.filter(|_| ov.gameinfo_found).ok_or("gameinfo.gi wasn't found.")?;
     let installed = fs::read_to_string(&path).map_err(|e| format!("Cannot read gameinfo.gi: {e}"))?;
+    // Keep the applied config's name and source (configs applied by older versions have no saved copy).
+    let applied = state.snapshot().applied;
     let src = Source {
-        repo: None,
-        id: "installed".into(),
-        name: "Your gameinfo.gi".into(),
-        revision: None,
+        repo: applied.as_ref().and_then(|a| a.repo.clone()),
+        id: applied.as_ref().map_or("installed".into(), |a| a.pack_id.clone()),
+        name: applied.as_ref().map_or("Your gameinfo.gi".into(), |a| a.pack_name.clone()),
+        revision: applied.as_ref().and_then(|a| a.revision.clone()),
         files: PackFiles { gameinfo: installed, video: None },
         notes: vec![],
-        ranked_safe: false,
+        ranked_safe: applied.as_ref().is_some_and(|a| a.ranked_safe),
         quiet: false,
         autoexec: None,
     };
