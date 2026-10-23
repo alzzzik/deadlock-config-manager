@@ -60,7 +60,7 @@ fn real_gameinfo_ranked_check_overlay_and_tweaks() {
     assert!(ranked::guarded_changes(&stock_text, &safe).unwrap().is_empty());
     let (merged, added) = overlay::merge(&stock_text, &safe).unwrap();
     println!("overlay would add {} convar(s) and {:?}", added.convars, added.sections);
-    let tweaks = overrides::Overrides { fixes: vec!["no_shake".into()], aspect: Some("2.15".into()), fps_max: Some(400), fps_max_ui: Some(120), custom: vec![] };
+    let tweaks = overrides::Overrides { fixes: vec!["doorman_ult".into()], aspect: Some("2.15".into()), fps_max: Some(400), fps_max_ui: Some(120) };
     let out = overrides::apply(&merged, &tweaks.effective()).unwrap();
     assert!(cfghub::gameinfo::validate(&out).is_ok());
     assert!(cfghub::gameinfo::search_paths_ok(&cfghub::gameinfo::enforce(&out).unwrap()).unwrap());
