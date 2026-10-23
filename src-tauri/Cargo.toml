@@ -33,6 +33,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 ureq = { version = "2", features = ["json"] }
 winreg = "0.52"
 base64 = "0.22"
+keyring = { version = "3", features = ["windows-native"] }
 flate2 = "1"
 md-5 = "0.10"
 sevenz-rust = { version = "0.6", default-features = false }

@@ -98,6 +98,10 @@ export type StoreEntry =
   | { kind: "code"; title: string; description: string; author: string; code: string };
 export type StoreView = { entries: StoreEntry[]; online: boolean; submitUrl: string };
 
+export type GithubStatus = { available: boolean; login: string | null };
+export type DeviceCode = { deviceCode: string; userCode: string; verificationUri: string; interval: number; expiresIn: number };
+export type PollResult = { state: "pending"; interval: number } | { state: "done"; login: string } | { state: "failed"; message: string };
+
 export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean };
 
 export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
@@ -192,6 +196,10 @@ export const api = {
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
   importGamebanana: (url: string) => invoke<LibraryEntry>("import_gamebanana", { url }),
   getStore: () => invoke<StoreView>("get_store"),
+  githubStatus: () => invoke<GithubStatus>("github_status"),
+  githubSignIn: () => invoke<DeviceCode>("github_sign_in"),
+  githubPoll: (deviceCode: string, interval: number) => invoke<PollResult>("github_poll", { deviceCode, interval }),
+  githubSignOut: () => invoke<void>("github_sign_out"),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
   getLaunchOptions: () => invoke<LaunchView>("get_launch_options"),

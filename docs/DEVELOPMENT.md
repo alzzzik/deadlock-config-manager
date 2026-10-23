@@ -59,6 +59,10 @@ it from the `TAURI_SIGNING_PRIVATE_KEY` repository secret (and `TAURI_SIGNING_PR
 has a password) and fails without it. The matching public key is in `tauri.conf.json`. If the private key is lost, installed copies
 can't be updated anymore, so keep an offline backup.
 
+**Optional GitHub sign-in:** register an OAuth app (GitHub Settings › Developer settings › OAuth Apps), tick
+**Enable Device Flow**, and put its public client ID in `CLIENT_ID` in `src-tauri/src/auth.rs`. No secret is
+needed. Until then the sign-in section is hidden.
+
 ## Source map (`src-tauri/src`)
 
 | File | Role |
@@ -83,6 +87,8 @@ can't be updated anymore, so keep an offline backup.
 | `gamebanana.rs` | Importing configs from GameBanana |
 | `store.rs` | Config store list (`index.json` via jsDelivr) |
 | `launch.rs` | Steam launch options in `localconfig.vdf` |
+| `autoexec.rs` | A pack's `autoexec.cfg` lines, merged into the game's `cfgutoexec.cfg` |
+| `auth.rs` | Optional Sign in with GitHub (device flow, token in Credential Manager) |
 | `report.rs` | What a game update changed for the applied config |
 | `watch.rs` | Background re-apply after game updates |
 | `diag.rs` | Local log, panic hook and the diagnostics report |
