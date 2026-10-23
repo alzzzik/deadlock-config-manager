@@ -455,119 +455,135 @@ pub fn make_ranked_safe(state: State<AppState>, confirmed: bool) -> Result<Apply
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PackCheck {
-    /// `owner/name#packId`, same as pin keys.
-    pub key: String,
-    /// Engine-section entries the pack changes; None when the pack couldn't be read.
-    pub ranked_changes: Option<usize>,
-}
-
-/// Ranked-safety for each pack, for the badges on pack rows. Uses cached pack files when the
-/// revision hasn't changed, so repeated checks don't download anything.
-#[tauri::command]
-pub async fn check_packs(state: State<'_, AppState>, packs: Vec<PackInfo>) -> Result<Vec<PackCheck>, String> {
-    let cache = state.dir.join("cache");
-    let installed = resolve(&state.snapshot()).gameinfo_path.and_then(|p| fs::read_to_string(p).ok());
-    tauri::async_runtime::spawn_blocking(move || {
-        let stock = stock::load(&cache, installed.as_deref());
-        packs
-            .iter()
-            .map(|p| PackCheck {
-                key: format!("{}#{}", p.repo, p.id),
-                ranked_changes: packs::fetch_pack(&p.repo, p, &cache)
-                    .ok()
-                    .and_then(|f| ranked::guarded_changes(&stock, &f.files.gameinfo).ok())
-                    .map(|c| c.len()),
-            })
-            .collect()
-    })
-    .await
-    .map_err(|e| e.to_string())
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ToggleInfo {
+pub struct TweakRow {
+    /// "aspect", "fps_max" or "fps_max_ui".
     pub id: &'static str,
-    pub group: &'static str,
     pub label: &'static str,
-    pub hint: &'static str,
-    /// What the toggle writes, e.g. `cl_ragdoll_limit "-1"` or `// r_farz`.
-    pub lines: Vec<String>,
+    pub description: &'static str,
+    /// Your value, if you set one.
+    pub value: Option<String>,
+    /// What the installed gameinfo.gi sets without your value.
+    pub config_value: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AspectPreset {
+pub struct FixRow {
+    pub id: &'static str,
     pub label: &'static str,
-    pub value: &'static str,
+    pub on: bool,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TweaksView {
-    pub overrides: Overrides,
-    pub toggles: Vec<ToggleInfo>,
-    pub aspect_presets: Vec<AspectPreset>,
-    pub max_fps: u32,
+    pub rows: Vec<TweakRow>,
+    pub fixes: Vec<FixRow>,
 }
 
-fn tweaks_view(o: Overrides) -> TweaksView {
-    let line = |e: &overrides::Entry| match &e.value {
-        Some(v) => format!("{} \"{v}\"", e.name),
-        None => format!("// {}", e.name),
-    };
-    let toggles = overrides::TOGGLES
+const TWEAK_ROWS: [(&str, &str, &str, &str); 3] = [
+    ("aspect", "r_aspectratio", "View width", "How wide you see. Most configs use 2.15–2.5; higher is wider."),
+    ("fps_max", "fps_max", "FPS cap", "Frame limit in matches. 0 means no limit."),
+    ("fps_max_ui", "fps_max_ui", "Menu FPS cap", "Frame limit in menus. Lower keeps the GPU cool."),
+];
+
+/// The config's own value: from the applied config's files when known, otherwise the installed file.
+fn config_source(state: &AppState) -> Option<String> {
+    applied_source(&state.dir).map(|f| f.gameinfo).or_else(|| {
+        let ov = resolve(&state.snapshot());
+        ov.gameinfo_path.filter(|_| ov.gameinfo_found).and_then(|p| fs::read_to_string(p).ok())
+    })
+}
+
+fn tweaks_view(state: &AppState) -> TweaksView {
+    let o = state.snapshot().overrides;
+    let src = config_source(state);
+    let rows = TWEAK_ROWS
         .iter()
-        .map(|t| ToggleInfo { id: t.id, group: t.group, label: t.label, hint: t.hint, lines: (t.entries)().iter().map(line).collect() })
+        .map(|(id, convar, label, description)| TweakRow {
+            id,
+            label,
+            description,
+            value: match *id {
+                "aspect" => o.aspect.clone(),
+                "fps_max" => o.fps_max.map(|v| v.to_string()),
+                _ => o.fps_max_ui.map(|v| v.to_string()),
+            },
+            config_value: src.as_deref().and_then(|s| overrides::convar_value(s, convar)),
+        })
         .collect();
-    let aspect_presets = overrides::ASPECT_PRESETS.iter().map(|(label, value)| AspectPreset { label, value }).collect();
-    TweaksView { overrides: o, toggles, aspect_presets, max_fps: overrides::MAX_FPS }
+    let fixes = overrides::FIXES.iter().map(|f| FixRow { id: f.id, label: f.label, on: o.fixes.iter().any(|x| x == f.id) }).collect();
+    TweaksView { rows, fixes }
 }
 
 #[tauri::command]
 pub fn get_tweaks(state: State<AppState>) -> TweaksView {
-    tweaks_view(state.snapshot().overrides)
+    tweaks_view(&state)
 }
 
-/// Saves tweaks. They take effect the next time a pack is applied.
-#[tauri::command]
-pub fn save_tweaks(state: State<AppState>, overrides: Overrides) -> Result<TweaksView, String> {
-    overrides::validate(&overrides.custom)?;
-    let aspect = overrides.aspect.as_deref().map(overrides::parse_aspect).transpose()?;
-    let known: Vec<String> = overrides.fixes.into_iter().filter(|id| overrides::TOGGLES.iter().any(|t| t.id == id)).collect();
-    let clean = Overrides { fixes: known, aspect, ..overrides };
-    let s = state.update(|s| Settings { overrides: clean, ..s })?;
-    Ok(tweaks_view(s.overrides))
+/// Writes the current settings into gameinfo.gi right away: re-applies the applied config with them,
+/// or puts them into the installed file when no config was applied by the app.
+fn apply_tweaks_now(state: &AppState) -> Result<String, String> {
+    if state.snapshot().applied.is_some() && applied_source(&state.dir).is_some() {
+        return reapply_saved(state, false);
+    }
+    let ov = resolve(&state.snapshot());
+    let path = ov.gameinfo_path.filter(|_| ov.gameinfo_found).ok_or("gameinfo.gi wasn't found.")?;
+    let installed = fs::read_to_string(&path).map_err(|e| format!("Cannot read gameinfo.gi: {e}"))?;
+    let src = Source {
+        repo: None,
+        id: "installed".into(),
+        name: "Your gameinfo.gi".into(),
+        revision: None,
+        files: PackFiles { gameinfo: installed, video: None },
+        notes: vec![],
+        ranked_safe: false,
+        quiet: false,
+        autoexec: None,
+    };
+    match apply_source(state, src, true)? {
+        ApplyResponse::Done { message, .. } => Ok(message),
+        ApplyResponse::Preview { .. } => Err("Unexpected preview.".into()),
+    }
 }
 
-/// Reads an overrides.gi file into custom lines (replacing the current custom lines).
+/// Sets one value (None = use the config's value) and applies it.
 #[tauri::command]
-pub fn import_tweaks(state: State<AppState>, path: String) -> Result<TweaksView, String> {
-    let text = fs::read_to_string(&path).map_err(|e| format!("Cannot read {path}: {e}"))?;
-    let custom = overrides::parse_file(&text)?;
-    let s = state.update(|s| Settings { overrides: Overrides { custom, ..s.overrides.clone() }, ..s })?;
-    Ok(tweaks_view(s.overrides))
+pub fn set_tweak(state: State<AppState>, id: String, value: Option<String>) -> Result<TweaksView, String> {
+    let value = value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+    let fps = |v: &Option<String>| -> Result<Option<u32>, String> {
+        v.as_deref().map(|t| t.parse::<u32>().map_err(|_| "FPS caps are whole numbers, 0 for no limit.".to_string())).transpose()
+    };
+    let current = state.snapshot().overrides;
+    let next = match id.as_str() {
+        "aspect" => Overrides { aspect: value.as_deref().map(overrides::parse_aspect).transpose()?, ..current },
+        "fps_max" => Overrides { fps_max: fps(&value)?.map(|v| v.min(overrides::MAX_FPS)), ..current },
+        "fps_max_ui" => Overrides { fps_max_ui: fps(&value)?.map(|v| v.min(overrides::MAX_FPS)), ..current },
+        _ => return Err("Unknown setting.".into()),
+    };
+    let previous = state.snapshot().overrides;
+    state.update(|s| Settings { overrides: next, ..s })?;
+    if let Err(e) = diag::logged("apply setting", apply_tweaks_now(&state)) {
+        state.update(|s| Settings { overrides: previous, ..s })?;
+        return Err(e);
+    }
+    Ok(tweaks_view(&state))
 }
 
-/// Writes all active tweaks (fixes, FOV and custom lines) as an overrides.gi file.
+/// Turns a fix on or off and applies it.
 #[tauri::command]
-pub fn export_tweaks(state: State<AppState>, path: String) -> Result<(), String> {
-    let text = overrides::to_file(&state.snapshot().overrides.effective());
-    crate::fsops::atomic_write(Path::new(&path), text.as_bytes()).map_err(|e| format!("Cannot write {path}: {e}"))
-}
-
-/// Parses custom tweak lines typed in the app (overrides.gi format).
-#[tauri::command]
-pub fn parse_tweak_lines(text: String) -> Result<Vec<overrides::Entry>, String> {
-    overrides::parse_file(&text)
-}
-
-/// The same lines back as text, for editing.
-#[tauri::command]
-pub fn format_tweak_lines(entries: Vec<overrides::Entry>) -> String {
-    overrides::to_file(&entries).lines().skip(1).map(|l| format!("{l}
-")).collect()
+pub fn set_fix(state: State<AppState>, id: String, on: bool) -> Result<TweaksView, String> {
+    if !overrides::FIXES.iter().any(|f| f.id == id) {
+        return Err("Unknown fix.".into());
+    }
+    let previous = state.snapshot().overrides;
+    let fixes: Vec<String> = previous.fixes.iter().filter(|x| **x != id).cloned().chain(on.then(|| id.clone())).collect();
+    state.update(|s| Settings { overrides: Overrides { fixes, ..s.overrides.clone() }, ..s })?;
+    if let Err(e) = diag::logged("apply fix", apply_tweaks_now(&state)) {
+        state.update(|s| Settings { overrides: previous, ..s })?;
+        return Err(e);
+    }
+    Ok(tweaks_view(&state))
 }
 
 fn library_dir(state: &AppState) -> PathBuf {

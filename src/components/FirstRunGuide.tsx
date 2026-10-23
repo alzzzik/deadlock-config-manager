@@ -60,8 +60,7 @@ export function FirstRunGuide({ busy, onPick, onSkip }: FirstRunGuideProps) {
       }
     >
       <p className="muted small">
-        You'll see every change before anything is written, and your current files are backed up first. Configs are
-        applied ranked-safe, so they can't block ranked matchmaking.
+        You'll see every change before anything is written, and your current files are backed up first.
       </p>
       <div className="guide-choices" role="radiogroup" aria-label="Starting config">
         {GUIDE_CHOICES.map((c) => (

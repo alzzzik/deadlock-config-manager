@@ -28,9 +28,8 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { PreviewDialog } from "./components/PreviewDialog";
 import { ToastStack, useToasts } from "./components/Toasts";
 import { UpdateBar, useAppUpdate } from "./components/AppUpdate";
-import { PackChecks, PackChecksContext } from "./packChecks";
 import { FirstRunGuide, GuideChoice } from "./components/FirstRunGuide";
-import { TweaksDialog } from "./components/TweaksDialog";
+import { QuickSettings } from "./components/QuickSettings";
 import { MyConfigs, SaveConfigDialog } from "./components/MyConfigs";
 import { ImportDialog } from "./components/ImportDialog";
 import { StoreDialog } from "./components/StoreDialog";
@@ -41,7 +40,6 @@ type Dialog =
   | { kind: "restore" }
   | { kind: "settings" }
   | { kind: "guide" }
-  | { kind: "tweaks"; tab?: "config" | "launch" }
   | { kind: "saveConfig" }
   | { kind: "import" }
   | { kind: "store" }
@@ -77,7 +75,6 @@ export default function App() {
   /** True once packs have come from GitHub this session (not just the disk cache). */
   const [fresh, setFresh] = useState(false);
   const [ready, setReady] = useState(false);
-  const [checks, setChecks] = useState<PackChecks>({});
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const { toasts, push, dismiss } = useToasts();
   const appUpdate = useAppUpdate();
@@ -175,18 +172,6 @@ export default function App() {
 
   const allPacks = useMemo(() => groups?.flatMap((g) => g.packs) ?? [], [groups]);
 
-  // Ranked-safety badges: checked once per fresh pack list (cached pack files make this cheap).
-  useEffect(() => {
-    if (!fresh || allPacks.length === 0) return;
-    let cancelled = false;
-    api
-      .checkPacks(allPacks)
-      .then((list) => !cancelled && setChecks(Object.fromEntries(list.map((c) => [c.key, c.rankedChanges]))))
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [fresh, allPacks]);
   const pinnedPacks = useMemo(
     () =>
       (overview?.pinned ?? [])
@@ -243,7 +228,7 @@ export default function App() {
   const applyLibrary = (e: LibraryEntry, rankedSafe = false) =>
     runApply((c, r) => api.applyLibrary(e.id, c, r), false, rankedSafe);
 
-  const sharePack = (p: PackInfo) => void copyShare(api.sharePack(p, !!checks[pinKey(p)]));
+  const sharePack = (p: PackInfo) => void copyShare(api.sharePack(p, false));
 
   const copyShare = async (message: Promise<string>) => {
     try {
@@ -349,7 +334,7 @@ export default function App() {
       if (!pack) throw new Error(`${choice.title} wasn't found in ${choice.repo}. Pick a pack from the list instead.`);
       setDialog({ kind: "none" });
       setBusy(false);
-      await applyPack(pack, true);
+      await applyPack(pack);
     } catch (e) {
       fail(e);
     } finally {
@@ -453,9 +438,6 @@ export default function App() {
         <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "perf" })} disabled={!overview}>
           Performance
         </button>
-        <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "tweaks" })} disabled={!overview}>
-          Tweaks
-        </button>
         <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "restore" })}>
           Restore…
         </button>
@@ -485,7 +467,18 @@ export default function App() {
           <section className="status is-loading" aria-busy="true" />
         )}
 
-        <PackChecksContext.Provider value={checks}>
+        {overview?.gameinfoFound && (
+          <QuickSettings
+            refreshKey={`${overview.applied?.appliedAt ?? ""}|${overview.status.kind}`}
+            disabled={busy || overview.deadlockRunning}
+            onApplied={(m) => {
+              push("ok", m);
+              refreshOverview();
+            }}
+            onError={fail}
+          />
+        )}
+
         <section className="packs" aria-labelledby="packs-title">
           <div className="toolbar">
             <h2 id="packs-title">
@@ -571,7 +564,6 @@ export default function App() {
 
           <AddRepo linked={overview?.repos ?? []} onAdd={addRepo} onOpenGithub={openGithub} />
         </section>
-        </PackChecksContext.Provider>
       </main>
 
       {dialog.kind === "restore" && (
@@ -591,19 +583,6 @@ export default function App() {
           onShowGuide={() => setDialog({ kind: "guide" })}
           installKind={appUpdate.installKind}
           onNotify={push}
-        />
-      )}
-      {dialog.kind === "tweaks" && (
-        <TweaksDialog
-          initialTab={dialog.tab}
-          canReapply={!!appliedPack || overview?.applied?.packId === "local" || isLibraryApplied}
-          onClose={() => setDialog({ kind: "none" })}
-          onNotify={push}
-          onSaved={(again) => {
-            setDialog({ kind: "none" });
-            if (again) void reapply();
-            else push("ok", "Tweaks saved. They're added the next time you apply a pack.");
-          }}
         />
       )}
       {dialog.kind === "saveConfig" && (
@@ -633,7 +612,7 @@ export default function App() {
         />
       )}
       {dialog.kind === "perf" && (
-        <PerfDialog onClose={() => setDialog({ kind: "none" })} onOpenLaunchOptions={() => setDialog({ kind: "tweaks", tab: "launch" })} onNotify={push} />
+        <PerfDialog onClose={() => setDialog({ kind: "none" })} onOpenLaunchOptions={() => setDialog({ kind: "settings" })} onNotify={push} />
       )}
       {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} />}
       {dialog.kind === "preview" && (

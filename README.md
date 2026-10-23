@@ -33,7 +33,7 @@ config, see what it changes, apply it, and restore your old files if you want th
 - Keeps your GPU IDs (`VendorID`, `DeviceID`) and display settings from your own `video.txt`.
 - Backs up your files before every change. The first backup is kept as your original.
 - Explains each setting in plain words and marks settings the game ignores.
-- Flags configs that can block ranked matchmaking and can apply them ranked-safe.
+- If Deadlock ever refuses ranked matchmaking because of a config, offers to make it ranked-safe.
 - Detects when a game update or another tool overwrites `gameinfo.gi` and lets you re-apply in one click.
 - Works with any GitHub repo that has config folders. Each config shows when it was last updated.
 - Saves your own configs ("My configs"), imports and exports them as zip files.
@@ -138,13 +138,12 @@ Yes. It keeps the search paths those tools add and doesn't make files read-only,
 </details>
 
 <details>
-<summary><b>Why does a config say "May block ranked"?</b></summary>
+<summary><b>I can't queue for ranked. What now?</b></summary>
 
-Since March 2026, Valve doesn't let you queue for ranked matchmaking when `gameinfo.gi` changes certain engine
-sections (Engine2, MaterialSystem2, NetworkSystem, Particles, RenderSystem, SceneSystem, WorldRenderer).
-Settings in ConVars are fine. The app compares each config with Valve's own file and flags the ones that touch
-those sections. **Apply ranked-safe** keeps the config's other settings and puts those sections back to Valve's
-defaults.
+Valve can refuse ranked matchmaking when `gameinfo.gi` changes certain engine sections. Most popular configs are
+fine, but if it happens, the app notices it in the game's log (with the `-condebug` launch option) and offers
+**Make ranked-safe**, which keeps the config's other settings and puts those sections back to Valve's defaults.
+You can also pick **Apply ranked-safe** in any config's preview.
 </details>
 
 <details>

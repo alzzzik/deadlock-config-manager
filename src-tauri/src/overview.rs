@@ -39,6 +39,8 @@ pub struct Overview {
     pub changed_by: Option<String>,
     /// Steam build id of the installed game.
     pub game_build: Option<String>,
+    /// console.log shows Deadlock refused ranked matchmaking because of gameinfo.gi.
+    pub ranked_blocked: bool,
 }
 
 pub fn to_string(p: &Path) -> String {
@@ -85,6 +87,7 @@ pub fn resolve(s: &Settings) -> Overview {
         show_guide: !s.onboarded && s.applied.is_none(),
         changed_by: None,
         game_build: None,
+        ranked_blocked: false,
     }
 }
 
@@ -127,6 +130,12 @@ pub fn changed_by(current: &str, stock: &str, applied: Option<&str>, applied_bui
     }
 }
 
+/// Valve's refusal reason (GameTracking-Deadlock commit 8febc71f) is the token
+/// `Citadel_StartMatchmaking_UnverifiedPGI`; matched loosely since the exact log line hasn't been seen yet.
+pub fn shows_ranked_refusal(log: &str) -> bool {
+    log.lines().any(|l| l.contains("UnverifiedPGI"))
+}
+
 /// `resolve` plus the ranked check of the installed file, which needs the cache folder.
 pub fn resolve_with_checks(s: &Settings, cache_dir: &Path) -> Overview {
     let ov = resolve(s);
@@ -142,7 +151,15 @@ pub fn resolve_with_checks(s: &Settings, cache_dir: &Path) -> Overview {
         }
         _ => None,
     };
-    Overview { ranked_changes, changed_by, game_build, ..ov }
+    // Only worth reading the log when the installed file changes engine sections at all.
+    let ranked_blocked = ranked_changes.is_some_and(|n| n > 0)
+        && ov
+            .gameinfo_path
+            .as_deref()
+            .and_then(|p| Path::new(p).parent().map(|d| d.join("console.log")))
+            .and_then(|log| std::fs::read(log).ok())
+            .is_some_and(|b| shows_ranked_refusal(&String::from_utf8_lossy(&b)));
+    Overview { ranked_changes, changed_by, game_build, ranked_blocked, ..ov }
 }
 
 #[tauri::command]

@@ -5,6 +5,8 @@ import { AddRepo } from "./AddRepo";
 import { ChevronIcon, CloseIcon } from "./icons";
 import { Modal } from "./Modal";
 import { UpdateCheck } from "./AppUpdate";
+import { FixesSection } from "./FixesSection";
+import { LaunchOptions } from "./LaunchOptions";
 
 interface SettingsDialogProps {
   overview: Overview;
@@ -110,6 +112,13 @@ export function SettingsDialog({
             </label>
           ))}
         </div>
+      </fieldset>
+
+      <FixesSection onNotify={onNotify} />
+
+      <fieldset className="field">
+        <legend className="field-title">Launch options</legend>
+        <LaunchOptions onNotify={onNotify} />
       </fieldset>
 
       <GameUpdatesSection onNotify={onNotify} />

@@ -67,10 +67,7 @@ export function LaunchOptions({ onNotify }: LaunchOptionsProps) {
   const changed = text.trim() !== view.options.trim();
 
   return (
-    <section className="field">
-      <p className="muted small">
-        Steam's launch options for Deadlock (Steam › Deadlock › Properties). The old settings file is backed up first.
-      </p>
+    <div>
       {view.steamRunning && (
         <div className="notice is-warn notice-action">
           <span>Close Steam to change launch options. Steam overwrites them when it exits.</span>
@@ -103,6 +100,6 @@ export function LaunchOptions({ onNotify }: LaunchOptionsProps) {
           </button>
         )}
       </div>
-    </section>
+    </div>
   );
 }

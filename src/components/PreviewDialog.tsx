@@ -71,35 +71,12 @@ function FileSection({ d, convars }: { d: FileDiff; convars: Record<string, Conv
 }
 
 function RankedNotice({ preview }: { preview: Preview }) {
-  const [open, setOpen] = useState(false);
-  const n = preview.rankedChanges.length;
-  if (preview.rankedSafe) {
-    return (
-      <p className="notice is-good">
-        Ranked-safe: the engine sections Valve checks before matchmaking are set to Valve's defaults. The pack's other
-        changes are kept.
-      </p>
-    );
-  }
-  if (n === 0) return null;
+  if (!preview.rankedSafe) return null;
   return (
-    <div className="ranked-notice">
-      <p>
-        <strong>May block ranked matchmaking.</strong> This pack changes {n} engine setting{n === 1 ? "" : "s"} that
-        Valve checks before ranked queueing. <b>Apply ranked-safe</b> keeps everything else and puts those sections back
-        to Valve's defaults.
-      </p>
-      <button className="btn btn-quiet btn-sm" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        {open ? "Hide engine settings" : "Show engine settings"}
-      </button>
-      {open && (
-        <ul className="change-list">
-          {preview.rankedChanges.map((c) => (
-            <ChangeRow key={c.key} c={c} />
-          ))}
-        </ul>
-      )}
-    </div>
+    <p className="notice is-good">
+      Ranked-safe: the engine sections Valve checks before matchmaking are set to Valve's defaults. The config's other
+      changes are kept.
+    </p>
   );
 }
 
@@ -119,20 +96,18 @@ export function PreviewDialog({ preview, onCancel, onConfirm, onConfirmSafe }: P
           <button className="btn btn-secondary" onClick={onCancel}>
             Cancel
           </button>
-          {offerSafe ? (
-            <>
-              <button className="btn btn-secondary" onClick={onConfirm}>
-                Apply as is
-              </button>
-              <button className="btn btn-primary" onClick={onConfirmSafe} autoFocus>
-                Apply ranked-safe
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-primary" onClick={onConfirm} autoFocus>
-              {nothing ? "Apply anyway" : "Apply"}
+          {offerSafe && (
+            <button
+              className="btn btn-quiet"
+              onClick={onConfirmSafe}
+              title="Only needed if Deadlock refuses ranked matchmaking: keeps the config but puts the engine sections Valve checks back to its defaults."
+            >
+              Apply ranked-safe
             </button>
           )}
+          <button className="btn btn-primary" onClick={onConfirm} autoFocus>
+            {nothing ? "Apply anyway" : "Apply"}
+          </button>
         </>
       }
     >

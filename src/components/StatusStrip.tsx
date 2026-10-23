@@ -175,12 +175,9 @@ export function StatusStrip(props: StatusStripProps) {
 
       {o.status.kind === "changed" && o.changedBy === "game" && <UpdateReportNotice gameinfoKey={o.gameBuild ?? ""} />}
       {o.deadlockRunning && <p className="notice is-warn">Deadlock is running. Close it before applying or restoring.</p>}
-      {!!o.rankedChanges && o.status.kind !== "missing" && (
+      {o.rankedBlocked && (
         <div className="notice is-warn notice-action">
-          <span>
-            Your gameinfo.gi changes {o.rankedChanges} engine setting{o.rankedChanges === 1 ? "" : "s"} that Valve checks
-            before ranked matchmaking, so ranked queueing may be blocked.
-          </span>
+          <span>Deadlock refused ranked matchmaking because of changes in gameinfo.gi.</span>
           <button className="btn btn-secondary btn-sm" disabled={busy || o.deadlockRunning} onClick={onMakeRankedSafe}>
             Make ranked-safe
           </button>

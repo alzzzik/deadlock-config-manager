@@ -15,3 +15,5 @@ docs/LAUNCH.md
 docs/BENCHMARK.md
 docs/superpowers/
 docs/images/social-preview.png
+run-dev.cmd
+build-installer.cmd

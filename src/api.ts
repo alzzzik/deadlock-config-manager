@@ -37,6 +37,8 @@ export type Overview = {
   alwaysPreserved: string[];
   /** Engine-section entries in the installed gameinfo.gi that differ from Valve's (can block ranked). */
   rankedChanges: number | null;
+  /** console.log shows Deadlock refused ranked matchmaking because of gameinfo.gi. */
+  rankedBlocked: boolean;
   showGuide: boolean;
   changedBy: "game" | "dmm" | "grimoire" | "other" | null;
   gameBuild: string | null;
@@ -129,8 +131,6 @@ export type Automation = { overlay: boolean; autoReapply: boolean; startWithWind
 
 export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
 
-export type PackCheck = { key: string; rankedChanges: number | null };
-
 export type LibraryEntry = {
   id: string;
   name: string;
@@ -140,21 +140,10 @@ export type LibraryEntry = {
   source: string;
 };
 
-export type TweakEntry = { name: string; value: string | null };
-export type Overrides = {
-  fixes: string[];
-  aspect: string | null;
-  fpsMax: number | null;
-  fpsMaxUi: number | null;
-  custom: TweakEntry[];
-};
-export type TweakToggle = { id: string; group: "feel" | "fix"; label: string; hint: string; lines: string[] };
-export type TweaksView = {
-  overrides: Overrides;
-  toggles: TweakToggle[];
-  aspectPresets: { label: string; value: string }[];
-  maxFps: number;
-};
+/** One editable setting: your value (null = the config's) and what the config itself sets. */
+export type TweakRow = { id: string; label: string; description: string; value: string | null; configValue: string | null };
+export type FixRow = { id: string; label: string; on: boolean };
+export type TweaksView = { rows: TweakRow[]; fixes: FixRow[] };
 
 export type ApplyResponse =
   | { kind: "preview"; preview: Preview }
@@ -193,7 +182,6 @@ export const api = {
   applyLocal: (folder: string, confirmed: boolean, rankedSafe: boolean) =>
     invoke<ApplyResponse>("apply_local", { folder, confirmed, rankedSafe }),
   makeRankedSafe: (confirmed: boolean) => invoke<ApplyResponse>("make_ranked_safe", { confirmed }),
-  checkPacks: (packs: PackInfo[]) => invoke<PackCheck[]>("check_packs", { packs }),
   listBackups: () => invoke<BackupMeta[]>("list_backups"),
   restore: (id: string) => invoke<string>("restore_backup", { id }),
   open: (which: Location) => invoke<void>("open_location", { which }),
@@ -202,11 +190,8 @@ export const api = {
   diagnostics: () => invoke<string>("get_diagnostics"),
   finishGuide: () => invoke<Overview>("finish_guide"),
   getTweaks: () => invoke<TweaksView>("get_tweaks"),
-  saveTweaks: (overrides: Overrides) => invoke<TweaksView>("save_tweaks", { overrides }),
-  importTweaks: (path: string) => invoke<TweaksView>("import_tweaks", { path }),
-  exportTweaks: (path: string) => invoke<void>("export_tweaks", { path }),
-  parseTweakLines: (text: string) => invoke<TweakEntry[]>("parse_tweak_lines", { text }),
-  formatTweakLines: (entries: TweakEntry[]) => invoke<string>("format_tweak_lines", { entries }),
+  setTweak: (id: string, value: string | null) => invoke<TweaksView>("set_tweak", { id, value }),
+  setFix: (id: string, on: boolean) => invoke<TweaksView>("set_fix", { id, on }),
   listLibrary: () => invoke<LibraryEntry[]>("list_library"),
   saveCurrent: (name: string, notes: string) => invoke<LibraryEntry>("save_current", { name, notes }),
   importConfig: (path: string) => invoke<LibraryEntry>("import_config", { path }),
