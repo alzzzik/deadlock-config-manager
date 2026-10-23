@@ -90,6 +90,8 @@ struct Source {
     quiet: bool,
     /// The pack's own autoexec.cfg, if it has one.
     autoexec: Option<String>,
+    /// Applied because a setting changed: back-to-back changes share one backup.
+    settings_change: bool,
 }
 
 /// `quiet` writes never show a UAC prompt (background re-apply); access denied is an error instead.
@@ -195,7 +197,18 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
 
     let backups = state.backups_dir();
     let sources = Sources { gameinfo: &gi_path, video: video_path.as_deref() };
-    let meta = backup::create(&backups, &sources, Some(&src.name), &format!("Before applying {}", src.name))?;
+    // Several setting changes in a row keep one "Before changing settings" backup instead of one each.
+    let recent_settings_backup = src
+        .settings_change
+        .then(|| backup::list(&backups).into_iter().next())
+        .flatten()
+        .filter(|m| m.reason == SETTINGS_BACKUP_REASON)
+        .filter(|m| chrono::DateTime::parse_from_rfc3339(&m.created_at).is_ok_and(|t| chrono::Local::now().signed_duration_since(t) < chrono::Duration::minutes(SETTINGS_BACKUP_MINUTES)));
+    let reason = if src.settings_change { SETTINGS_BACKUP_REASON.to_string() } else { format!("Before applying {}", src.name) };
+    let meta = match recent_settings_backup {
+        Some(m) => m,
+        None => backup::create(&backups, &sources, Some(&src.name), &reason)?,
+    };
     let mut writes = apply::plan_writes(&plan, &gi_path, video_path.as_deref());
     if let Some((path, old, new)) = &autoexec_out {
         // The old autoexec.cfg is kept next to the backups; Restore… doesn't touch autoexec.cfg.
@@ -210,7 +223,18 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         writes.push((path.clone(), new.as_bytes().to_vec()));
     }
     let write = real_writer(state.dir.join("jobs"), src.quiet);
-    let rollback = || backup::restore(&backups, &meta, &|files| write(files).map(|_| ()));
+    // Roll back to exactly what was there before this write (the shared settings backup may be older).
+    let before: Vec<FileWrite> = std::iter::once(installed.clone().map(|t| (gi_path.clone(), t.into_bytes())))
+        .chain(std::iter::once(video_path.clone().zip(user_video.clone()).map(|(p, t)| (p, t.into_bytes()))))
+        .flatten()
+        .collect();
+    let rollback = || {
+        if src.settings_change && installed.is_some() {
+            write(&before).map(|_| ())
+        } else {
+            backup::restore(&backups, &meta, &|files| write(files).map(|_| ()))
+        }
+    };
     let outcome = apply::write_verified(&writes, &write, &|| apply::verify(&gi_path, video_path.as_deref(), &plan), &rollback)?;
 
     let record = AppliedRecord {
@@ -269,6 +293,7 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
         ranked_safe,
         quiet: false,
         autoexec: pack_autoexec,
+        settings_change: false,
     };
     let label = format!("apply {}#{}", src.repo.as_deref().unwrap_or("?"), src.id);
     logged_apply(&label, apply_source(&state, src, confirmed))
@@ -279,7 +304,7 @@ pub fn apply_local(state: State<AppState>, folder: String, confirmed: bool, rank
     let dir = PathBuf::from(&folder);
     let files = diag::logged("read local folder", packs::read_local(&dir))?;
     let name = dir.file_name().map(|n| format!("Local: {}", n.to_string_lossy())).unwrap_or_else(|| "Local folder".into());
-    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![], ranked_safe, quiet: false, autoexec: packs::read_local_autoexec(&dir) };
+    let src = Source { repo: None, id: "local".into(), name, revision: None, files, notes: vec![], ranked_safe, quiet: false, autoexec: packs::read_local_autoexec(&dir), settings_change: false };
     logged_apply("apply local folder", apply_source(&state, src, confirmed))
 }
 
@@ -452,6 +477,7 @@ pub fn make_ranked_safe(state: State<AppState>, confirmed: bool) -> Result<Apply
         ranked_safe: true,
         quiet: false,
         autoexec: None,
+        settings_change: false,
     };
     logged_apply("make ranked-safe", apply_source(&state, src, confirmed))
 }
@@ -528,7 +554,13 @@ pub fn get_tweaks(state: State<AppState>) -> TweaksView {
 /// or puts them into the installed file when no config was applied by the app.
 fn apply_tweaks_now(state: &AppState) -> Result<String, String> {
     if state.snapshot().applied.is_some() && applied_source(&state.dir).is_some() {
-        return reapply_saved(state, false);
+        return reapply_saved_with(state, false, true);
+    }
+    // Applied by an older version (no saved copy): get the config again from its repo, so the settings
+    // go on top of the config's own file and Reset can bring its values back.
+    if let Some(files) = refetch_applied(state) {
+        save_applied_source(&state.dir, &files, None).map_err(|e| format!("Couldn't save the config's files: {e}"))?;
+        return reapply_saved_with(state, false, true);
     }
     let ov = resolve(&state.snapshot());
     let path = ov.gameinfo_path.filter(|_| ov.gameinfo_found).ok_or("gameinfo.gi wasn't found.")?;
@@ -545,6 +577,7 @@ fn apply_tweaks_now(state: &AppState) -> Result<String, String> {
         ranked_safe: applied.as_ref().is_some_and(|a| a.ranked_safe),
         quiet: false,
         autoexec: None,
+        settings_change: true,
     };
     match apply_source(state, src, true)? {
         ApplyResponse::Done { message, .. } => Ok(message),
@@ -664,6 +697,7 @@ pub fn apply_library(state: State<AppState>, id: String, confirmed: bool, ranked
         ranked_safe,
         quiet: false,
         autoexec: None,
+        settings_change: false,
     };
     logged_apply(&format!("apply saved config {id}"), apply_source(&state, src, confirmed))
 }
@@ -738,6 +772,10 @@ pub fn applied_source(app_dir: &Path) -> Option<PackFiles> {
 /// Re-applies the last applied config from its saved files, with the same ranked-safe choice and the
 /// current tweaks and overlay setting. `quiet` = background: no UAC prompt.
 pub fn reapply_saved(state: &AppState, quiet: bool) -> Result<String, String> {
+    reapply_saved_with(state, quiet, false)
+}
+
+fn reapply_saved_with(state: &AppState, quiet: bool, settings_change: bool) -> Result<String, String> {
     let rec = state.snapshot().applied.ok_or("Nothing has been applied yet.")?;
     let files = applied_source(&state.dir).ok_or("The applied config's files weren't saved (applied with an older version). Re-apply it once by hand.")?;
     let src = Source {
@@ -750,6 +788,7 @@ pub fn reapply_saved(state: &AppState, quiet: bool) -> Result<String, String> {
         ranked_safe: rec.ranked_safe,
         quiet,
         autoexec: fs::read_to_string(state.dir.join(APPLIED_DIR).join("autoexec.cfg")).ok(),
+        settings_change,
     };
     match apply_source(state, src, true)? {
         ApplyResponse::Done { message, .. } => Ok(message),
@@ -948,4 +987,22 @@ mod tests {
         assert!(!is_github_url("https://github.com/a b"));
         assert!(!is_github_url("https://example.com/"));
     }
+}
+
+const SETTINGS_BACKUP_REASON: &str = "Before changing settings";
+/// Setting changes within this many minutes of the last settings backup reuse it.
+const SETTINGS_BACKUP_MINUTES: i64 = 30;
+
+/// The applied repo config's files at the applied revision (from the cache when possible).
+fn refetch_applied(state: &AppState) -> Option<PackFiles> {
+    let s = state.snapshot();
+    let rec = s.applied.as_ref()?;
+    let repo = rec.repo.clone()?;
+    let cache = state.dir.join("cache");
+    let pack = packs::cached_all(&s.effective_repos(), &cache)
+        .into_iter()
+        .flat_map(|g| g.packs)
+        .find(|p| p.repo.eq_ignore_ascii_case(&repo) && p.id == rec.pack_id)?;
+    let pack = PackInfo { revision: rec.revision.clone().or(pack.revision.clone()), ..pack };
+    packs::fetch_pack(&repo, &pack, &cache).ok().map(|f| f.files)
 }

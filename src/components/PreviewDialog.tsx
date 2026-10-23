@@ -127,7 +127,7 @@ export function PreviewDialog({ preview, onCancel, onConfirm, onConfirmSafe }: P
       )}
       {preview.tweaks > 0 && (
         <p className="muted small">
-          Includes your {preview.tweaks} tweak{preview.tweaks === 1 ? "" : "s"} on top of the pack.
+          Includes your {preview.tweaks} setting{preview.tweaks === 1 ? "" : "s"} on top of the config.
         </p>
       )}
       {nothing && <p className="muted">Nothing would change: your files already match this pack.</p>}
