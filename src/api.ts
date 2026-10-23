@@ -269,3 +269,16 @@ export function matchesSearch(p: PackInfo, query: string): boolean {
   if (!q) return true;
   return [p.name, p.description, p.repo, p.commitMessage ?? ""].some((t) => t.toLowerCase().includes(q));
 }
+
+/** r_aspectratio → field of view, from the values players use (1.33 = 70 … 3.5 = 120); straight lines between them. */
+const FOV_POINTS: [number, number][] = [[1.33, 70], [1.56, 75], [1.75, 80], [2.0, 85], [2.15, 90], [2.5, 100], [3.0, 110], [3.5, 120]];
+
+export function fovFor(aspect: number): number | null {
+  if (!Number.isFinite(aspect) || aspect <= 0) return null;
+  const found = FOV_POINTS.findIndex(([a]) => a >= aspect);
+  // Below or above the table, extend the first or last segment.
+  const i = found === -1 ? FOV_POINTS.length - 1 : Math.max(1, found);
+  const [a0, f0] = FOV_POINTS[i - 1];
+  const [a1, f1] = FOV_POINTS[i];
+  return Math.round(f0 + ((aspect - a0) / (a1 - a0)) * (f1 - f0));
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TweakRow, TweaksView, api, errorText } from "../api";
+import { TweakRow, TweaksView, api, errorText, fovFor } from "../api";
 
 interface QuickSettingsProps {
   /** Bumped after an apply/restore so the config's values are re-read. */
@@ -21,7 +21,12 @@ function Row({ row, disabled, onSave }: { row: TweakRow; disabled: boolean; onSa
   return (
     <div className="qs-row">
       <span className="qs-label">{row.label}</span>
-      <span className="qs-desc">{row.description}</span>
+      <span className="qs-desc">
+        {row.id === "aspect" && fovFor(parseFloat(text.replace(",", "."))) !== null && (
+          <strong className="qs-fov">≈ {fovFor(parseFloat(text.replace(",", ".")))} FOV · </strong>
+        )}
+        {row.description}
+      </span>
       <input
         className="qs-input"
         value={text}

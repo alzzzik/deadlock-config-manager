@@ -485,7 +485,7 @@ pub struct TweaksView {
 }
 
 const TWEAK_ROWS: [(&str, &str, &str, &str); 3] = [
-    ("aspect", "r_aspectratio", "r_aspectratio", "Higher shows more around you. 2.15 ≈ 90 FOV, 2.5 ≈ 100 FOV."),
+    ("aspect", "r_aspectratio", "r_aspectratio", "Each +0.5 is about +10 FOV (2.15 = 90, 2.5 = 100, 3.0 = 110)."),
     ("fps_max", "fps_max", "fps_max", "0 = no limit"),
     ("fps_max_ui", "fps_max_ui", "fps_max_ui", "FPS limit in menus"),
 ];

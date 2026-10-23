@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBackupId, isSamePack, matchesSearch, pinKey, PackInfo, AppliedRecord } from "./api";
+import { fovFor, formatBackupId, isSamePack, matchesSearch, pinKey, PackInfo, AppliedRecord } from "./api";
 
 const pack = (over: Partial<PackInfo> = {}): PackInfo => ({
   repo: "alzzzik/alz-deadlock-cfg",
@@ -57,5 +57,16 @@ describe("pinKey and formatBackupId", () => {
   it("leaves unknown backup ids untouched", () => {
     expect(formatBackupId("not-a-date")).toBe("not-a-date");
     expect(formatBackupId("2026-10-20_02-10-05")).not.toBe("2026-10-20_02-10-05");
+  });
+});
+
+describe("fovFor", () => {
+  it("matches the community table and interpolates between it", () => {
+    expect(fovFor(2.15)).toBe(90);
+    expect(fovFor(2.5)).toBe(100);
+    expect(fovFor(3.5)).toBe(120);
+    expect(fovFor(2.4)).toBe(97);
+    expect(fovFor(1.33)).toBe(70);
+    expect(fovFor(0)).toBeNull();
   });
 });
