@@ -562,7 +562,7 @@ export default function App() {
             />
           ))}
 
-          <AddRepo linked={overview?.repos ?? []} onAdd={addRepo} onOpenGithub={openGithub} />
+          <AddRepo linked={overview?.repos ?? []} onAdd={addRepo} onOpenGithub={openGithub} onBrowse={() => setDialog({ kind: "store" })} />
         </section>
       </main>
 
@@ -575,6 +575,7 @@ export default function App() {
           onClose={() => setDialog({ kind: "none" })}
           onSaveKeys={saveKeys}
           onAddRepo={addRepo}
+          onBrowse={() => setDialog({ kind: "store" })}
           onMoveRepo={moveRepo}
           onRemoveRepo={removeRepo}
           onOpenBackups={() => openLocation("backups")}
@@ -608,6 +609,7 @@ export default function App() {
           onClose={() => setDialog({ kind: "none" })}
           onLinkRepo={addRepo}
           onAddCode={(code) => void importCode(code)}
+          onAddGamebanana={(url) => void importCode(url)}
           onOpenGithub={openGithub}
         />
       )}

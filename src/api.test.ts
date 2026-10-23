@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fovFor, formatBackupId, isSamePack, matchesSearch, pinKey, PackInfo, AppliedRecord } from "./api";
+import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, matchesSearch, pinKey, sortByUpdated, PackInfo, AppliedRecord, StoreEntry } from "./api";
 
 const pack = (over: Partial<PackInfo> = {}): PackInfo => ({
   repo: "alzzzik/alz-deadlock-cfg",
@@ -68,5 +68,29 @@ describe("fovFor", () => {
     expect(fovFor(2.4)).toBe(97);
     expect(fovFor(1.33)).toBe(70);
     expect(fovFor(0)).toBeNull();
+  });
+});
+
+const NOW = Date.parse("2026-10-23T15:00:00Z");
+const gb = (id: number, updated: string | null): StoreEntry => ({ kind: "gamebanana", id, title: `gb ${id}`, description: "", author: "", updated });
+
+describe("store dates", () => {
+  it("counts whole days from a YYYY-MM-DD date", () => {
+    expect(daysSince("2026-10-23", NOW)).toBe(0);
+    expect(daysSince("2026-10-22", NOW)).toBe(1);
+    expect(daysSince("nonsense", NOW)).toBeNull();
+    expect(daysSince(null, NOW)).toBeNull();
+    expect(dayAgo("2026-10-23", NOW)).toBe("today");
+    expect(dayAgo("2026-10-22", NOW)).toBe("yesterday");
+    expect(dayAgo("2026-07-15", NOW)).toContain("3");
+  });
+
+  it("sorts newest first with undated entries last, and filters recent ones", () => {
+    const sorted = sortByUpdated([gb(1, "2026-02-05"), gb(2, null), gb(3, "2026-10-22"), gb(4, "2026-09-30")]);
+    expect(sorted.map((e) => (e.kind === "gamebanana" ? e.id : 0))).toEqual([3, 4, 1, 2]);
+    expect(isRecent(gb(3, "2026-10-22"), NOW)).toBe(true);
+    expect(isRecent(gb(5, "2026-07-24"), NOW)).toBe(true);
+    expect(isRecent(gb(1, "2026-02-05"), NOW)).toBe(false);
+    expect(isRecent(gb(2, null), NOW)).toBe(false);
   });
 });

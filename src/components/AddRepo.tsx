@@ -1,24 +1,32 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { StoreEntry, api, dayAgo, isRecent, sortByUpdated } from "../api";
 import { ExternalIcon, PlusIcon } from "./icons";
 
-/** Well-known pack repos offered as one-click suggestions. They are never linked automatically. */
-const POPULAR_REPOS: { repo: string; note: string }[] = [
-  { repo: "Sqooky/OptimizationLock", note: "lots of community configs" },
-  { repo: "dacooderr/OptiLock", note: "recommended, potato and ultra-potato presets" },
-];
+/** How many recently updated repos from the config list are offered as one-click chips. */
+const SUGGESTION_COUNT = 3;
 
 interface AddRepoProps {
   /** Repos already linked, so their suggestions are hidden. */
   linked: string[];
   onAdd: (input: string) => Promise<string | null>;
   onOpenGithub: (url: string) => void;
+  /** Opens the full config list (Browse). */
+  onBrowse: () => void;
 }
 
+type RepoEntry = Extract<StoreEntry, { kind: "repo" }>;
+
 /** Inline field for linking another pack repo. `onAdd` resolves to an error message or null. */
-export function AddRepo({ linked, onAdd, onOpenGithub }: AddRepoProps) {
+export function AddRepo({ linked, onAdd, onOpenGithub, onBrowse }: AddRepoProps) {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
+  const [catalog, setCatalog] = useState<StoreEntry[]>([]);
+
+  useEffect(() => {
+    // Suggestions are optional: without the list the field still works.
+    api.getStore().then((v) => setCatalog(sortByUpdated(v.entries)), () => setCatalog([]));
+  }, []);
 
   const add = async (input: string) => {
     setAdding(input);
@@ -38,7 +46,9 @@ export function AddRepo({ linked, onAdd, onOpenGithub }: AddRepoProps) {
   };
 
   const isLinked = (repo: string) => linked.some((r) => r.toLowerCase() === repo.toLowerCase());
-  const suggestions = POPULAR_REPOS.filter((s) => !isLinked(s.repo));
+  // Recently updated repos, ones with several configs first (the list is already newest first).
+  const recent = catalog.filter((e): e is RepoEntry => e.kind === "repo" && isRecent(e) && !isLinked(e.repo));
+  const suggestions = [...recent.filter((e) => e.configs.length > 1), ...recent.filter((e) => e.configs.length <= 1)].slice(0, SUGGESTION_COUNT);
 
   return (
     <form className="add-repo" onSubmit={submit}>
@@ -61,11 +71,11 @@ export function AddRepo({ linked, onAdd, onOpenGithub }: AddRepoProps) {
       </div>
       {error && <p className="field-error">{error}</p>}
 
-      {suggestions.length > 0 && (
+      {catalog.length > 0 && (
         <div className="suggest">
-          <span className="suggest-label">Popular:</span>
+          {suggestions.length > 0 && <span className="suggest-label">Recently updated:</span>}
           {suggestions.map((s) => (
-            <span key={s.repo} className="suggest-chip" title={s.note}>
+            <span key={s.repo} className="suggest-chip" title={`${s.description} Updated ${dayAgo(s.updated)}.`}>
               <button type="button" className="suggest-add" onClick={() => void add(s.repo)} disabled={!!adding}>
                 {adding === s.repo ? "Adding…" : s.repo}
               </button>
@@ -80,6 +90,9 @@ export function AddRepo({ linked, onAdd, onOpenGithub }: AddRepoProps) {
               </button>
             </span>
           ))}
+          <button type="button" className="suggest-more" onClick={onBrowse}>
+            Browse all {catalog.length} configs…
+          </button>
         </div>
       )}
     </form>

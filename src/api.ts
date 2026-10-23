@@ -94,9 +94,19 @@ export type UpdateReport = {
 };
 
 export type StoreEntry =
-  | { kind: "repo"; repo: string; title: string; description: string; author: string }
+  | {
+      kind: "repo";
+      repo: string;
+      title: string;
+      description: string;
+      author: string;
+      license: string;
+      updated: string | null;
+      configs: string[];
+    }
+  | { kind: "gamebanana"; id: number; title: string; description: string; author: string; updated: string | null }
   | { kind: "code"; title: string; description: string; author: string; code: string };
-export type StoreView = { entries: StoreEntry[]; online: boolean; submitUrl: string };
+export type StoreView = { entries: StoreEntry[]; checked: string | null; online: boolean; submitUrl: string };
 
 export type PerfReport = {
   time: string;
@@ -238,6 +248,36 @@ export function timeAgo(iso: string | null | undefined): string {
   if (days > -14) return RELATIVE.format(days, "day");
   if (days > -60) return RELATIVE.format(Math.round(days / 7), "week");
   return RELATIVE.format(Math.round(days / 30), "month");
+}
+
+const DAY_MS = 86_400_000;
+/** Store entries updated within this many days count as recently updated (about 3 months). */
+export const RECENT_DAYS = 92;
+
+/** Whole days from a YYYY-MM-DD date to `now`, or null for a missing or bad date. */
+export function daysSince(day: string | null | undefined, now = Date.now()): number | null {
+  const t = day ? Date.parse(`${day}T00:00:00Z`) : NaN;
+  return Number.isNaN(t) ? null : Math.max(0, Math.floor((now - t) / DAY_MS));
+}
+
+/** "today", "yesterday", "3 weeks ago" for a YYYY-MM-DD date. */
+export function dayAgo(day: string | null | undefined, now = Date.now()): string {
+  const days = daysSince(day, now);
+  if (days === null) return "";
+  if (days < 14) return RELATIVE.format(-days, "day");
+  if (days < 60) return RELATIVE.format(-Math.round(days / 7), "week");
+  return RELATIVE.format(-Math.round(days / 30), "month");
+}
+
+export const storeUpdated = (e: StoreEntry): string | null => (e.kind === "code" ? null : e.updated);
+
+/** Newest first; entries without a date keep their order at the end. */
+export const sortByUpdated = (entries: StoreEntry[]): StoreEntry[] =>
+  [...entries].sort((a, b) => (storeUpdated(b) ?? "").localeCompare(storeUpdated(a) ?? ""));
+
+export function isRecent(e: StoreEntry, now = Date.now()): boolean {
+  const days = daysSince(storeUpdated(e), now);
+  return days !== null && days <= RECENT_DAYS;
 }
 
 export function shortDate(iso: string | null | undefined): string {

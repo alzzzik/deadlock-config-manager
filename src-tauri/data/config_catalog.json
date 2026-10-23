@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "checked": "2026-10-23",
+  "entries": [
+    {
+      "kind": "repo",
+      "repo": "dacooderr/OptiLock",
+      "title": "OptiLock",
+      "description": "Competitive FPS presets for low and mid-range PCs, each with a video.txt.",
+      "author": "dacooderr",
+      "license": "GPL-3.0",
+      "updated": "2026-10-23",
+      "configs": [
+        "FPS Config (Recommended)",
+        "Potato",
+        "Ultra Potato",
+        "Community Config"
+      ]
+    },
+    {
+      "kind": "repo",
+      "repo": "SodiumCXI/deadlock-smooth-config",
+      "title": "Deadlock Smooth Config",
+      "description": "Fewer stutters and more FPS; keeps lamps, outlines, abilities and player shadows. Readme in Russian.",
+      "author": "SodiumCXI",
+      "license": "MIT",
+      "updated": "2026-10-23"
+    },
+    {
+      "kind": "repo",
+      "repo": "yolo8534/gameinfo.gi",
+      "title": "yolo8534's gameinfo.gi",
+      "description": "A single gameinfo.gi with no description.",
+      "author": "yolo8534",
+      "license": "",
+      "updated": "2026-10-23"
+    },
+    {
+      "kind": "repo",
+      "repo": "ghempy53/deadlock-config",
+      "title": "ghempy53's config",
+      "description": "Personal performance configs based on OptimizationLock, tested on a 9800X3D and RTX 5070 at 1440p.",
+      "author": "ghempy53",
+      "license": "",
+      "updated": "2026-10-22",
+      "configs": [
+        "stable-config",
+        "experimental-config"
+      ]
+    },
+    {
+      "kind": "repo",
+      "repo": "Sqooky/OptimizationLock",
+      "title": "OptimizationLock",
+      "description": "Community presets from several authors, from balanced to minimum spec.",
+      "author": "Sqooky",
+      "license": "GPL-3.0",
+      "updated": "2026-10-21",
+      "configs": [
+        "Sqooky's .gi",
+        "Piggy's config",
+        "Eskay's config",
+        "boot's maximum fps config",
+        "kaizuchaneru's minimum spec",
+        "clean gameinfo.gi"
+      ]
+    },
+    {
+      "kind": "repo",
+      "repo": "alzzzik/alz-deadlock-cfg",
+      "title": "alz",
+      "description": "More FPS while staying mod compatible. Stable for any GPU, alz variant with DLSS.",
+      "author": "alzzzik",
+      "license": "GPL-3.0",
+      "updated": "2026-10-21",
+      "configs": [
+        "stable",
+        "alz"
+      ]
+    },
+    {
+      "kind": "repo",
+      "repo": "Sladk1y7/Deadlock-optimization-Sqooky-s-addons_custom",
+      "title": "Sqooky's config with addon paths",
+      "description": "Sqooky's OptimizationLock gameinfo.gi with extra search paths for custom addons.",
+      "author": "Sladk1y7",
+      "license": "",
+      "updated": "2026-10-14"
+    },
+    {
+      "kind": "repo",
+      "repo": "7liv/compylock",
+      "title": "compylock",
+      "description": "Competitive config with a video.txt.",
+      "author": "7liv",
+      "license": "",
+      "updated": "2026-10-10"
+    },
+    {
+      "kind": "repo",
+      "repo": "Apollyam/deadlock-config",
+      "title": "Apollyam's config",
+      "description": "Tuned for Vulkan on AMD hardware without making the game look much worse.",
+      "author": "Apollyam",
+      "license": "",
+      "updated": "2026-10-09"
+    },
+    {
+      "kind": "repo",
+      "repo": "chihirooxd/CONFIGURACION-DE-MAXIMOS-FPS",
+      "title": "Chihiro's config",
+      "description": "Max FPS config based on kaizuchaneru's minimum spec, fog turned off. Readme in Spanish.",
+      "author": "chihirooxd",
+      "license": "",
+      "updated": "2026-10-08",
+      "configs": [
+        "Chihiro's config"
+      ]
+    },
+    {
+      "kind": "repo",
+      "repo": "abyzzboyxdd/gameinfo.gi-ywususu",
+      "title": "ywususu",
+      "description": "A single optimization gameinfo.gi.",
+      "author": "abyzzboyxdd",
+      "license": "",
+      "updated": "2026-09-30"
+    },
+    {
+      "kind": "repo",
+      "repo": "heroglyphics/Deadlock-Competitive-Config",
+      "title": "Deadlock Competitive Config",
+      "description": "A single FPS gameinfo.gi.",
+      "author": "heroglyphics",
+      "license": "",
+      "updated": "2026-07-15"
+    },
+    {
+      "kind": "repo",
+      "repo": "deaddeaddeaddeaddead/deadlock-cfg",
+      "title": "Lefaawr's FPS config",
+      "description": "gameinfo.gi from Lefaawr's FPS Optimization Mod on GameBanana.",
+      "author": "deaddeaddeaddeaddead",
+      "license": "",
+      "updated": "2026-02-11"
+    },
+    {
+      "kind": "gamebanana",
+      "id": 730862,
+      "title": "best fps cfg ngl",
+      "description": "Max FPS gameinfo.gi.",
+      "author": "bigego11",
+      "updated": "2026-10-22"
+    },
+    {
+      "kind": "gamebanana",
+      "id": 727681,
+      "title": "Blackout",
+      "description": "Darker, cleaner look with more FPS. The app installs the config part only, not the map and HUD mods.",
+      "author": "resurrect",
+      "updated": "2026-10-20"
+    },
+    {
+      "kind": "gamebanana",
+      "id": 729604,
+      "title": "FPS config with minimal visual changes",
+      "description": "More FPS while keeping the game looking close to stock.",
+      "author": "DirBiLike",
+      "updated": "2026-10-19"
+    },
+    {
+      "kind": "gamebanana",
+      "id": 616141,
+      "title": "dyson's config",
+      "description": "Long-running max performance config, updated with most game patches.",
+      "author": "dyson behind",
+      "updated": "2026-10-16"
+    },
+    {
+      "kind": "gamebanana",
+      "id": 724992,
+      "title": "shintt's config",
+      "description": "Dark picture with simple textures for more FPS.",
+      "author": "shintt",
+      "updated": "2026-10-07"
+    },
+    {
+      "kind": "gamebanana",
+      "id": 722944,
+      "title": "SideLock",
+      "description": "Large FPS gain for weak PCs after the latest updates.",
+      "author": "hitmeupwhenyourelonely",
+      "updated": "2026-10-01"
+    },
+    {
+      "kind": "gamebanana",
+      "id": 673077,
+      "title": "Max FPS with small changes",
+      "description": "boot's max FPS config with hero UI and some visuals put back.",
+      "author": "Tysen98",
+      "updated": "2026-05-24"
+    },
+    {
+      "kind": "gamebanana",
+      "id": 609804,
+      "title": "FPS config for competitive",
+      "description": "Lower shadows, decals and physics, with a wider view.",
+      "author": "Hanturaya",
+      "updated": "2026-02-05"
+    }
+  ]
+}

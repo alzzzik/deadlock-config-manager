@@ -13,6 +13,7 @@ interface SettingsDialogProps {
   onClose: () => void;
   onSaveKeys: (keys: string[]) => void;
   onAddRepo: (input: string) => Promise<string | null>;
+  onBrowse: () => void;
   onMoveRepo: (repo: string, delta: number) => void;
   onRemoveRepo: (repo: string) => void;
   onOpenBackups: () => void;
@@ -40,6 +41,7 @@ export function SettingsDialog({
   onClose,
   onSaveKeys,
   onAddRepo,
+  onBrowse,
   onMoveRepo,
   onRemoveRepo,
   onOpenBackups,
@@ -95,7 +97,7 @@ export function SettingsDialog({
             </li>
           ))}
         </ul>
-        <AddRepo linked={repos} onAdd={onAddRepo} onOpenGithub={onOpenGithub} />
+        <AddRepo linked={repos} onAdd={onAddRepo} onOpenGithub={onOpenGithub} onBrowse={onBrowse} />
       </section>
 
       <fieldset className="field">

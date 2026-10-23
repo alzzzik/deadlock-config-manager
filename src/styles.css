@@ -324,6 +324,8 @@ input::placeholder { color: var(--text-faint); }
 .suggest-view { border-left: 1px solid var(--line-strong) !important; padding: 0 8px !important; }
 .suggest-view:hover { color: var(--text); }
 .suggest-chip button:disabled { cursor: wait; }
+.suggest-more { border: 0; background: transparent; color: var(--accent-text); font: var(--fs-sm) var(--font); cursor: pointer; padding: 0 6px; height: 28px; border-radius: var(--r-sm); }
+.suggest-more:hover { background: var(--accent-wash); }
 
 /* ---------- dialogs ---------- */
 .scrim {
@@ -506,9 +508,14 @@ input::placeholder { color: var(--text-faint); }
 .text-field input:focus { outline: none; border-color: var(--accent-line); }
 
 /* ---------- store ---------- */
-.store-search { margin-bottom: 10px; }
+.store-tools { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.store-search { flex: 1; }
 .store-search input { width: 100%; padding-left: 10px; }
-.store-row { grid-template-columns: minmax(0, 1fr) 180px 140px; padding-left: 14px; }
+.store-recent { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-sm); color: var(--text-dim); cursor: pointer; white-space: nowrap; }
+.store-recent input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+.store-count { margin-bottom: 8px; }
+.store-row { grid-template-columns: minmax(0, 1fr) 180px 176px; padding-left: 14px; }
+.store-configs { color: var(--text-faint); }
 .store-list { max-height: 52vh; overflow: auto; }
 
 /* ---------- performance ---------- */
