@@ -17,6 +17,8 @@ pub struct ModFile {
     pub size: u64,
     pub md5: String,
     pub url: String,
+    /// Upload time (Unix seconds); 0 when GameBanana doesn't say.
+    pub added: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,6 +57,7 @@ pub fn parse_info(id: u64, json: &serde_json::Value) -> Result<ModInfo, String> 
                         size: f["_nFilesize"].as_u64().unwrap_or(u64::MAX),
                         md5: f["_sMd5Checksum"].as_str().unwrap_or_default().to_ascii_lowercase(),
                         url: f["_sDownloadUrl"].as_str()?.to_string(),
+                        added: f["_tsDateAdded"].as_u64().unwrap_or(0),
                     })
                 })
                 .filter(|f| f.url.starts_with("https://gamebanana.com/dl/"))
@@ -75,7 +78,8 @@ pub fn fetch_info(id: u64) -> Result<ModInfo, String> {
     parse_info(id, &json)
 }
 
-/// Candidate files: small archives or .gi files, smallest first.
+/// Candidate files: small archives or .gi files, newest upload first (authors keep old versions on the
+/// page), then smallest.
 pub fn config_files(info: &ModInfo) -> Vec<&ModFile> {
     let mut files: Vec<&ModFile> = info
         .files
@@ -86,7 +90,7 @@ pub fn config_files(info: &ModInfo) -> Vec<&ModFile> {
             n.ends_with(".7z") || n.ends_with(".zip") || n.ends_with(".gi")
         })
         .collect();
-    files.sort_by_key(|f| f.size);
+    files.sort_by_key(|f| (std::cmp::Reverse(f.added), f.size));
     files
 }
 
@@ -156,6 +160,20 @@ mod tests {
         assert_eq!(picked.len(), 1);
         assert_eq!(picked[0].name, "gameinfo.7z");
         assert_eq!(picked[0].md5, "b");
+    }
+
+    #[test]
+    fn prefers_the_newest_upload() {
+        let json = serde_json::json!({
+            "_sName": "Config", "_aFiles": [
+                { "_sFile": "v1.zip", "_nFilesize": 100, "_tsDateAdded": 1000, "_sDownloadUrl": "https://gamebanana.com/dl/1" },
+                { "_sFile": "v3.zip", "_nFilesize": 300, "_tsDateAdded": 3000, "_sDownloadUrl": "https://gamebanana.com/dl/3" },
+                { "_sFile": "v2.zip", "_nFilesize": 200, "_tsDateAdded": 2000, "_sDownloadUrl": "https://gamebanana.com/dl/2" }
+            ]
+        });
+        let info = parse_info(1, &json).unwrap();
+        let names: Vec<&str> = config_files(&info).iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["v3.zip", "v2.zip", "v1.zip"]);
     }
 
     #[test]
