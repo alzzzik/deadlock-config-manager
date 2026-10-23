@@ -800,35 +800,6 @@ pub fn update_report(state: State<AppState>) -> Option<crate::report::UpdateRepo
     Some(crate::report::build(&pack.gameinfo, &installed, from, ov.game_build))
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LaunchView {
-    pub options: String,
-    pub steam_running: bool,
-    /// Why the options can't be read or changed (no account found, file missing, …).
-    pub problem: Option<String>,
-}
-
-fn localconfig(state: &AppState) -> Result<PathBuf, String> {
-    let ov = resolve(&state.snapshot());
-    let root = ov.steam_root.ok_or("Steam wasn't found.")?;
-    let id = ov.account_id.ok_or("No Steam account was found.")?;
-    Ok(crate::launch::localconfig_path(Path::new(&root), &id))
-}
-
-#[tauri::command]
-pub fn get_launch_options(state: State<AppState>) -> LaunchView {
-    let steam_running = crate::launch::steam_running();
-    let read = localconfig(&state)
-        .and_then(|p| fs::read_to_string(&p).map_err(|_| "Steam hasn't saved settings for this account yet.".to_string()))
-        .and_then(|t| crate::launch::read(&t));
-    match read {
-        Ok(options) => LaunchView { options, steam_running, problem: None },
-        Err(e) => LaunchView { options: String::new(), steam_running, problem: Some(e) },
-    }
-}
-
-
 /// Imports a config posted on GameBanana into My configs (download checked against GameBanana's MD5).
 #[tauri::command]
 pub async fn import_gamebanana(state: State<'_, AppState>, url: String) -> Result<crate::library::Entry, String> {

@@ -5,7 +5,6 @@ import { Modal } from "./Modal";
 
 interface PerfDialogProps {
   onClose: () => void;
-  onOpenLaunchOptions: () => void;
   onNotify: (kind: "ok" | "error" | "info", text: string) => void;
 }
 
@@ -16,7 +15,7 @@ const pct = (a: number, b: number) => {
 };
 
 /** Real-game FPS per config, from Deadlock's own performance reports in console.log. */
-export function PerfDialog({ onClose, onOpenLaunchOptions, onNotify }: PerfDialogProps) {
+export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
   const [view, setView] = useState<PerfView | null>(null);
 
   const load = () => api.getPerf().then(setView, (e) => onNotify("error", errorText(e)));
@@ -64,10 +63,14 @@ export function PerfDialog({ onClose, onOpenLaunchOptions, onNotify }: PerfDialo
       {view && !view.logging && (
         <div className="notice is-warn notice-action">
           <span>
-            The game isn't writing its log yet. Add the <code>-condebug</code> launch option, then play as usual.
+            The game isn't writing its log yet. Add <code>-condebug</code> to Deadlock's launch options in Steam, then play as
+            usual.
           </span>
-          <button className="btn btn-secondary btn-sm" onClick={onOpenLaunchOptions}>
-            Launch options…
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => void navigator.clipboard.writeText("-condebug").then(() => onNotify("ok", "Copied -condebug."), () => undefined)}
+          >
+            Copy
           </button>
         </div>
       )}

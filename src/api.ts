@@ -93,8 +93,6 @@ export type UpdateReport = {
   engineChanges: number;
 };
 
-export type LaunchView = { options: string; steamRunning: boolean; problem: string | null };
-
 export type StoreEntry =
   | { kind: "repo"; repo: string; title: string; description: string; author: string }
   | { kind: "code"; title: string; description: string; author: string; code: string };
@@ -211,7 +209,6 @@ export const api = {
   githubSignOut: () => invoke<void>("github_sign_out"),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
-  getLaunchOptions: () => invoke<LaunchView>("get_launch_options"),
   setAutomation: (a: Automation) => invoke<Automation>("set_automation", a),
   installKind: () => invoke<InstallKind>("install_kind"),
 };

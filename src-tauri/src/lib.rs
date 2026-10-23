@@ -151,7 +151,6 @@ pub fn run() {
             commands::get_automation,
             commands::set_automation,
             commands::update_report,
-            commands::get_launch_options,
             commands::import_gamebanana,
             commands::get_store,
             commands::github_status,

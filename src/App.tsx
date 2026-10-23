@@ -612,7 +612,7 @@ export default function App() {
         />
       )}
       {dialog.kind === "perf" && (
-        <PerfDialog onClose={() => setDialog({ kind: "none" })} onOpenLaunchOptions={() => setDialog({ kind: "settings" })} onNotify={push} />
+        <PerfDialog onClose={() => setDialog({ kind: "none" })} onNotify={push} />
       )}
       {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} />}
       {dialog.kind === "preview" && (
