@@ -203,7 +203,7 @@ pub fn summarize(sessions: &[Session]) -> Vec<ConfigStats> {
 mod tests {
     use super::*;
 
-    const LOG: &str = include_str!("../fixtures/console_vprof.log");
+    const LOG: &str = include_str!("../fixtures/console_vprof.txt");
 
     #[test]
     fn parses_real_vprof_reports_with_their_maps() {

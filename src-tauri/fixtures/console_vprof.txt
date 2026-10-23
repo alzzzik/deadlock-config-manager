@@ -1,0 +1,52 @@
+10/22 22:57:20 [CommandLine] command line arguments:
+10/22 22:57:20 [CommandLine] -steam -console -condebug -novid +cl_forcepreload 1 -noassert -dev -console -noasyncmaterialload -dx11
+10/22 22:57:25 Loading map "dl_hideout"
+10/22 22:57:25 [HostStateManager] CHostStateMgr::QueueNewRequest( Loading (dl_hideout), 2 )
+ Camera Pose Node "near_02" has a noticeable height overshoot vs the standing pivot ( 5.750000 ), which can result in bad game feel. Zeroing.
+ VMDL Camera Pose Success! "models/heroes_staging/bebop/bebop.vmdl" has loaded camera poses from vmdl:  "near_" Poses: 3, "far_" Poses: 3 ,"gunaim_" Poses:  3
+10/22 22:57:44 [VProf] VProfLite started.
+10/22 22:57:46 Loading map "jump_school"
+10/22 22:57:46 [HostStateManager] CHostStateMgr::QueueNewRequest( Loading (jump_school), 3 )
+10/22 22:57:46 [HostStateManager] HostStateRequest::Start(HSR_GAME):  loop(levelload) id(3) addons() desc(Loading (jump_school))
+10/22 22:57:46 [EngineServiceManager] SwitchToLoop levelload requested:  id [3] addons []
+10/22 22:57:46 [Client] CL:  IGameSystem::LoopDeactivateAllSystems {
+10/22 22:57:46 [VProf] 
+10/22 22:57:46 [VProf] -- Performance report --
+10/22 22:57:46 [VProf] Summary of 435 frames and 1 1-second intervals.  (563 frames excluded from analysis.)
+10/22 22:57:46 [VProf] FPS: Avg=677.7, P1=173.8
+10/22 22:57:46 [VProf] 
+10/22 22:57:46 [VProf]                      All frames         Active frames       1s max (all)      1s max (active)  
+10/22 22:57:46 [VProf]                        Avg    P99        N    Avg    P99      P50    P95        N    P50    P95
+10/22 22:57:46 [VProf] ------------------- ------ ------   ------ ------ ------   ------ ------   ------ ------ ------
+10/22 22:57:46 [VProf]          FrameTotal   1.48   5.75      435   1.48   5.75    10.84  10.84        1  10.84  10.84
+10/22 22:57:46 [VProf]    Client Rendering   0.57   2.06      217   1.14   2.10     5.08   5.08        1   5.08   5.08
+10/22 22:57:46 [VProf]          PanoramaUI   0.18   0.69      217   0.36   0.75     0.90   0.90        1   0.90   0.90
+10/22 22:57:46 [VProf]            Sleeping   0.11   0.95       98   0.48   1.04     1.07   1.07        1   1.07   1.07
+10/22 22:57:46 [VProf]         Unaccounted   0.06   0.43      435   0.06   0.43     0.74   0.74        1   0.74   0.74
+10/22 22:57:46 [VProf]          Prediction   0.05   0.50       94   0.25   0.59     0.61   0.61        1   0.61   0.61
+10/22 22:57:48 [Particles] WARNING: Particle system 'particles/ui/ui_player_vitality_stat_max.vpcf' was not precached correctly. Performing blocking load....
+10/22 22:57:51 [VProf] VProfLite started.
+10/22 22:57:51 [Client] Current tick is 334, but we have received a message for tick 339.  Processing all messages up to 338 now.
+10/22 23:01:26 [Client] CL:  IGameSystem::LoopDeactivateAllSystems {
+10/22 23:01:26 [VProf] 
+10/22 23:01:26 [VProf] -- Performance report --
+10/22 23:01:26 [VProf] Summary of 123650 frames and 180 1-second intervals.  (8930 frames excluded from analysis.)
+10/22 23:01:26 [VProf] FPS: Avg=718.6, P1=276.6
+10/22 23:01:26 [VProf] 
+10/22 23:01:26 [VProf]                       All frames         Active frames       1s max (all)      1s max (active)  
+10/22 23:01:26 [VProf]                         Avg    P99        N    Avg    P99      P50    P95        N    P50    P95
+10/22 23:01:26 [VProf] -------------------- ------ ------   ------ ------ ------   ------ ------   ------ ------ ------
+10/22 23:01:26 [VProf]           FrameTotal   1.39   3.62   123650   1.39   3.62     4.80   6.32      180   4.80   6.32
+10/22 23:01:26 [VProf]     Client Rendering   0.83   2.28    61821   1.67   2.31     2.34   2.61      180   2.34   2.61
+10/22 23:01:26 [VProf]           PanoramaUI   0.13   0.54    61821   0.26   0.60     0.78   1.64      180   0.78   1.64
+10/22 23:01:26 [VProf]          Unaccounted   0.05   0.30   123650   0.05   0.30     0.43   0.64      180   0.43   0.64
+10/22 23:01:26 [VProf]           Prediction   0.05   0.53    26480   0.21   0.71     0.74   0.98      180   0.74   0.98
+10/22 23:01:26 [VProf]  ClientSimulateFrame   0.04   0.21    61821   0.08   0.24     0.36   0.55      180   0.36   0.55
+10/22 23:01:26 [VProf]        Interpolation   0.03   0.16    61821   0.06   0.21     0.30   0.45      180   0.30   0.45
+10/22 23:01:26 [VProf]       Input Handling   0.03   0.13   123650   0.03   0.13     0.24   0.45      180   0.24   0.45
+10/22 23:01:26 [VProf] EventFrameBoundary_t   0.02   0.08    61821   0.05   0.10     0.22   0.44      180   0.22   0.44
+10/22 23:01:26 [VProf]           Javascript   0.02   0.33     8837   0.28   2.01     2.47   3.34      180   2.47   3.34
+10/22 23:01:26 [VProf]     Server Animation   0.02   0.22    11013   0.18   0.34     0.33   0.50      180   0.33   0.50
+10/22 23:01:26 [VProf]             Sleeping   0.01   0.41     3861   0.32   1.07     0.86   1.10      180   0.86   1.10
+10/22 23:01:26 [VProf]           FileSystem   0.00   0.00        1   0.52   0.52     0.00   0.00        1   0.52   0.52
+10/22 23:01:26 [VProf] 
