@@ -80,13 +80,13 @@ needed. Until then the sign-in section is hidden.
 | `apply.rs` | Build, verify, roll back, status |
 | `stock.rs`, `ranked.rs` | Valve's stock gameinfo.gi and the ranked-safety check / ranked-safe rewrite |
 | `convars.rs` | Convar descriptions and "ignored by the game" data (`data/convars.json`) |
-| `overrides.rs` | Personal tweaks (view width, FPS caps, toggles, custom lines) on the ConVars block |
+| `overrides.rs` | Your settings (`r_aspectratio`, `fps_max`, `fps_max_ui`) and fixes, applied to the ConVars block |
 | `overlay.rs` | Overlay mode: keep settings Valve's current file has and the pack lacks |
 | `library.rs` | Saved configs (My configs), zip/7z import and export |
 | `share.rs` | DCM1 share codes |
 | `gamebanana.rs` | Importing configs from GameBanana |
 | `store.rs` | Config store list (`index.json` via jsDelivr) |
-| `launch.rs` | Steam launch options in `localconfig.vdf` |
+| `launch.rs` | Reads and edits Deadlock's LaunchOptions in `localconfig.vdf` (used by tests; the app only offers the recommended line) |
 | `autoexec.rs` | A pack's `autoexec.cfg` lines, merged into the game's `cfgutoexec.cfg` |
 | `auth.rs` | Optional Sign in with GitHub (device flow, token in Credential Manager) |
 | `report.rs` | What a game update changed for the applied config |
