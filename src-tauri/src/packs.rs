@@ -212,11 +212,6 @@ fn describe(repo: &Repo, folder: &str) -> String {
         .unwrap_or_default()
 }
 
-fn title_case(s: &str) -> String {
-    let mut chars = s.chars();
-    chars.next().map(|c| c.to_uppercase().chain(chars).collect()).unwrap_or_default()
-}
-
 #[derive(Deserialize)]
 struct IndexFile {
     packs: Vec<PackInfo>,
@@ -349,8 +344,8 @@ fn fetch_index(repo: &Repo, cache_root: &Path) -> Result<Vec<PackInfo>, String> 
                             .into_iter()
                             .map(|video| {
                                 let (name, id) = match (&video, many) {
-                                    (Some(v), true) => (format!("{} · {}", title_case(&label), variant_label(v)), slug(&format!("{label} {}", variant_label(v)))),
-                                    _ => (title_case(&label), slug(&label)),
+                                    (Some(v), true) => (format!("{} · {}", label.clone(), variant_label(v)), slug(&format!("{label} {}", variant_label(v)))),
+                                    _ => (label.clone(), slug(&label)),
                                 };
                                 PackInfo {
                                     repo: String::new(),
@@ -381,7 +376,7 @@ fn fetch_index(repo: &Repo, cache_root: &Path) -> Result<Vec<PackInfo>, String> 
                             html_url: String::new(),
                             description: description.clone(),
                             id: unique(slug(&format!("{label} {v}"))),
-                            name: format!("{} · {v}", title_case(&label)),
+                            name: format!("{} · {v}", label.clone()),
                             folder: folder.clone(),
                             last_commit_date: None,
                             revision: None,

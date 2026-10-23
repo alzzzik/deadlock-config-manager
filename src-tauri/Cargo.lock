@@ -757,9 +757,7 @@ dependencies = [
 name = "deadlock-config-manager"
 version = "0.8.0"
 dependencies = [
- "base64 0.22.1",
  "chrono",
- "flate2",
  "hex",
  "keyring",
  "md-5",

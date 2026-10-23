@@ -14,12 +14,11 @@ interface MyConfigsProps {
   onSave: () => void;
   onImport: () => void;
   onExport: (e: LibraryEntry) => void;
-  onShare: (e: LibraryEntry) => void;
   onDelete: (e: LibraryEntry) => void;
 }
 
 /** Saved configs that don't come from a repo. */
-export function MyConfigs({ entries, appliedId, disabled, canSave, onApply, onSave, onImport, onExport, onShare, onDelete }: MyConfigsProps) {
+export function MyConfigs({ entries, appliedId, disabled, canSave, onApply, onSave, onImport, onExport, onDelete }: MyConfigsProps) {
   return (
     <section className="group" aria-labelledby="my-configs-title">
       <GroupHead
@@ -58,7 +57,6 @@ export function MyConfigs({ entries, appliedId, disabled, canSave, onApply, onSa
                   <RepoMenu
                     label={`Options for ${e.name}`}
                     items={[
-                      { label: "Copy share code", onClick: () => onShare(e) },
                       { label: "Export as zip…", onClick: () => onExport(e) },
                       { label: "Delete", onClick: () => onDelete(e), danger: true },
                     ]}

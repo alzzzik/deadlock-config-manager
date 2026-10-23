@@ -230,10 +230,11 @@ export default function App() {
 
   const sharePack = (p: PackInfo) => void copyShare(api.sharePack(p, false));
 
-  const copyShare = async (message: Promise<string>) => {
+  const copyShare = async (code: Promise<string>) => {
     try {
-      await navigator.clipboard.writeText(await message);
-      push("ok", "Share message copied. Paste it anywhere; the code works in this app.");
+      const c = await code;
+      await navigator.clipboard.writeText(c);
+      push("ok", `Share code copied: ${c}`);
     } catch (e) {
       fail(e);
     }
@@ -247,7 +248,7 @@ export default function App() {
   const importCode = async (text: string) => {
     setBusy(true);
     try {
-      const isBanana = !text.includes("DCM1-") && /gamebanana\.com\/mods\/\d+/i.test(text);
+      const isBanana = !/DCM-/i.test(text) && /gamebanana\.com\/mods\/\d+/i.test(text);
       addedToLibrary(await (isBanana ? api.importGamebanana(text.trim()) : api.importCode(text)), "Added");
       setDialog({ kind: "none" });
     } catch (e) {
@@ -297,7 +298,7 @@ export default function App() {
     // Links can come from any web page, so ask before adding anything.
     const handle = (urls: string[] | null) =>
       urls
-        ?.filter((u) => u.includes("DCM1-"))
+        ?.filter((u) => u.toUpperCase().includes("DCM-"))
         .slice(0, 1)
         .forEach((u) => {
           if (window.confirm("A deadlockcfg:// link wants to add a shared config to My configs. Nothing is applied until you choose to. Add it?")) {
@@ -512,7 +513,6 @@ export default function App() {
             onSave={() => setDialog({ kind: "saveConfig" })}
             onImport={() => setDialog({ kind: "import" })}
             onExport={(e) => void exportConfig(e)}
-            onShare={(e) => void copyShare(api.shareConfig(e.id))}
             onDelete={(e) => void deleteConfig(e)}
           />
 

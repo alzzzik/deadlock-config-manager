@@ -26,7 +26,7 @@ pub enum Entry {
         #[serde(default)]
         author: String,
     },
-    /// A config shared as a DCM1 share code.
+    /// A repo config with settings, as a short DCM- share code.
     #[serde(rename = "code", rename_all = "camelCase")]
     Code {
         title: String,

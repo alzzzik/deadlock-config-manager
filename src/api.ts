@@ -200,7 +200,6 @@ export const api = {
   applyLibrary: (id: string, confirmed: boolean, rankedSafe: boolean) =>
     invoke<ApplyResponse>("apply_library", { id, confirmed, rankedSafe }),
   sharePack: (pack: PackInfo, rankedSafe: boolean) => invoke<string>("share_pack", { pack, rankedSafe }),
-  shareConfig: (id: string) => invoke<string>("share_config", { id }),
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
   importGamebanana: (url: string) => invoke<LibraryEntry>("import_gamebanana", { url }),
   getStore: () => invoke<StoreView>("get_store"),
@@ -213,7 +212,6 @@ export const api = {
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
   getLaunchOptions: () => invoke<LaunchView>("get_launch_options"),
-  setLaunchOptions: (options: string) => invoke<LaunchView>("set_launch_options", { options }),
   setAutomation: (a: Automation) => invoke<Automation>("set_automation", a),
   installKind: () => invoke<InstallKind>("install_kind"),
 };

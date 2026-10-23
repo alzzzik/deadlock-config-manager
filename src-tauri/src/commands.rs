@@ -343,12 +343,15 @@ fn restore_inner(state: &AppState, id: &str) -> Result<String, String> {
     Ok(format!("Restored {label}."))
 }
 
+/// Pack folder links are percent-encoded ("OptiLock%20FPS%20Config"), so "%" is allowed too.
+fn is_github_url(url: &str) -> bool {
+    url.starts_with("https://github.com/") && url.chars().all(|c| c.is_ascii_alphanumeric() || "/:._-~%".contains(c))
+}
+
 /// Opens a GitHub page in the default browser. Only github.com URLs are allowed.
 #[tauri::command]
 pub fn open_github(url: String) -> Result<(), String> {
-    let ok = url.starts_with("https://github.com/")
-        && url.chars().all(|c| c.is_ascii_alphanumeric() || "/:._-~".contains(c));
-    if !ok {
+    if !is_github_url(&url) {
         return Err("Only github.com links can be opened.".into());
     }
     std::process::Command::new("explorer.exe")
@@ -482,9 +485,9 @@ pub struct TweaksView {
 }
 
 const TWEAK_ROWS: [(&str, &str, &str, &str); 3] = [
-    ("aspect", "r_aspectratio", "View width", "How wide you see. Most configs use 2.15–2.5; higher is wider."),
-    ("fps_max", "fps_max", "FPS cap", "Frame limit in matches. 0 means no limit."),
-    ("fps_max_ui", "fps_max_ui", "Menu FPS cap", "Frame limit in menus. Lower keeps the GPU cool."),
+    ("aspect", "r_aspectratio", "r_aspectratio", "Higher shows more around you. 2.15 ≈ 90 FOV, 2.5 ≈ 100 FOV."),
+    ("fps_max", "fps_max", "fps_max", "0 = no limit"),
+    ("fps_max_ui", "fps_max_ui", "fps_max_ui", "FPS limit in menus"),
 ];
 
 /// The config's own value: from the applied config's files when known, otherwise the installed file.
@@ -666,76 +669,38 @@ pub fn apply_library(state: State<AppState>, id: String, confirmed: bool, ranked
 /// Pack id prefix that marks an applied saved config.
 pub const LIBRARY_PREFIX: &str = "lib:";
 
-/// Share message for a repo pack, with your tweaks and the ranked-safe choice.
+/// Short share code for a repo pack, with your settings and the ranked-safe choice.
 #[tauri::command]
 pub fn share_pack(state: State<AppState>, pack: PackInfo, ranked_safe: bool) -> Result<String, String> {
-    let shared = crate::share::Shared::Pack {
+    crate::share::encode(&crate::share::Shared {
         repo: pack.repo.clone(),
-        folder: pack.folder.clone(),
-        name: pack.name.clone(),
-        rev: pack.revision.clone(),
-        video_file: pack.video_file.clone(),
-        gameinfo_file: pack.gameinfo_file.clone(),
+        pack_hash: crate::share::pack_hash(&pack.id),
         safe: ranked_safe,
-        tweaks: state.snapshot().overrides.effective(),
-    };
-    Ok(crate::share::message(&pack.name, &crate::share::encode(&shared)?))
+        settings: state.snapshot().overrides,
+    })
 }
 
-/// Share message for a saved config: its ConVars changes and video.txt settings.
-#[tauri::command]
-pub fn share_config(state: State<AppState>, id: String) -> Result<String, String> {
-    let root = library_dir(&state);
-    let entry = crate::library::find(&root, &id)?;
-    let files = crate::library::read(&root, &id)?;
-    let stock = stock::load(&state.dir.join("cache"), Some(&files.gameinfo));
-    let video = files.video.as_deref().map(crate::video::read_values).transpose().map_err(|e| format!("video.txt {e}"))?.unwrap_or_default();
-    let shared = crate::share::Shared::Config {
-        name: entry.name.clone(),
-        notes: entry.notes.clone(),
-        convars: crate::share::convar_delta(&stock, &files.gameinfo)?,
-        video,
-    };
-    Ok(crate::share::message(&entry.name, &crate::share::encode(&shared)?))
-}
-
-/// Turns a share code (or a message or link containing one) into a saved config.
+/// Turns a share code (or a link containing one) into a saved config built from the pack's latest version.
 #[tauri::command]
 pub async fn import_code(state: State<'_, AppState>, text: String) -> Result<crate::library::Entry, String> {
     let shared = crate::share::decode(&text)?;
     let dir = state.dir.clone();
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<crate::library::Entry, String> {
         let cache = dir.join("cache");
-        let root = crate::library::dir(&dir);
-        match shared {
-            crate::share::Shared::Pack { repo, folder, name, rev, video_file, gameinfo_file, safe, tweaks } => {
-                let pack = PackInfo {
-                    repo: repo.clone(),
-                    id: packs::slug(&folder),
-                    name: name.clone(),
-                    description: String::new(),
-                    folder,
-                    last_commit_date: None,
-                    revision: rev,
-                    commit_message: None,
-                    html_url: String::new(),
-                    video_file,
-                    gameinfo_file,
-                };
-                let fetched = packs::fetch_pack(&repo, &pack, &cache)?;
-                let stock = stock::load(&cache, None);
-                let gi = if safe { ranked::make_safe(&stock, &fetched.files.gameinfo)? } else { fetched.files.gameinfo };
-                let gameinfo = overrides::apply(&gi, &tweaks)?;
-                let notes = if tweaks.is_empty() { String::new() } else { format!("Includes {} tweak(s) from the person who shared it.", tweaks.len()) };
-                let files = PackFiles { gameinfo, video: fetched.files.video };
-                crate::library::save(&root, &format!("{name} (shared)"), &notes, &files, &format!("Shared: {name} from {repo}"))
-            }
-            crate::share::Shared::Config { name, notes, convars, video } => {
-                let stock = stock::load(&cache, None);
-                let files = crate::share::config_files(&stock, &convars, &video)?;
-                crate::library::save(&root, &format!("{name} (shared)"), &notes, &files, "Shared config")
-            }
-        }
+        let group = packs::list_packs(&shared.repo, &cache);
+        let pack = group
+            .packs
+            .iter()
+            .find(|p| crate::share::pack_hash(&p.id) == shared.pack_hash)
+            .ok_or_else(|| group.error.clone().unwrap_or_else(|| format!("That config isn't in {} anymore.", shared.repo)))?;
+        let fetched = packs::fetch_pack(&shared.repo, pack, &cache)?;
+        let stock = stock::load(&cache, None);
+        let gi = if shared.safe { ranked::make_safe(&stock, &fetched.files.gameinfo)? } else { fetched.files.gameinfo };
+        let entries = shared.settings.effective();
+        let gameinfo = overrides::apply(&gi, &entries)?;
+        let notes = if entries.is_empty() { String::new() } else { format!("Includes the sharer's settings ({} line(s)).", entries.len()) };
+        let files = PackFiles { gameinfo, video: fetched.files.video };
+        crate::library::save(&crate::library::dir(&dir), &format!("{} (shared)", pack.name), &notes, &files, &format!("Shared: {} from {}", pack.name, shared.repo))
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -861,30 +826,6 @@ pub fn get_launch_options(state: State<AppState>) -> LaunchView {
     }
 }
 
-/// Writes Deadlock's launch options (Steam must be closed). The old localconfig.vdf goes to backups.
-#[tauri::command]
-pub fn set_launch_options(state: State<AppState>, options: String) -> Result<LaunchView, String> {
-    if crate::launch::steam_running() {
-        return Err("Close Steam first. It overwrites launch options when it exits.".into());
-    }
-    let path = localconfig(&state)?;
-    let src = fs::read_to_string(&path).map_err(|e| format!("Cannot read localconfig.vdf: {e}"))?;
-    let out = crate::launch::write(&src, &options)?;
-    let backups = state.backups_dir().join("localconfig");
-    fs::create_dir_all(&backups).map_err(|e| e.to_string())?;
-    let stamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S%.3f");
-    crate::fsops::atomic_write(&backups.join(format!("localconfig_{stamp}.vdf")), src.as_bytes())
-        .map_err(|e| format!("Couldn't back up localconfig.vdf: {e}"))?;
-    prune_launch_backups(&backups);
-    // Steam may have started while the user was editing.
-    if crate::launch::steam_running() {
-        return Err("Close Steam first. It overwrites launch options when it exits.".into());
-    }
-    crate::fsops::atomic_write(&path, out.as_bytes()).map_err(|e| format!("Couldn't save localconfig.vdf: {e}"))?;
-    // The options themselves aren't logged: they can hold passwords (e.g. +connect).
-    diag::info("launch options changed");
-    Ok(LaunchView { options: crate::launch::read(&out)?, steam_running: false, problem: None })
-}
 
 /// Imports a config posted on GameBanana into My configs (download checked against GameBanana's MD5).
 #[tauri::command]
@@ -909,16 +850,6 @@ pub async fn get_store(state: State<'_, AppState>) -> Result<crate::store::Store
     tauri::async_runtime::spawn_blocking(move || crate::store::load(&cache)).await.map_err(|e| e.to_string())
 }
 
-/// Keeps the newest localconfig.vdf backups only.
-const LAUNCH_BACKUPS_KEPT: usize = 10;
-
-fn prune_launch_backups(dir: &Path) {
-    let Ok(rd) = fs::read_dir(dir) else { return };
-    let mut files: Vec<PathBuf> = rd.filter_map(Result::ok).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "vdf")).collect();
-    files.sort();
-    let extra = files.len().saturating_sub(LAUNCH_BACKUPS_KEPT);
-    files.into_iter().take(extra).for_each(|p| drop(fs::remove_file(p)));
-}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1030,4 +961,18 @@ pub fn get_perf(state: State<AppState>) -> PerfView {
 #[tauri::command]
 pub fn clear_perf(state: State<AppState>) -> Result<(), String> {
     crate::perf::clear(&state.dir)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_encoded_pack_folder_links_only_on_github() {
+        assert!(is_github_url(&crate::packs::folder_url("dacooderr/OptiLock", "OptiLock FPS Config (Recommended)")));
+        assert!(is_github_url("https://github.com/alzzzik/alz-deadlock-cfg/tree/HEAD/stable"));
+        assert!(!is_github_url("https://github.com.evil.example/x"));
+        assert!(!is_github_url("https://github.com/a b"));
+        assert!(!is_github_url("https://example.com/"));
+    }
 }
