@@ -249,6 +249,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         ranked_safe: src.ranked_safe,
         game_build: crate::paths::game_build(&gi_path),
     };
+    crate::launch_guard::arm(&state.dir, &meta.id, &src.name);
     if let Err(e) = save_applied_source(&state.dir, &src.files, src.autoexec.as_deref()) {
         diag::error(&format!("saving the applied config's files: {e}"));
     }
@@ -436,7 +437,7 @@ pub fn get_diagnostics(state: State<AppState>) -> String {
     let applied = s
         .applied
         .as_ref()
-        .map(|a| format!("{} from {} at {}", a.pack_name, a.repo.as_deref().unwrap_or("local"), a.applied_at))
+        .map(|a| format!("{} from {} at {} (revision {})", a.pack_name, a.repo.as_deref().unwrap_or("local"), a.applied_at, a.revision.as_deref().unwrap_or("unknown")))
         .unwrap_or_else(|| "nothing".into());
     let user = std::env::var("USERNAME").ok();
     let windows = diag::windows_version();
@@ -453,10 +454,40 @@ pub fn get_diagnostics(state: State<AppState>) -> String {
             ("Repos", s.effective_repos().join(", ")),
             ("Deadlock running", ov.deadlock_running.to_string()),
             ("Install", install_kind().to_string()),
+            ("Last failed launch", launch_failure_text(crate::launch_guard::load(&state.dir).failure.as_ref())),
         ],
         log: diag::report_log(&state.dir),
         user: user.as_deref(),
     })
+}
+
+fn launch_failure_text(f: Option<&crate::launch_guard::Failure>) -> String {
+    f.map_or_else(
+        || "none".into(),
+        |f| format!("{} closed after {}s at {} (backup {}){}", f.config, f.ran_seconds, f.at, f.backup_id, f.fatal.as_deref().map(|l| format!(": {l}")).unwrap_or_default()),
+    )
+}
+
+/// The game closed right after starting following the app's last write (None when that didn't happen
+/// or the player already chose Restore or Keep).
+#[tauri::command]
+pub fn launch_issue(state: State<AppState>) -> Option<crate::launch_guard::Failure> {
+    crate::launch_guard::load(&state.dir).failure
+}
+
+#[tauri::command]
+pub fn dismiss_launch_issue(state: State<AppState>) {
+    crate::launch_guard::dismiss(&state.dir);
+}
+
+/// Called by the background watcher when a watched launch ended. Reads console.log for a fatal error
+/// written during that run.
+pub fn finish_launch_check(state: &AppState, ran: std::time::Duration, started: std::time::SystemTime) -> Option<crate::launch_guard::Failure> {
+    let fatal = console_log_path(state)
+        .filter(|p| fs::metadata(p).and_then(|m| m.modified()).is_ok_and(|m| m >= started))
+        .and_then(|p| fs::read(p).ok())
+        .and_then(|b| crate::launch_guard::fatal_line(&String::from_utf8_lossy(&b)));
+    crate::launch_guard::finish(&state.dir, ran, fatal)
 }
 
 /// "installer", "scoop" or "portable"; the UI only offers in-app updates for "installer".

@@ -10,6 +10,7 @@ pub mod fsops;
 pub mod gamebanana;
 pub mod gameinfo;
 pub mod kv;
+pub mod launch_guard;
 pub mod library;
 mod overview;
 pub mod overlay;
@@ -148,6 +149,8 @@ pub fn run() {
             commands::update_report,
             commands::import_gamebanana,
             commands::get_store,
+            commands::launch_issue,
+            commands::dismiss_launch_issue,
             commands::get_perf,
             commands::clear_perf,
             overview::toggle_pin,
