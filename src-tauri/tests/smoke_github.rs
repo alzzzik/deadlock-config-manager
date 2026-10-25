@@ -90,7 +90,7 @@ fn handles_pack_at_repo_root() {
     assert!(list.error.is_none(), "{:?}", list.error);
     let root = list.packs.iter().find(|p| p.folder.is_empty()).expect("root pack");
     println!("{} | {} | {:?} | {:?} | {}", root.name, root.id, root.last_commit_date, root.commit_message, root.description);
-    assert_eq!(root.name, "Compylock");
+    assert_eq!(root.name, "compylock", "names keep the repo's own spelling");
     assert!(root.last_commit_date.is_some(), "no date");
     let fetched = packs::fetch_pack(repo, root, &tmp.path().join("cache")).unwrap();
     let keys: Vec<String> = video::DEFAULT_PRESERVED.iter().map(|s| s.to_string()).collect();
