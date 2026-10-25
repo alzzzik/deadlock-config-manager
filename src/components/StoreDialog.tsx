@@ -9,7 +9,7 @@ interface StoreDialogProps {
   onClose: () => void;
   onLinkRepo: (repo: string) => Promise<string | null>;
   onAddCode: (code: string) => void;
-  onAddGamebanana: (url: string) => void;
+  onAddGamebanana: (url: string) => Promise<string | null>;
   onOpenGithub: (url: string) => void;
 }
 
@@ -28,23 +28,32 @@ export function StoreDialog({ linked, busy, onClose, onLinkRepo, onAddCode, onAd
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [recentOnly, setRecentOnly] = useState(true);
+  /** Entry being linked or added right now, so a second click can't start it twice. */
+  const [pending, setPending] = useState<string | null>(null);
+  const [added, setAdded] = useState<string[]>([]);
 
   useEffect(() => {
     api.getStore().then(setView, (e) => setError(errorText(e)));
   }, []);
 
   const sorted = useMemo(() => sortByUpdated(view?.entries ?? []), [view]);
-  const recentCount = useMemo(() => sorted.filter((e) => isRecent(e)).length, [sorted]);
+  // Share codes have no date, so the filter always keeps them; the count matches what's listed.
+  const keptByFilter = (e: StoreEntry) => isRecent(e) || e.kind === "code";
+  const recentCount = useMemo(() => sorted.filter(keptByFilter).length, [sorted]);
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return sorted.filter((e) => (!recentOnly || isRecent(e) || e.kind === "code") && (!q || searchText(e).includes(q)));
+    return sorted.filter((e) => (!recentOnly || keptByFilter(e)) && (!q || searchText(e).includes(q)));
   }, [sorted, query, recentOnly]);
 
   const isLinked = (e: StoreEntry) => e.kind === "repo" && linked.some((r) => r.toLowerCase() === e.repo.toLowerCase());
 
-  const link = async (repo: string) => {
-    const err = await onLinkRepo(repo);
-    if (err) setError(err);
+  const run = async (key: string, action: () => Promise<string | null>) => {
+    if (pending) return;
+    setPending(key);
+    const err = await action();
+    setPending(null);
+    setError(err);
+    if (!err) setAdded((cur) => [...cur, key]);
   };
 
   const sourceUrl = (e: StoreEntry) => (e.kind === "repo" ? `https://github.com/${e.repo}` : e.kind === "gamebanana" ? gamebananaUrl(e.id) : null);
@@ -118,7 +127,7 @@ export function StoreDialog({ linked, busy, onClose, onLinkRepo, onAddCode, onAd
               </div>
               <div className="pack-actions">
                 {url && (
-                  <button className="icon-btn" onClick={() => onOpenGithub(url)} aria-label={`View ${e.title}`} title={e.kind === "repo" ? "View on GitHub" : "View on GameBanana"}>
+                  <button className="icon-btn" onClick={() => onOpenGithub(url)} aria-label={`View ${e.title} on ${e.kind === "repo" ? "GitHub" : "GameBanana"}`} title={e.kind === "repo" ? "View on GitHub" : "View on GameBanana"}>
                     <ExternalIcon size={14} />
                   </button>
                 )}
@@ -126,18 +135,22 @@ export function StoreDialog({ linked, busy, onClose, onLinkRepo, onAddCode, onAd
                   isLinked(e) ? (
                     <span className="muted small">Linked</span>
                   ) : (
-                    <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => void link(e.repo)}>
-                      Link
+                    <button className="btn btn-secondary btn-sm" disabled={busy || !!pending} onClick={() => void run(entryKey(e), () => onLinkRepo(e.repo))}>
+                      {pending === entryKey(e) ? "Linking…" : "Link"}
                     </button>
                   )
+                ) : added.includes(entryKey(e)) ? (
+                  <span className="muted small">Added to My configs</span>
                 ) : (
                   <button
                     className="btn btn-secondary btn-sm"
-                    disabled={busy}
-                    onClick={() => (e.kind === "gamebanana" ? onAddGamebanana(gamebananaUrl(e.id)) : onAddCode(e.code))}
+                    disabled={busy || !!pending}
+                    onClick={() =>
+                      e.kind === "gamebanana" ? void run(entryKey(e), () => onAddGamebanana(gamebananaUrl(e.id))) : onAddCode(e.code)
+                    }
                     title="Adds it to My configs, where you can preview it before installing"
                   >
-                    Add to My configs
+                    {pending === entryKey(e) ? "Adding…" : "Add to My configs"}
                   </button>
                 )}
               </div>

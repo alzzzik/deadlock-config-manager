@@ -71,6 +71,13 @@ impl Entry {
             Entry::Code { code, .. } => format!("code:{code}"),
         }
     }
+
+    fn updated(&self) -> Option<&str> {
+        match self {
+            Entry::Repo { updated, .. } | Entry::Gamebanana { updated, .. } => updated.as_deref(),
+            Entry::Code { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -90,11 +97,14 @@ fn short(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).take(MAX_TEXT).collect()
 }
 
-/// Keeps a YYYY-MM-DD date, drops anything else.
+/// Keeps a plausible YYYY-MM-DD date (2024 on, month 1-12, day 1-31), drops anything else, so a bad date
+/// can't pin an entry to the top of the newest-first list.
 fn date(d: Option<String>) -> Option<String> {
     d.filter(|d| {
         let b = d.as_bytes();
-        b.len() == 10 && b.iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { *c == b'-' } else { c.is_ascii_digit() })
+        let shape = b.len() == 10 && b.iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { *c == b'-' } else { c.is_ascii_digit() });
+        let num = |r: std::ops::Range<usize>| d[r].parse::<u32>().unwrap_or(0);
+        shape && (2024..=2100).contains(&num(0..4)) && (1..=12).contains(&num(5..7)) && (1..=31).contains(&num(8..10))
     })
 }
 
@@ -139,9 +149,9 @@ pub fn parse(json: &str) -> Result<Index, String> {
     let entries = raw
         .entries
         .into_iter()
-        .take(MAX_ENTRIES)
         .filter_map(|v| serde_json::from_value::<Entry>(v).ok())
         .filter_map(clean)
+        .take(MAX_ENTRIES)
         .collect();
     Ok(Index { version: 1, checked: date(raw.checked), entries })
 }
@@ -150,12 +160,24 @@ pub fn built_in() -> Index {
     parse(BUILT_IN).unwrap_or(Index { version: 1, checked: None, entries: vec![] })
 }
 
-/// The first list's entries, then built-in entries it doesn't have yet.
+/// The first list's entries, then built-in entries it doesn't have yet. For an entry in both, the copy with the
+/// newer date wins (the online copy can lag behind a new release while jsDelivr caches it).
 fn merge(first: Index, built_in: Index) -> Index {
-    let mut seen: HashSet<String> = first.entries.iter().map(Entry::key).collect();
-    let extra: Vec<Entry> = built_in.entries.into_iter().filter(|e| seen.insert(e.key())).collect();
-    let checked = first.checked.max(built_in.checked);
-    Index { version: 1, checked, entries: first.entries.into_iter().chain(extra).collect() }
+    let (mut shared, extra): (Vec<Entry>, Vec<Entry>) = {
+        let keys: HashSet<String> = first.entries.iter().map(Entry::key).collect();
+        built_in.entries.into_iter().partition(|e| keys.contains(&e.key()))
+    };
+    let entries = first
+        .entries
+        .into_iter()
+        .map(|e| match shared.iter().position(|b| b.key() == e.key()) {
+            Some(i) if e.updated().is_some() && shared[i].updated() > e.updated() => shared.swap_remove(i),
+            _ => e,
+        })
+        .chain(extra)
+        .take(MAX_ENTRIES)
+        .collect();
+    Index { version: 1, checked: first.checked.max(built_in.checked), entries }
 }
 
 #[derive(Debug, Serialize)]
@@ -236,6 +258,26 @@ mod tests {
         );
         assert!(parse(r#"{"version":2,"entries":[]}"#).is_err());
         assert!(parse("not json").is_err());
+        assert_eq!(date(Some("2026-10-23".into())).as_deref(), Some("2026-10-23"));
+        for bad in ["2026-99-99", "0000-00-00", "9999-12-31", "2026-1-01", "2026-10-32"] {
+            assert_eq!(date(Some(bad.into())), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn invalid_entries_do_not_use_up_the_entry_limit() {
+        let bad = r#"{"kind":"repo","repo":"not a repo","title":"x"}"#;
+        let json = format!(r#"{{"version":1,"entries":[{},{{"kind":"repo","repo":"a/b","title":"ok"}}]}}"#, vec![bad; MAX_ENTRIES].join(","));
+        assert_eq!(parse(&json).unwrap().entries.len(), 1);
+    }
+
+    #[test]
+    fn newer_built_in_copy_beats_a_stale_online_one() {
+        let online = parse(r#"{"version":1,"entries":[{"kind":"repo","repo":"dacooderr/OptiLock","title":"Old","updated":"2026-01-01"}]}"#).unwrap();
+        let merged = merge(online, built_in());
+        let optilock = merged.entries.iter().find(|e| e.key() == "repo:dacooderr/optilock").unwrap();
+        assert!(optilock.updated() > Some("2026-01-01"));
+        assert_eq!(merged.entries.len(), built_in().entries.len());
     }
 
     #[test]

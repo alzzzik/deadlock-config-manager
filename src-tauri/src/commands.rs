@@ -368,16 +368,22 @@ fn restore_inner(state: &AppState, id: &str) -> Result<String, String> {
     Ok(format!("Restored {label}."))
 }
 
-/// Pack folder links are percent-encoded ("OptiLock%20FPS%20Config"), so "%" is allowed too.
+/// Pack folder links are percent-encoded ("OptiLock%20FPS%20Config"), so "%" is allowed too, and "?"/"="
+/// for the issue form link (`issues/new?template=…`).
 fn is_github_url(url: &str) -> bool {
-    url.starts_with("https://github.com/") && url.chars().all(|c| c.is_ascii_alphanumeric() || "/:._-~%".contains(c))
+    url.starts_with("https://github.com/") && url.chars().all(|c| c.is_ascii_alphanumeric() || "/:._-~%?=".contains(c))
 }
 
-/// Opens a GitHub page in the default browser. Only github.com URLs are allowed.
+/// A GameBanana mod page, as linked from the config list: `https://gamebanana.com/mods/<id>`.
+fn is_gamebanana_url(url: &str) -> bool {
+    url.strip_prefix("https://gamebanana.com/mods/").is_some_and(|id| !id.is_empty() && id.len() <= 12 && id.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// Opens a GitHub page or a GameBanana mod page in the default browser. Other URLs are refused.
 #[tauri::command]
 pub fn open_github(url: String) -> Result<(), String> {
-    if !is_github_url(&url) {
-        return Err("Only github.com links can be opened.".into());
+    if !is_github_url(&url) && !is_gamebanana_url(&url) {
+        return Err("Only github.com and GameBanana mod links can be opened.".into());
     }
     std::process::Command::new("explorer.exe")
         .arg(url)
@@ -986,6 +992,16 @@ mod tests {
         assert!(!is_github_url("https://github.com.evil.example/x"));
         assert!(!is_github_url("https://github.com/a b"));
         assert!(!is_github_url("https://example.com/"));
+        assert!(is_github_url(crate::store::SUBMIT_URL));
+    }
+
+    #[test]
+    fn accepts_only_plain_gamebanana_mod_links() {
+        assert!(is_gamebanana_url("https://gamebanana.com/mods/727681"));
+        assert!(!is_gamebanana_url("https://gamebanana.com/mods/"));
+        assert!(!is_gamebanana_url("https://gamebanana.com/mods/1/../../x"));
+        assert!(!is_gamebanana_url("https://gamebanana.com.evil.example/mods/1"));
+        assert!(!is_gamebanana_url("http://gamebanana.com/mods/1"));
     }
 }
 

@@ -174,6 +174,8 @@ export type InstallKind = "installer" | "scoop" | "portable";
 export type PathKind = "steam" | "gameinfo" | "video";
 export type Location = "game" | "video" | "userdata" | "backups";
 
+let storeOnce: Promise<StoreView> | null = null;
+
 export const api = {
   overview: () => invoke<Overview>("get_overview"),
   setAccount: (id: string) => invoke<Overview>("set_account", { id }),
@@ -211,6 +213,11 @@ export const api = {
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
   importGamebanana: (url: string) => invoke<LibraryEntry>("import_gamebanana", { url }),
   getStore: () => invoke<StoreView>("get_store"),
+  /** The store list, fetched once per app start (for the suggestions under the add-repo field). */
+  getStoreOnce: (): Promise<StoreView> => (storeOnce ??= invoke<StoreView>("get_store").catch((e) => {
+    storeOnce = null;
+    throw e;
+  })),
   githubStatus: () => invoke<GithubStatus>("github_status"),
   getPerf: () => invoke<PerfView>("get_perf"),
   clearPerf: () => invoke<void>("clear_perf"),

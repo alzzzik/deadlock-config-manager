@@ -25,7 +25,14 @@ export function AddRepo({ linked, onAdd, onOpenGithub, onBrowse }: AddRepoProps)
 
   useEffect(() => {
     // Suggestions are optional: without the list the field still works.
-    api.getStore().then((v) => setCatalog(sortByUpdated(v.entries)), () => setCatalog([]));
+    let alive = true;
+    api.getStoreOnce().then(
+      (v) => alive && setCatalog(sortByUpdated(v.entries)),
+      () => alive && setCatalog([]),
+    );
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const add = async (input: string) => {

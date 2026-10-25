@@ -10,15 +10,19 @@ Sets "checked" to today. Entries whose source is gone are reported, not removed.
 import datetime
 import json
 import pathlib
+import re
 import subprocess
 import sys
 import urllib.request
 
 DEFAULT = pathlib.Path(__file__).resolve().parent.parent / "src-tauri" / "data" / "config_catalog.json"
 GB_API = "https://gamebanana.com/apiv11/Mod/{}?_csvProperties=_aFiles"
+REPO = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
 
 
 def repo_date(repo):
+    if not REPO.match(repo):
+        raise ValueError("not an owner/name repo")
     out = subprocess.run(
         ["gh", "api", f"repos/{repo}/commits?per_page=1", "-q", ".[0].commit.committer.date"],
         capture_output=True, text=True, check=False,
@@ -45,7 +49,7 @@ def main():
                 date, name = gamebanana_date(entry["id"]), f"gamebanana {entry['id']}"
             else:
                 continue
-        except OSError as e:
+        except (OSError, ValueError, OverflowError) as e:
             date, name = None, f"{entry.get('repo') or entry.get('id')} ({e})"
         if date:
             if date != entry.get("updated"):

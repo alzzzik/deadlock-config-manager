@@ -258,6 +258,16 @@ export default function App() {
     }
   };
 
+  /** From Browse: adds a GameBanana config and leaves the dialog open. Resolves to an error message or null. */
+  const addFromGamebanana = async (url: string): Promise<string | null> => {
+    try {
+      addedToLibrary(await api.importGamebanana(url), "Added");
+      return null;
+    } catch (e) {
+      return errorText(e);
+    }
+  };
+
   const importPath = async (directory: boolean) => {
     const path = await open(
       directory
@@ -375,7 +385,7 @@ export default function App() {
     try {
       const { overview: o, group } = await api.addRepo(input);
       setOverview(o);
-      setGroups((cur) => [...(cur ?? []), group]);
+      setGroups((cur) => [...(cur ?? []).filter((g) => g.repo.toLowerCase() !== group.repo.toLowerCase()), group]);
       push("ok", `Linked ${group.repo} (${group.packs.length} pack${group.packs.length === 1 ? "" : "s"}).`);
       return null;
     } catch (e) {
@@ -609,7 +619,7 @@ export default function App() {
           onClose={() => setDialog({ kind: "none" })}
           onLinkRepo={addRepo}
           onAddCode={(code) => void importCode(code)}
-          onAddGamebanana={(url) => void importCode(url)}
+          onAddGamebanana={addFromGamebanana}
           onOpenGithub={openGithub}
         />
       )}

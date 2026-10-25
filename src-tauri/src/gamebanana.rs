@@ -121,10 +121,11 @@ pub fn fetch_config(info: &ModInfo) -> Result<(PackFiles, String, String), Strin
     let mut last_err = String::new();
     for f in candidates {
         match download(f).and_then(|b| crate::library::files_from_archive(&f.name, &b).map(|files| (files, md5_hex(&b)))) {
-            Ok((files, md5)) => {
-                crate::gameinfo::validate(&files.gameinfo).map_err(|e| format!("{} from GameBanana: {e}", f.name))?;
-                return Ok((files, f.name.clone(), md5));
-            }
+            // A newer upload with a broken gameinfo.gi falls through to the older ones.
+            Ok((files, md5)) => match crate::gameinfo::validate(&files.gameinfo) {
+                Ok(_) => return Ok((files, f.name.clone(), md5)),
+                Err(e) => last_err = format!("{} from GameBanana: {e}", f.name),
+            },
             Err(e) => last_err = e,
         }
     }
