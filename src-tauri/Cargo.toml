@@ -1,6 +1,6 @@
 [package]
 name = "deadlock-config-manager"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2021"
 description = "Installs Deadlock config packs from GitHub and keeps your hardware settings"
 license = "MIT"
