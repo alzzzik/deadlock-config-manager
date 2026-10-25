@@ -6,6 +6,7 @@ import {
   ApplyResponse,
   BackupMeta,
   LIBRARY_PREFIX,
+  LaunchFailure,
   LibraryEntry,
   Location,
   Overview,
@@ -33,6 +34,7 @@ import { QuickSettings } from "./components/QuickSettings";
 import { MyConfigs, SaveConfigDialog } from "./components/MyConfigs";
 import { ImportDialog } from "./components/ImportDialog";
 import { StoreDialog } from "./components/StoreDialog";
+import { LaunchIssue } from "./components/LaunchIssue";
 import { PerfDialog } from "./components/PerfDialog";
 
 type Dialog =
@@ -76,6 +78,7 @@ export default function App() {
   const [fresh, setFresh] = useState(false);
   const [ready, setReady] = useState(false);
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
+  const [launchIssue, setLaunchIssue] = useState<LaunchFailure | null>(null);
   const { toasts, push, dismiss } = useToasts();
   const appUpdate = useAppUpdate();
   const fail = useCallback((e: unknown) => push("error", errorText(e)), [push]);
@@ -114,11 +117,16 @@ export default function App() {
     window.addEventListener("focus", refreshOverview);
     let unlistenFiles: (() => void) | undefined;
     listen("files-changed", refreshOverview).then((u) => (unlistenFiles = u), () => undefined);
+    const loadLaunchIssue = () => api.launchIssue().then(setLaunchIssue, () => undefined);
+    loadLaunchIssue();
+    let unlistenLaunch: (() => void) | undefined;
+    listen("launch-failed", loadLaunchIssue).then((u) => (unlistenLaunch = u), () => undefined);
     // Background check for pack updates while the app stays open.
     const timer = window.setInterval(() => refreshPacks(true), UPDATE_CHECK_MS);
     return () => {
       window.removeEventListener("focus", refreshOverview);
       unlistenFiles?.();
+      unlistenLaunch?.();
       window.clearInterval(timer);
     };
   }, [refreshOverview, refreshPacks]);
@@ -418,6 +426,22 @@ export default function App() {
     }
   };
 
+  const closeLaunchIssue = () => api.dismissLaunchIssue().then(() => setLaunchIssue(null), fail);
+
+  /** "Restore previous files" from the crash prompt: the backup taken right before the last write. */
+  const restoreAfterFailedLaunch = async (backupId: string) => {
+    setBusy(true);
+    try {
+      push("ok", await api.restore(backupId));
+      await closeLaunchIssue();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+      refreshOverview();
+    }
+  };
+
   const saveKeys = (keys: string[]) =>
     api.saveSettings(keys).then((o) => {
       setOverview(o);
@@ -460,6 +484,14 @@ export default function App() {
       <UpdateBar state={appUpdate.state} onInstall={(u) => void appUpdate.install(u)} onDismiss={appUpdate.dismiss} />
 
       <main className="content">
+        {launchIssue && (
+          <LaunchIssue
+            issue={launchIssue}
+            busy={busy || !!overview?.deadlockRunning}
+            onRestore={() => void restoreAfterFailedLaunch(launchIssue.backupId)}
+            onKeep={() => void closeLaunchIssue()}
+          />
+        )}
         {overview ? (
           <StatusStrip
             overview={overview}

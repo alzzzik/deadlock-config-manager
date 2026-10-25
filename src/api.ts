@@ -107,6 +107,8 @@ export type StoreEntry =
     }
   | { kind: "gamebanana"; id: number; title: string; description: string; author: string; updated: string | null; recommended: boolean }
   | { kind: "code"; title: string; description: string; author: string; code: string };
+/** Deadlock closed right after starting following the app's last write. */
+export type LaunchFailure = { backupId: string; config: string; ranSeconds: number; fatal: string | null; at: string };
 export type StoreView = { entries: StoreEntry[]; checked: string | null; online: boolean };
 
 export type PerfReport = {
@@ -211,6 +213,8 @@ export const api = {
   importCode: (text: string) => invoke<LibraryEntry>("import_code", { text }),
   importGamebanana: (url: string) => invoke<LibraryEntry>("import_gamebanana", { url }),
   getStore: () => invoke<StoreView>("get_store"),
+  launchIssue: () => invoke<LaunchFailure | null>("launch_issue"),
+  dismissLaunchIssue: () => invoke<void>("dismiss_launch_issue"),
   /** The store list, fetched once per app start (for the suggestions under the add-repo field). */
   getStoreOnce: (): Promise<StoreView> => (storeOnce ??= invoke<StoreView>("get_store").catch((e) => {
     storeOnce = null;
