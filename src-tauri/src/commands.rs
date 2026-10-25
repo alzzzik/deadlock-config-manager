@@ -368,10 +368,10 @@ fn restore_inner(state: &AppState, id: &str) -> Result<String, String> {
     Ok(format!("Restored {label}."))
 }
 
-/// Pack folder links are percent-encoded ("OptiLock%20FPS%20Config"), so "%" is allowed too, and "?"/"="
-/// for the issue form link (`issues/new?template=…`).
+/// Pack folder links are percent-encoded ("OptiLock%20FPS%20Config"), so "%" is allowed too. No "?": links are
+/// opened through explorer.exe, which treats a query string as a file path and opens a folder window instead.
 fn is_github_url(url: &str) -> bool {
-    url.starts_with("https://github.com/") && url.chars().all(|c| c.is_ascii_alphanumeric() || "/:._-~%?=".contains(c))
+    url.starts_with("https://github.com/") && url.chars().all(|c| c.is_ascii_alphanumeric() || "/:._-~%".contains(c))
 }
 
 /// A GameBanana mod page, as linked from the config list: `https://gamebanana.com/mods/<id>`.
@@ -992,7 +992,7 @@ mod tests {
         assert!(!is_github_url("https://github.com.evil.example/x"));
         assert!(!is_github_url("https://github.com/a b"));
         assert!(!is_github_url("https://example.com/"));
-        assert!(is_github_url(crate::store::SUBMIT_URL));
+        assert!(!is_github_url("https://github.com/a/b/issues/new?template=x"));
     }
 
     #[test]

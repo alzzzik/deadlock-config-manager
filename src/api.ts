@@ -106,7 +106,7 @@ export type StoreEntry =
     }
   | { kind: "gamebanana"; id: number; title: string; description: string; author: string; updated: string | null }
   | { kind: "code"; title: string; description: string; author: string; code: string };
-export type StoreView = { entries: StoreEntry[]; checked: string | null; online: boolean; submitUrl: string };
+export type StoreView = { entries: StoreEntry[]; checked: string | null; online: boolean };
 
 export type PerfReport = {
   time: string;

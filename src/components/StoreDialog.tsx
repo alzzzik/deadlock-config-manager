@@ -70,11 +70,6 @@ export function StoreDialog({ linked, busy, onClose, onLinkRepo, onAddCode, onAd
             {view?.checked ? `, dates checked ${shortDate(view.checked)}.` : "."}
           </span>
           <span className="spacer" />
-          {view && (
-            <button className="btn btn-quiet" onClick={() => onOpenGithub(view.submitUrl)}>
-              Submit a config…
-            </button>
-          )}
           <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>

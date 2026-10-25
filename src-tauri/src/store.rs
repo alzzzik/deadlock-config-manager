@@ -2,7 +2,7 @@
 //!
 //! The list is `src-tauri/data/config_catalog.json` in this app's repo. The app ships the copy it was built
 //! with and also reads the current one from `main` through jsDelivr (no server, no GitHub API limit), so new
-//! entries show up without a release. People suggest entries with the "Submit a config" issue form.
+//! entries show up without a release. The list is curated: entries are added by hand.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -10,7 +10,6 @@ use std::fs;
 use std::path::Path;
 
 pub const INDEX_URL: &str = "https://cdn.jsdelivr.net/gh/alzzzik/deadlock-config-manager@main/src-tauri/data/config_catalog.json";
-pub const SUBMIT_URL: &str = "https://github.com/alzzzik/deadlock-config-manager/issues/new?template=submit_config.yml";
 const MAX_ENTRIES: usize = 500;
 const MAX_TEXT: usize = 300;
 const MAX_CONFIGS: usize = 20;
@@ -188,7 +187,6 @@ pub struct StoreView {
     pub checked: Option<String>,
     /// The online list was read just now (false: cached or built-in list).
     pub online: bool,
-    pub submit_url: &'static str,
 }
 
 /// The store list: online if possible, else the last good download, plus the built-in list.
@@ -206,7 +204,7 @@ pub fn load(cache_dir: &Path) -> StoreView {
         }
     };
     let index = merge(index, built_in());
-    StoreView { entries: index.entries, checked: index.checked, online: is_online, submit_url: SUBMIT_URL }
+    StoreView { entries: index.entries, checked: index.checked, online: is_online }
 }
 
 #[cfg(test)]

@@ -38,7 +38,7 @@ config, see what it changes, apply it, and restore your old files if you want th
 - Works with any GitHub repo that has config folders. Each config shows when it was last updated.
 - Saves your own configs ("My configs"), imports and exports them as zip files.
 - Short share codes (like `DCM-3F9K-T2QD-8W`): send someone a config and your settings; they paste it in the app.
-- **Browse…** about 20 config repos and GameBanana configs, newest first, with a "last 3 months" filter. Suggest more with **Submit a config**. Any GameBanana config link can also be imported.
+- **Browse…** about 20 config repos and GameBanana configs, newest first, with a "last 3 months" filter. Any GameBanana config link can also be imported.
 - Optional: re-applies your config by itself after game updates (tray mode), and keeps settings Valve adds
   (overlay mode).
 - **Performance**: real-game FPS (average and 1% low) per config, from Deadlock's own reports, so you can see
