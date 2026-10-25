@@ -11,7 +11,6 @@ pub mod fsops;
 pub mod gamebanana;
 pub mod gameinfo;
 pub mod kv;
-pub mod launch;
 pub mod library;
 mod overview;
 pub mod overlay;

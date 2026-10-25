@@ -9,7 +9,6 @@ use crate::overrides::{Entry, Overrides, FIXES};
 use sha2::{Digest, Sha256};
 
 pub const PREFIX: &str = "DCM-";
-pub const LINK_SCHEME: &str = "deadlockcfg";
 const VERSION: u8 = 1;
 /// Repos that get a one-byte id. Append only: codes already shared depend on the positions.
 const KNOWN_REPOS: [&str; 4] = ["alzzzik/alz-deadlock-cfg", "Sqooky/OptimizationLock", "dacooderr/OptiLock", "7liv/compylock"];

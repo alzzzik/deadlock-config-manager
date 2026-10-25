@@ -3,7 +3,7 @@
 //! `cargo test --test real_install -- --ignored --nocapture`
 //! Set DCM_STEAM (Steam folder) and DCM_ACCOUNT (Steam account id) to point at another PC's files.
 
-use cfghub::{apply, autoexec, launch, overlay, overrides, paths, perf, ranked, stock, video};
+use cfghub::{apply, autoexec, overlay, overrides, paths, perf, ranked, stock, video};
 use std::fs;
 use std::path::PathBuf;
 
@@ -17,7 +17,7 @@ fn account() -> String {
         fs::read_dir(steam().join("userdata"))
             .expect("Steam userdata folder")
             .filter_map(Result::ok)
-            .find(|e| e.path().join(r"1422450\local\cfg\video.txt").is_file() && e.path().join(r"config\localconfig.vdf").is_file())
+            .find(|e| e.path().join(r"1422450\local\cfg\video.txt").is_file())
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .expect("an account with Deadlock settings")
     })
@@ -29,23 +29,6 @@ fn citadel() -> PathBuf {
 
 fn read(p: PathBuf) -> String {
     String::from_utf8_lossy(&fs::read(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()))).into_owned()
-}
-
-#[test]
-#[ignore]
-fn launch_options_round_trip_on_a_copy_of_the_real_localconfig() {
-    let src = read(launch::localconfig_path(&steam(), &account()));
-    let before = launch::read(&src).unwrap();
-    let tmp = tempfile::tempdir().unwrap();
-    let copy = tmp.path().join("localconfig.vdf");
-    let wanted = launch::with_flag(&before, "-condebug", true);
-    let out = launch::write(&src, &wanted).unwrap();
-    fs::write(&copy, &out).unwrap();
-    assert_eq!(launch::read(&read(copy)).unwrap(), wanted.trim());
-    // Only the one value changed: the file is identical apart from it.
-    let back = launch::write(&out, &before).unwrap();
-    assert_eq!(back, src, "writing the old value back should restore the exact file");
-    println!("launch options: {before:?} -> {wanted:?} and back, {} bytes untouched otherwise", src.len());
 }
 
 #[test]
