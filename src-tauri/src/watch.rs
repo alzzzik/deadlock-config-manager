@@ -42,10 +42,15 @@ pub fn start(app: AppHandle) {
                 continue;
             }
             let pack = s.applied.as_ref().map(|a| a.pack_name.clone()).unwrap_or_default();
-            match commands::reapply_saved(&state, true) {
-                Ok(msg) => {
-                    diag::info(&format!("auto re-apply: {msg}"));
-                    notify(&app, "Config re-applied", &format!("A game update replaced gameinfo.gi, so {pack} was applied again."));
+            match commands::reapply_after_game_update(&state) {
+                Ok((msg, behind)) => {
+                    diag::info(&format!("auto re-apply: {msg}{}", if behind { " (repo not updated since the game update)" } else { "" }));
+                    let body = if behind {
+                        format!("A game update replaced gameinfo.gi, so {pack} was applied again. Its repo hasn't been updated since the game update yet.")
+                    } else {
+                        format!("A game update replaced gameinfo.gi, so the latest {pack} was applied again.")
+                    };
+                    notify(&app, "Config re-applied", &body);
                     gave_up_on = None;
                 }
                 Err(e) => {

@@ -775,10 +775,55 @@ pub fn applied_source(app_dir: &Path) -> Option<PackFiles> {
     Some(PackFiles { gameinfo: fs::read_to_string(dir.join("gameinfo.gi")).ok()?, video: fs::read_to_string(dir.join("video.txt")).ok() })
 }
 
-/// Re-applies the last applied config from its saved files, with the same ranked-safe choice and the
-/// current tweaks and overlay setting. `quiet` = background: no UAC prompt.
-pub fn reapply_saved(state: &AppState, quiet: bool) -> Result<String, String> {
-    reapply_saved_with(state, quiet, false)
+/// After a game update replaced gameinfo.gi: re-applies the config's current version from its repo (authors
+/// often fix configs for a new game version), or the saved copy when offline or not from a repo. Background:
+/// no UAC prompt. Returns the message and whether the repo hasn't changed since the update.
+pub fn reapply_after_game_update(state: &AppState) -> Result<(String, bool), String> {
+    let rec = state.snapshot().applied.ok_or("Nothing has been applied yet.")?;
+    let Some((fetched, autoexec, last_commit)) = latest_repo_pack(state, &rec) else {
+        return reapply_saved_with(state, true, false).map(|m| (m, false));
+    };
+    let game_changed = resolve(&state.snapshot()).gameinfo_path.and_then(|p| fs::metadata(p).and_then(|m| m.modified()).ok());
+    let behind = game_changed.is_some_and(|t| repo_behind_update(last_commit.as_deref(), t));
+    let src = Source {
+        repo: rec.repo,
+        id: rec.pack_id,
+        name: rec.pack_name.clone(),
+        revision: fetched.revision,
+        files: fetched.files,
+        notes: vec![],
+        ranked_safe: rec.ranked_safe,
+        quiet: true,
+        autoexec,
+        settings_change: false,
+    };
+    match apply_source(state, src, true)? {
+        ApplyResponse::Done { message, .. } => Ok((message, behind)),
+        ApplyResponse::Preview { .. } => Err("Unexpected preview.".into()),
+    }
+}
+
+/// The applied pack as it is in its repo now. None when it isn't from a repo, GitHub can't be reached, or
+/// the pack is gone, so the caller falls back to the saved copy.
+fn latest_repo_pack(state: &AppState, rec: &AppliedRecord) -> Option<(packs::FetchedPack, Option<String>, Option<String>)> {
+    let repo = rec.repo.as_deref()?;
+    let cache = state.dir.join("cache");
+    let group = packs::list_packs(repo, &cache);
+    if group.offline || group.error.is_some() {
+        return None;
+    }
+    let pack = group.packs.iter().find(|p| p.id == rec.pack_id)?;
+    let fetched = packs::fetch_pack(repo, pack, &cache).ok()?;
+    let autoexec = packs::fetch_autoexec(pack, fetched.revision.as_deref(), &cache);
+    Some((fetched, autoexec, pack.last_commit_date.clone()))
+}
+
+/// The pack's last commit is older than the game's new gameinfo.gi (or unknown dates: not behind).
+fn repo_behind_update(last_commit: Option<&str>, game_changed: std::time::SystemTime) -> bool {
+    let Some(commit) = last_commit.and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok()) else {
+        return false;
+    };
+    commit.with_timezone(&chrono::Utc) < chrono::DateTime::<chrono::Utc>::from(game_changed)
 }
 
 fn reapply_saved_with(state: &AppState, quiet: bool, settings_change: bool) -> Result<String, String> {
@@ -956,6 +1001,15 @@ mod tests {
         assert!(!is_github_url("https://github.com/a b"));
         assert!(!is_github_url("https://example.com/"));
         assert!(!is_github_url("https://github.com/a/b/issues/new?template=x"));
+    }
+
+    #[test]
+    fn repo_is_behind_when_its_last_commit_predates_the_game_update() {
+        let update = std::time::SystemTime::from(chrono::DateTime::parse_from_rfc3339("2026-10-20T21:00:00Z").unwrap());
+        assert!(repo_behind_update(Some("2026-10-13T10:00:00Z"), update));
+        assert!(!repo_behind_update(Some("2026-10-21T09:00:00Z"), update));
+        assert!(!repo_behind_update(None, update));
+        assert!(!repo_behind_update(Some("not a date"), update));
     }
 
     #[test]
