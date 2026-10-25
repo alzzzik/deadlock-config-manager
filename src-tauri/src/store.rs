@@ -35,6 +35,9 @@ pub enum Entry {
         /// Config folder names, shown in the list and searched.
         #[serde(default)]
         configs: Vec<String>,
+        /// Shown first, marked "Recommended".
+        #[serde(default)]
+        recommended: bool,
     },
     /// A config posted on GameBanana, added to My configs by mod id.
     #[serde(rename = "gamebanana", rename_all = "camelCase")]
@@ -48,6 +51,9 @@ pub enum Entry {
         /// Date of the newest config download, YYYY-MM-DD.
         #[serde(default)]
         updated: Option<String>,
+        /// Shown first, marked "Recommended".
+        #[serde(default)]
+        recommended: bool,
     },
     /// A repo config with settings, as a short DCM- share code.
     #[serde(rename = "code", rename_all = "camelCase")]
@@ -109,7 +115,7 @@ fn date(d: Option<String>) -> Option<String> {
 
 fn clean(e: Entry) -> Option<Entry> {
     match e {
-        Entry::Repo { repo, title, description, author, license, updated, configs } => crate::repos::canonical(&repo).ok().map(|repo| Entry::Repo {
+        Entry::Repo { repo, title, description, author, license, updated, configs, recommended } => crate::repos::canonical(&repo).ok().map(|repo| Entry::Repo {
             repo,
             title: short(&title),
             description: short(&description),
@@ -117,13 +123,15 @@ fn clean(e: Entry) -> Option<Entry> {
             license: short(&license),
             updated: date(updated),
             configs: configs.iter().take(MAX_CONFIGS).map(|c| short(c)).collect(),
+            recommended,
         }),
-        Entry::Gamebanana { id, title, description, author, updated } => (id > 0).then(|| Entry::Gamebanana {
+        Entry::Gamebanana { id, title, description, author, updated, recommended } => (id > 0).then(|| Entry::Gamebanana {
             id,
             title: short(&title),
             description: short(&description),
             author: short(&author),
             updated: date(updated),
+            recommended,
         }),
         Entry::Code { title, description, author, code } => crate::share::decode(&code)
             .ok()
@@ -225,6 +233,8 @@ mod tests {
         }));
         let keys: HashSet<String> = idx.entries.iter().map(Entry::key).collect();
         assert_eq!(keys.len(), idx.entries.len(), "duplicate entries");
+        let recommended: Vec<String> = idx.entries.iter().filter(|e| matches!(e, Entry::Repo { recommended: true, .. })).map(Entry::key).collect();
+        assert_eq!(recommended, ["repo:dacooderr/optilock", "repo:sqooky/optimizationlock"]);
     }
 
     #[test]
@@ -250,8 +260,9 @@ mod tests {
                     license: String::new(),
                     updated: Some("2026-10-01".into()),
                     configs: vec!["one".into()],
+                    recommended: false,
                 },
-                Entry::Gamebanana { id: 5, title: "gb".into(), description: String::new(), author: String::new(), updated: None },
+                Entry::Gamebanana { id: 5, title: "gb".into(), description: String::new(), author: String::new(), updated: None, recommended: false },
             ]
         );
         assert!(parse(r#"{"version":2,"entries":[]}"#).is_err());

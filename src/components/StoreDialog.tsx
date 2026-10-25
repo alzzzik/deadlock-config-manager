@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { StoreEntry, StoreView, api, dayAgo, errorText, isRecent, shortDate, sortByUpdated, storeUpdated } from "../api";
+import { StoreEntry, StoreView, api, dayAgo, errorText, isRecent, isRecommended, shortDate, sortStore, storeUpdated } from "../api";
 import { ExternalIcon } from "./icons";
 import { Modal } from "./Modal";
 
@@ -36,9 +36,9 @@ export function StoreDialog({ linked, busy, onClose, onLinkRepo, onAddCode, onAd
     api.getStore().then(setView, (e) => setError(errorText(e)));
   }, []);
 
-  const sorted = useMemo(() => sortByUpdated(view?.entries ?? []), [view]);
-  // Share codes have no date, so the filter always keeps them; the count matches what's listed.
-  const keptByFilter = (e: StoreEntry) => isRecent(e) || e.kind === "code";
+  const sorted = useMemo(() => sortStore(view?.entries ?? []), [view]);
+  // Recommended configs always show; share codes have no date, so the filter keeps them too.
+  const keptByFilter = (e: StoreEntry) => isRecent(e) || isRecommended(e) || e.kind === "code";
   const recentCount = useMemo(() => sorted.filter(keptByFilter).length, [sorted]);
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -88,7 +88,7 @@ export function StoreDialog({ linked, busy, onClose, onLinkRepo, onAddCode, onAd
       </div>
       {view && (
         <p className="muted small store-count">
-          {recentOnly ? `${recentCount} of ${sorted.length} updated recently, newest first.` : `${sorted.length} configs, newest first.`}
+          {recentOnly ? `${recentCount} of ${sorted.length} shown: recommended, then updated in the last 3 months.` : `${sorted.length} configs: recommended, then newest first.`}
         </p>
       )}
       {!view && !error && <p className="muted">Loading…</p>}
@@ -97,10 +97,11 @@ export function StoreDialog({ linked, busy, onClose, onLinkRepo, onAddCode, onAd
           const updated = storeUpdated(e);
           const url = sourceUrl(e);
           return (
-            <li key={entryKey(e)} className="pack-row store-row">
+            <li key={entryKey(e)} className={`pack-row store-row${isRecommended(e) ? " is-recommended" : ""}`}>
               <div className="pack-main">
                 <div className="pack-title">
                   <h3>{e.title}</h3>
+                  {isRecommended(e) && <span className="badge is-accent">Recommended</span>}
                   <span className="badge">{BADGE[e.kind]}</span>
                 </div>
                 <p className="pack-desc" title={e.description}>

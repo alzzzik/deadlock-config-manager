@@ -7,6 +7,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub const DEFAULT_REPO: &str = "alzzzik/alz-deadlock-cfg";
+/// Repos a fresh install starts with: OptiLock (fits most PCs) first, then the app author's configs.
+pub const DEFAULT_REPOS: [&str; 2] = ["dacooderr/OptiLock", DEFAULT_REPO];
+
+fn default_repos() -> Vec<String> {
+    DEFAULT_REPOS.iter().map(|r| r.to_string()).collect()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -62,7 +68,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            repos: vec![DEFAULT_REPO.into()],
+            repos: default_repos(),
             legacy_repo: None,
             steam_root: None,
             gameinfo_path: None,
@@ -122,7 +128,7 @@ pub fn load(dir: &Path) -> Settings {
 fn migrate(s: Settings) -> Settings {
     match s.legacy_repo.clone() {
         Some(old) if !s.repos.iter().any(|r| r.eq_ignore_ascii_case(&old)) => {
-            let repos = std::iter::once(old).chain(s.repos.into_iter().filter(|r| r != DEFAULT_REPO)).collect();
+            let repos = std::iter::once(old).chain(s.repos.into_iter().filter(|r| !DEFAULT_REPOS.contains(&r.as_str()))).collect();
             Settings { repos, legacy_repo: None, ..s }
         }
         _ => Settings { legacy_repo: None, ..s },
@@ -130,10 +136,10 @@ fn migrate(s: Settings) -> Settings {
 }
 
 impl Settings {
-    /// The repos to show; an emptied list falls back to the default repo.
+    /// The repos to show; an emptied list falls back to the default repos.
     pub fn effective_repos(&self) -> Vec<String> {
         if self.repos.is_empty() {
-            vec![DEFAULT_REPO.into()]
+            default_repos()
         } else {
             self.repos.clone()
         }
@@ -187,6 +193,6 @@ mod tests {
     #[test]
     fn empty_repo_list_falls_back_to_default() {
         let s = Settings { repos: vec![], ..Settings::default() };
-        assert_eq!(s.effective_repos(), vec![DEFAULT_REPO.to_string()]);
+        assert_eq!(s.effective_repos(), ["dacooderr/OptiLock", DEFAULT_REPO]);
     }
 }

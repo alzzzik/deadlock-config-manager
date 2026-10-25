@@ -93,12 +93,13 @@ Close Deadlock before applying or restoring.
 
 | Repo | Configs |
 | --- | --- |
-| [alzzzik/alz-deadlock-cfg](https://github.com/alzzzik/alz-deadlock-cfg) | Stable, Experimental (added by default) |
+| [dacooderr/OptiLock](https://github.com/dacooderr/OptiLock) | Recommended, Potato, Ultra Potato (added by default) |
+| [alzzzik/alz-deadlock-cfg](https://github.com/alzzzik/alz-deadlock-cfg) | Stable, alz with DLSS (added by default) |
 | [Sqooky/OptimizationLock](https://github.com/Sqooky/OptimizationLock) | Several community presets |
-| [dacooderr/OptiLock](https://github.com/dacooderr/OptiLock) | Recommended, Potato, Ultra Potato |
 | [7liv/compylock](https://github.com/7liv/compylock) | Competitive config |
 
-Other repos can be added by pasting their GitHub link. If you make configs, see
+**Browse…** lists about 20 more repos and GameBanana configs, with OptiLock and OptimizationLock marked as
+recommended. Other repos can be added by pasting their GitHub link. If you make configs, see
 [the expected folder layout](docs/DEVELOPMENT.md#for-pack-authors).
 
 ## FAQ
@@ -179,8 +180,9 @@ background service.
 
 To list and download configs, the app connects to GitHub (`github.com`, `api.github.com` and
 `raw.githubusercontent.com`) and to jsDelivr (`data.jsdelivr.com`, a CDN that lists the files in a GitHub repo) for the config repos linked in the app, and checks this repo's latest release
-for app updates. `alzzzik/alz-deadlock-cfg` is linked by
-default and can be removed in Settings. These requests are covered by
+for app updates. The config list under Browse… is read from this repo through jsDelivr (`cdn.jsdelivr.net`), and
+GameBanana configs are downloaded from `gamebanana.com` when you add one. `dacooderr/OptiLock` and
+`alzzzik/alz-deadlock-cfg` are linked by default and can be removed in Settings. These requests are covered by
 [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 If you choose to sign in with GitHub, the app stores the sign-in in Windows Credential Manager and uses it only for
 GitHub requests. If you import a config from GameBanana, it downloads that file from `gamebanana.com`. The app makes no other

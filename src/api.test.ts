@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, matchesSearch, pinKey, sortByUpdated, PackInfo, AppliedRecord, StoreEntry } from "./api";
+import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, matchesSearch, pinKey, sortStore, PackInfo, AppliedRecord, StoreEntry } from "./api";
 
 const pack = (over: Partial<PackInfo> = {}): PackInfo => ({
   repo: "alzzzik/alz-deadlock-cfg",
@@ -72,7 +72,7 @@ describe("fovFor", () => {
 });
 
 const NOW = Date.parse("2026-10-23T15:00:00Z");
-const gb = (id: number, updated: string | null): StoreEntry => ({ kind: "gamebanana", id, title: `gb ${id}`, description: "", author: "", updated });
+const gb = (id: number, updated: string | null, recommended = false): StoreEntry => ({ kind: "gamebanana", id, title: `gb ${id}`, description: "", author: "", updated, recommended });
 
 describe("store dates", () => {
   it("counts whole days from a YYYY-MM-DD date", () => {
@@ -86,8 +86,11 @@ describe("store dates", () => {
   });
 
   it("sorts newest first with undated entries last, and filters recent ones", () => {
-    const sorted = sortByUpdated([gb(1, "2026-02-05"), gb(2, null), gb(3, "2026-10-22"), gb(4, "2026-09-30")]);
+    const sorted = sortStore([gb(1, "2026-02-05"), gb(2, null), gb(3, "2026-10-22"), gb(4, "2026-09-30")]);
     expect(sorted.map((e) => (e.kind === "gamebanana" ? e.id : 0))).toEqual([3, 4, 1, 2]);
+    // Recommended entries come first, in list order, whatever their date.
+    const withPicks = sortStore([gb(1, "2026-10-22"), gb(2, "2026-01-01", true), gb(3, "2026-10-20", true)]);
+    expect(withPicks.map((e) => (e.kind === "gamebanana" ? e.id : 0))).toEqual([2, 3, 1]);
     expect(isRecent(gb(3, "2026-10-22"), NOW)).toBe(true);
     expect(isRecent(gb(5, "2026-07-24"), NOW)).toBe(true);
     expect(isRecent(gb(1, "2026-02-05"), NOW)).toBe(false);

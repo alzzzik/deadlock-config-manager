@@ -14,16 +14,9 @@ export const GUIDE_CHOICES: GuideChoice[] = [
   {
     id: "most",
     title: "Most PCs",
-    detail: "alz Stable. More FPS, works with mods, no upscaler, so it suits any GPU.",
-    repo: "alzzzik/alz-deadlock-cfg",
-    folder: "stable",
-  },
-  {
-    id: "rtx",
-    title: "NVIDIA RTX",
-    detail: "alz's own setup: the same gameinfo.gi as Stable with DLSS at 1.7x in video.txt.",
-    repo: "alzzzik/alz-deadlock-cfg",
-    folder: "alz",
+    detail: "OptiLock FPS Config. More FPS for competitive play on low and mid-range PCs, with a video.txt.",
+    repo: "dacooderr/OptiLock",
+    folder: "OptiLock FPS Config (Recommended)",
   },
   {
     id: "low",
@@ -31,6 +24,13 @@ export const GUIDE_CHOICES: GuideChoice[] = [
     detail: "OptiLock Potato. Turns most effects down for the highest FPS on weak hardware.",
     repo: "dacooderr/OptiLock",
     folder: "OptiLock Potato Config",
+  },
+  {
+    id: "rtx",
+    title: "NVIDIA RTX",
+    detail: "alz. Works with mods, with DLSS at 1.7x in video.txt.",
+    repo: "alzzzik/alz-deadlock-cfg",
+    folder: "alz",
   },
 ];
 

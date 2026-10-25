@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { StoreEntry, api, dayAgo, isRecent, sortByUpdated } from "../api";
+import { StoreEntry, api, dayAgo, isRecent, isRecommended, sortStore } from "../api";
 import { ExternalIcon, PlusIcon } from "./icons";
 
 /** How many recently updated repos from the config list are offered as one-click chips. */
@@ -27,7 +27,7 @@ export function AddRepo({ linked, onAdd, onOpenGithub, onBrowse }: AddRepoProps)
     // Suggestions are optional: without the list the field still works.
     let alive = true;
     api.getStoreOnce().then(
-      (v) => alive && setCatalog(sortByUpdated(v.entries)),
+      (v) => alive && setCatalog(sortStore(v.entries)),
       () => alive && setCatalog([]),
     );
     return () => {
@@ -53,9 +53,11 @@ export function AddRepo({ linked, onAdd, onOpenGithub, onBrowse }: AddRepoProps)
   };
 
   const isLinked = (repo: string) => linked.some((r) => r.toLowerCase() === repo.toLowerCase());
-  // Recently updated repos, ones with several configs first (the list is already newest first).
-  const recent = catalog.filter((e): e is RepoEntry => e.kind === "repo" && isRecent(e) && !isLinked(e.repo));
-  const suggestions = [...recent.filter((e) => e.configs.length > 1), ...recent.filter((e) => e.configs.length <= 1)].slice(0, SUGGESTION_COUNT);
+  // Recommended repos first, then recently updated ones with several configs, then the rest (list order is
+  // already recommended, then newest).
+  const repos = catalog.filter((e): e is RepoEntry => e.kind === "repo" && (isRecommended(e) || isRecent(e)) && !isLinked(e.repo));
+  const rank = (e: RepoEntry) => (isRecommended(e) ? 0 : e.configs.length > 1 ? 1 : 2);
+  const suggestions = [...repos].sort((a, b) => rank(a) - rank(b)).slice(0, SUGGESTION_COUNT);
 
   return (
     <form className="add-repo" onSubmit={submit}>
@@ -80,7 +82,7 @@ export function AddRepo({ linked, onAdd, onOpenGithub, onBrowse }: AddRepoProps)
 
       {catalog.length > 0 && (
         <div className="suggest">
-          {suggestions.length > 0 && <span className="suggest-label">Recently updated:</span>}
+          {suggestions.length > 0 && <span className="suggest-label">Suggested:</span>}
           {suggestions.map((s) => (
             <span key={s.repo} className="suggest-chip" title={`${s.description} Updated ${dayAgo(s.updated)}.`}>
               <button type="button" className="suggest-add" onClick={() => void add(s.repo)} disabled={!!adding}>

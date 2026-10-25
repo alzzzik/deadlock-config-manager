@@ -153,6 +153,7 @@ input::placeholder { color: var(--text-faint); }
 }
 .badge.is-good { color: var(--good); background: var(--good-wash); }
 .badge.is-warn { color: var(--warn); background: var(--warn-wash); }
+.badge.is-accent { color: var(--accent-text); background: var(--accent-wash); }
 
 .notice {
   display: flex; align-items: center; gap: 10px;
@@ -519,6 +520,7 @@ input::placeholder { color: var(--text-faint); }
 .store-count { margin-bottom: 8px; }
 .store-row { grid-template-columns: minmax(0, 1fr) 180px 176px; padding-left: 14px; }
 .store-configs { color: var(--text-faint); }
+.store-row.is-recommended::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 0 2px 2px 0; background: var(--accent); }
 .store-list { max-height: 52vh; overflow: auto; }
 
 /* ---------- performance ---------- */
