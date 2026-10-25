@@ -1,5 +1,4 @@
 pub mod apply;
-pub mod auth;
 pub mod autoexec;
 pub mod backup;
 pub mod diag;
@@ -74,9 +73,6 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
 pub fn run() {
     let dir = settings::app_dir();
     diag::init(&dir);
-    if auth::available() {
-        github::set_token(auth::load_token());
-    }
     let state = commands::AppState { settings: Mutex::new(settings::load(&dir)), dir, apply_lock: Mutex::new(()) };
     tauri::Builder::default()
         // A second launch (e.g. from a deadlockcfg:// link) focuses this window; the deep-link
@@ -152,12 +148,8 @@ pub fn run() {
             commands::update_report,
             commands::import_gamebanana,
             commands::get_store,
-            commands::github_status,
             commands::get_perf,
             commands::clear_perf,
-            commands::github_sign_in,
-            commands::github_poll,
-            commands::github_sign_out,
             overview::toggle_pin,
             overview::finish_guide,
         ])

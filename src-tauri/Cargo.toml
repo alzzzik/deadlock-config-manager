@@ -32,7 +32,6 @@ hex = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 ureq = { version = "2", features = ["json"] }
 winreg = "0.52"
-keyring = { version = "3", features = ["windows-native"] }
 md-5 = "0.10"
 sevenz-rust = { version = "0.6", default-features = false }
 zip = { version = "2", default-features = false, features = ["deflate"] }

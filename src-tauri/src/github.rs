@@ -38,24 +38,6 @@ struct Cached {
     body: String,
 }
 
-/// Token from "Sign in with GitHub"; when set, api.github.com calls are made as that user
-/// (5,000 requests an hour instead of 60).
-static TOKEN: std::sync::RwLock<Option<String>> = std::sync::RwLock::new(None);
-
-pub fn set_token(token: Option<String>) {
-    if let Ok(mut t) = TOKEN.write() {
-        *t = token;
-    }
-}
-
-/// The Authorization header for `url`: only ever sent to api.github.com.
-fn auth_header(url: &str) -> Option<String> {
-    if !url.starts_with("https://api.github.com/") {
-        return None;
-    }
-    TOKEN.read().ok()?.as_ref().map(|t| format!("Bearer {t}"))
-}
-
 fn cache_file(dir: &Path, url: &str) -> PathBuf {
     let h = url.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
     dir.join(format!("{h:016x}.json"))
@@ -69,9 +51,6 @@ pub fn get_text_cached(url: &str, cache_dir: &Path) -> Result<Option<String>, St
     let mut req = agent().get(url);
     if let Some(etag) = cached.as_ref().and_then(|c| c.etag.as_deref()) {
         req = req.set("If-None-Match", etag);
-    }
-    if let Some(auth) = auth_header(url) {
-        req = req.set("Authorization", &auth);
     }
     match req.call() {
         Ok(resp) if resp.status() == 304 => Ok(cached.map(|c| c.body)),
@@ -153,16 +132,6 @@ mod tests {
             })
         );
         assert_eq!(parse_atom("<feed></feed>"), None);
-    }
-
-    #[test]
-    fn token_only_goes_to_the_api() {
-        set_token(Some("t".into()));
-        assert_eq!(auth_header("https://api.github.com/repos/a/b").as_deref(), Some("Bearer t"));
-        assert_eq!(auth_header("https://raw.githubusercontent.com/a/b"), None);
-        assert_eq!(auth_header("https://api.github.com.evil.example/"), None);
-        set_token(None);
-        assert_eq!(auth_header("https://api.github.com/repos/a/b"), None);
     }
 
     #[test]

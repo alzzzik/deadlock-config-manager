@@ -59,10 +59,6 @@ it from the `TAURI_SIGNING_PRIVATE_KEY` repository secret (and `TAURI_SIGNING_PR
 has a password) and fails without it. The matching public key is in `tauri.conf.json`. If the private key is lost, installed copies
 can't be updated anymore, so keep an offline backup.
 
-**Optional GitHub sign-in:** register an OAuth app (GitHub Settings › Developer settings › OAuth Apps), tick
-**Enable Device Flow**, and put its public client ID in `CLIENT_ID` in `src-tauri/src/auth.rs`. No secret is
-needed. Until then the sign-in section is hidden.
-
 ## Source map (`src-tauri/src`)
 
 | File | Role |
@@ -87,7 +83,6 @@ needed. Until then the sign-in section is hidden.
 | `gamebanana.rs` | Importing configs from GameBanana |
 | `store.rs` | Config list: `data/config_catalog.json` (built in, and the current copy on `main` via jsDelivr). `scripts/refresh_catalog.py` updates dates, `tests/smoke_catalog.rs` checks every entry |
 | `autoexec.rs` | A pack's `autoexec.cfg` lines, merged into the game's `cfgutoexec.cfg` |
-| `auth.rs` | Optional Sign in with GitHub (device flow, token in Credential Manager) |
 | `report.rs` | What a game update changed for the applied config |
 | `watch.rs` | Background re-apply after game updates and performance collection |
 | `perf.rs` | Parses Deadlock's VProf reports from `console.log`, per-config FPS stats |

@@ -132,9 +132,6 @@ export type ConfigStats = {
 };
 export type PerfView = { stats: ConfigStats[]; recent: PerfSession[]; logging: boolean; minSeconds: number; minSessions: number };
 
-export type GithubStatus = { available: boolean; login: string | null };
-export type DeviceCode = { deviceCode: string; userCode: string; verificationUri: string; interval: number; expiresIn: number };
-export type PollResult = { state: "pending"; interval: number } | { state: "done"; login: string } | { state: "failed"; message: string };
 
 export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean };
 
@@ -219,12 +216,8 @@ export const api = {
     storeOnce = null;
     throw e;
   })),
-  githubStatus: () => invoke<GithubStatus>("github_status"),
   getPerf: () => invoke<PerfView>("get_perf"),
   clearPerf: () => invoke<void>("clear_perf"),
-  githubSignIn: () => invoke<DeviceCode>("github_sign_in"),
-  githubPoll: (deviceCode: string, interval: number) => invoke<PollResult>("github_poll", { deviceCode, interval }),
-  githubSignOut: () => invoke<void>("github_sign_out"),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
   setAutomation: (a: Automation) => invoke<Automation>("set_automation", a),

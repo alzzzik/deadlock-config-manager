@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { Automation, DeviceCode, GithubStatus, ISSUES_URL, InstallKind, Overview, api, errorText } from "../api";
+import { Automation, ISSUES_URL, InstallKind, Overview, api, errorText } from "../api";
 import { AddRepo } from "./AddRepo";
 import { ChevronIcon, CloseIcon } from "./icons";
 import { Modal } from "./Modal";
@@ -124,8 +124,6 @@ export function SettingsDialog({
       </fieldset>
 
       <GameUpdatesSection onNotify={onNotify} />
-
-      <GithubSection onNotify={onNotify} onOpenGithub={onOpenGithub} />
 
       <AboutSection onOpenGithub={onOpenGithub} onCheckUpdate={onCheckUpdate} onNotify={onNotify} installKind={installKind} />
     </Modal>
@@ -254,84 +252,3 @@ function GameUpdatesSection({ onNotify }: { onNotify: (kind: "ok" | "error" | "i
   );
 }
 
-/** Optional GitHub sign-in (device flow), only shown when this build has an OAuth client ID. */
-function GithubSection({ onNotify, onOpenGithub }: { onNotify: (kind: "ok" | "error" | "info", text: string) => void; onOpenGithub: (url: string) => void }) {
-  const [status, setStatus] = useState<GithubStatus | null>(null);
-  const [code, setCode] = useState<DeviceCode | null>(null);
-
-  useEffect(() => {
-    api.githubStatus().then(setStatus, () => setStatus(null));
-  }, []);
-
-  // Poll GitHub while a code is shown, at the interval GitHub asks for.
-  useEffect(() => {
-    if (!code) return;
-    let interval = code.interval;
-    let stopped = false;
-    let timer = 0;
-    const tick = async () => {
-      const r = await api.githubPoll(code.deviceCode, interval).catch((e) => ({ state: "failed" as const, message: errorText(e) }));
-      if (stopped) return;
-      if (r.state === "pending") {
-        interval = r.interval;
-        timer = window.setTimeout(() => void tick(), interval * 1000);
-      } else {
-        setCode(null);
-        if (r.state === "done") {
-          setStatus({ available: true, login: r.login });
-          onNotify("ok", `Signed in to GitHub as ${r.login}.`);
-        } else {
-          onNotify("error", r.message);
-        }
-      }
-    };
-    timer = window.setTimeout(() => void tick(), interval * 1000);
-    return () => {
-      stopped = true;
-      window.clearTimeout(timer);
-    };
-  }, [code, onNotify]);
-
-  if (!status?.available) return null;
-
-  const start = () =>
-    api.githubSignIn().then((c) => {
-      setCode(c);
-      void navigator.clipboard.writeText(c.userCode).catch(() => undefined);
-      onOpenGithub(c.verificationUri);
-    }, (e) => onNotify("error", errorText(e)));
-
-  const signOut = () =>
-    api.githubSignOut().then(() => {
-      setStatus({ available: true, login: null });
-      onNotify("info", "Signed out of GitHub.");
-    }, (e) => onNotify("error", errorText(e)));
-
-  return (
-    <section className="field">
-      <h3 className="field-title">GitHub</h3>
-      <p className="muted small">
-        Optional. Signed in, the app can make 5,000 GitHub requests an hour instead of 60, which helps if you link many
-        repos. It only reads public data; the sign-in is stored in Windows Credential Manager.
-      </p>
-      {code ? (
-        <p className="notice is-warn">
-          Enter <code>{code.userCode}</code> on the GitHub page that just opened (the code is copied). Waiting for GitHub…
-        </p>
-      ) : status.login ? (
-        <div className="about-actions">
-          <span className="small">Signed in as {status.login}</span>
-          <button className="btn btn-quiet btn-sm" onClick={() => void signOut()}>
-            Sign out
-          </button>
-        </div>
-      ) : (
-        <div className="about-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => void start()}>
-            Sign in with GitHub
-          </button>
-        </div>
-      )}
-    </section>
-  );
-}

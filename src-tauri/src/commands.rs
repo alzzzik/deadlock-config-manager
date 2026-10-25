@@ -869,43 +869,6 @@ pub async fn get_store(state: State<'_, AppState>) -> Result<crate::store::Store
 }
 
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GithubStatus {
-    /// This build has an OAuth client ID, so sign-in can be offered.
-    pub available: bool,
-    pub login: Option<String>,
-}
-
-#[tauri::command]
-pub async fn github_status() -> Result<GithubStatus, String> {
-    if !crate::auth::available() {
-        return Ok(GithubStatus { available: false, login: None });
-    }
-    let login = tauri::async_runtime::spawn_blocking(crate::auth::current_login).await.map_err(|e| e.to_string())?;
-    Ok(GithubStatus { available: true, login })
-}
-
-/// Starts the device flow; the UI shows the code and opens github.com/login/device.
-#[tauri::command]
-pub async fn github_sign_in() -> Result<crate::auth::DeviceCode, String> {
-    tauri::async_runtime::spawn_blocking(crate::auth::start).await.map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn github_poll(device_code: String, interval: u64) -> Result<crate::auth::PollResult, String> {
-    let result = tauri::async_runtime::spawn_blocking(move || crate::auth::poll(&device_code, interval)).await.map_err(|e| e.to_string())?;
-    if let crate::auth::PollResult::Done { login } = &result {
-        diag::info(&format!("signed in to GitHub as {login}"));
-    }
-    Ok(result)
-}
-
-#[tauri::command]
-pub fn github_sign_out() -> Result<(), String> {
-    crate::auth::sign_out()
-}
-
 fn console_log_path(state: &AppState) -> Option<PathBuf> {
     let ov = resolve(&state.snapshot());
     ov.gameinfo_path.map(PathBuf::from).and_then(|p| p.parent().map(|d| d.join("console.log")))

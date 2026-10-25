@@ -184,8 +184,7 @@ for app updates. The config list under Browse… is read from this repo through 
 GameBanana configs are downloaded from `gamebanana.com` when you add one. `dacooderr/OptiLock` and
 `alzzzik/alz-deadlock-cfg` are linked by default and can be removed in Settings. These requests are covered by
 [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
-If you choose to sign in with GitHub, the app stores the sign-in in Windows Credential Manager and uses it only for
-GitHub requests. If you import a config from GameBanana, it downloads that file from `gamebanana.com`. The app makes no other
+If you import a config from GameBanana, it downloads that file from `gamebanana.com`. The app makes no other
 network connections.
 
 Everything else stays on your PC: settings, backups, downloaded configs and a small log file are stored in
