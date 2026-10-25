@@ -32,6 +32,7 @@ config, see what it changes, apply it, and restore your old files if you want th
 - Shows every setting a config changes before anything is written.
 - Keeps your GPU IDs (`VendorID`, `DeviceID`) and display settings from your own `video.txt`.
 - Backs up your files before every change. The first backup is kept as your original.
+- If Deadlock closes right after starting following a change, offers to restore the files from before it.
 - Explains each setting in plain words and marks settings the game ignores.
 - If Deadlock ever refuses ranked matchmaking because of a config, offers to make it ranked-safe.
 - Detects when a game update or another tool overwrites `gameinfo.gi` and lets you re-apply in one click.
@@ -39,8 +40,8 @@ config, see what it changes, apply it, and restore your old files if you want th
 - Saves your own configs ("My configs"), imports and exports them as zip files.
 - Short share codes (like `DCM-3F9K-T2QD-8W`): send someone a config and your settings; they paste it in the app.
 - **Browse…** about 20 config repos and GameBanana configs, newest first, with a "last 3 months" filter. Any GameBanana config link can also be imported.
-- Optional: re-applies your config by itself after game updates (tray mode), and keeps settings Valve adds
-  (overlay mode).
+- Optional: re-applies your config by itself after game updates (tray mode), using the config's latest version
+  from its repo, and keeps settings Valve adds (overlay mode).
 - **Performance**: real-game FPS (average and 1% low) per config, from Deadlock's own reports, so you can see
   what a config does on your PC. Needs the `-condebug` launch option.
 - Works alongside Deadlock Mod Manager and Grimoire.

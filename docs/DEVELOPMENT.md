@@ -84,7 +84,8 @@ can't be updated anymore, so keep an offline backup.
 | `store.rs` | Config list: `data/config_catalog.json` (built in, and the current copy on `main` via jsDelivr). `scripts/refresh_catalog.py` updates dates, `tests/smoke_catalog.rs` checks every entry |
 | `autoexec.rs` | A pack's `autoexec.cfg` lines, merged into the game's `cfgutoexec.cfg` |
 | `report.rs` | What a game update changed for the applied config |
-| `watch.rs` | Background re-apply after game updates and performance collection |
+| `watch.rs` | Background re-apply after game updates (latest repo version), launch checks and performance collection |
+| `launch_guard.rs` | Times the first Deadlock launch after a write; a run under a minute offers the backup from before it |
 | `perf.rs` | Parses Deadlock's VProf reports from `console.log`, per-config FPS stats |
 | `diag.rs` | Local log, panic hook and the diagnostics report |
 | `overview.rs`, `commands.rs` | Tauri commands used by the UI |
