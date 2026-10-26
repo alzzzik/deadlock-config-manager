@@ -23,8 +23,8 @@ A Windows app for installing Deadlock FPS configs from GitHub.
 
 <br />
 
-An FPS config is a `gameinfo.gi` and a `video.txt`. Installing one by hand means keeping your own GPU lines in
-`video.txt` and redoing it after every game update. This app does that: pick a config, see what it changes, apply it.
+Installs a config's `gameinfo.gi` and `video.txt` without editing files by hand: your GPU lines stay, every change
+is previewed and backed up, and the config is put back after game updates.
 
 ## Features
 
