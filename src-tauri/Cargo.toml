@@ -2,7 +2,7 @@
 name = "deadlock-config-manager"
 version = "0.9.0"
 edition = "2021"
-description = "Installs Deadlock config packs from GitHub and keeps your hardware settings"
+description = "Windows app that installs Deadlock FPS configs from GitHub, with a preview, backups and restore."
 license = "MIT"
 
 [lib]

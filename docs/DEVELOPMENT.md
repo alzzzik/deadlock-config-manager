@@ -39,7 +39,7 @@ npm test                                        # UI unit tests (Vitest, from th
 
 1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`
    (then `npm install --package-lock-only` and `cargo check` to refresh the lock files).
-2. Commit, push, then push a tag: `git tag -a v0.3.0 -m "v0.3.0" && git push origin v0.3.0`.
+2. Commit, push, then push a tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`.
 3. The **Release** workflow runs the tests, builds the installer and creates a **draft** release with
    `latest.json`, `SHA256SUMS.txt` and a build attestation. Check it, then publish. Installed copies only see
    the update once the release is published.
@@ -48,16 +48,10 @@ Publishing a release also runs the **Packages** workflow:
 
 - **Scoop:** `bucket/deadlock-config-manager.json` is updated to the new version and the portable zip's hash
   and committed to `main`. Users add this repo as a bucket (see the README).
-- **winget:** submit the first version by hand with
-  `wingetcreate new <installer URL>` (identifier `alzzzik.DeadlockConfigManager`, installer type `nullsoft`,
-  scope `user`). After Microsoft merges it, add a `WINGET_TOKEN` secret (classic PAT with `public_repo`); from
-  then on each published release opens the winget pull request automatically. Add the
-  `winget install alzzzik.DeadlockConfigManager` line to the README once it's listed.
+- **winget:** opens a winget pull request once a `WINGET_TOKEN` secret is set.
 
-App updates are signed with a [Tauri updater key](https://v2.tauri.app/plugin/updater/). The workflow reads
-it from the `TAURI_SIGNING_PRIVATE_KEY` repository secret (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if the key
-has a password) and fails without it. The matching public key is in `tauri.conf.json`. If the private key is lost, installed copies
-can't be updated anymore, so keep an offline backup.
+App updates are signed with a [Tauri updater key](https://v2.tauri.app/plugin/updater/) from the
+`TAURI_SIGNING_PRIVATE_KEY` secret; the build fails without it. Losing the key breaks updates for installed copies.
 
 ## Source map (`src-tauri/src`)
 
@@ -82,7 +76,7 @@ can't be updated anymore, so keep an offline backup.
 | `share.rs` | DCM1 share codes |
 | `gamebanana.rs` | Importing configs from GameBanana |
 | `store.rs` | Config list: `data/config_catalog.json` (built in, and the current copy on `main` via jsDelivr). `scripts/refresh_catalog.py` updates dates, `tests/smoke_catalog.rs` checks every entry |
-| `autoexec.rs` | A pack's `autoexec.cfg` lines, merged into the game's `cfgutoexec.cfg` |
+| `autoexec.rs` | A pack's `autoexec.cfg` lines, merged into the game's `cfg/autoexec.cfg` |
 | `report.rs` | What a game update changed for the applied config |
 | `watch.rs` | Background re-apply after game updates (latest repo version), launch checks and performance collection |
 | `launch_guard.rs` | Times the first Deadlock launch after a write; a run under a minute offers the backup from before it |
@@ -92,13 +86,13 @@ can't be updated anymore, so keep an offline backup.
 
 UI components live in `src/components/`; design tokens are at the top of `src/styles.css`.
 
-## For pack authors
+## For config authors
 
-A repo works if each pack is a folder (or the repo root) with a `gameinfo.gi` and a `video*.txt`:
+A repo works if each config is a folder (or the repo root) with a `gameinfo.gi` and a `video*.txt`:
 
 - `video.txt` can be a full file or just the setting lines to paste under `DeviceID`.
-- Several video files in one folder (e.g. `video(Shadows).txt`, `video(No Shadows).txt`) become separate packs.
-- Extra gameinfo files in one folder (e.g. `gameinfo-EXTREME-LOW.gi`) become separate packs too.
+- Several `video*.txt` or `gameinfo*.gi` files in one folder (e.g. `video(Shadows).txt`, `gameinfo-EXTREME-LOW.gi`)
+  each become a separate config.
 - Add a `packs.json` at the repo root for exact names and descriptions:
 
 ```json

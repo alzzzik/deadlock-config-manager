@@ -59,9 +59,11 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Deadlock Config Manager ${{ github.ref_name }}
           releaseBody: |
-            Download **Deadlock.Config.Manager_*_x64-setup.exe** below and run it. Installed copies from v0.3.0 on update themselves.
+            Download **Deadlock.Config.Manager_*_x64-setup.exe** and run it. Copies from v0.3.0 on update themselves. The portable zip runs without installing and doesn't update itself.
 
-            Windows may say "Windows protected your PC" because the app isn't code-signed: click **More info → Run anyway**. To check the download first, compare its SHA-256 with `SHA256SUMS.txt` (`Get-FileHash .\Deadlock.Config.Manager_*_x64-setup.exe`), or verify where it was built with `gh attestation verify <file> --repo alzzzik/deadlock-config-manager`.
+            If Windows says "Windows protected your PC", click **More info → Run anyway** (the app isn't code-signed).
+
+            To check the download: `Get-FileHash <file>` should match `SHA256SUMS.txt`, or run `gh attestation verify <file> --repo alzzzik/deadlock-config-manager`.
 
             [Code signing policy](https://github.com/alzzzik/deadlock-config-manager#code-signing-policy) · [Privacy policy](https://github.com/alzzzik/deadlock-config-manager#privacy-policy)
           releaseDraft: true
