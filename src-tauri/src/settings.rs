@@ -63,6 +63,8 @@ pub struct Settings {
     pub auto_reapply: bool,
     /// Start hidden in the tray when Windows starts.
     pub start_with_windows: bool,
+    /// Closing the window quits the app instead of keeping it in the tray.
+    pub exit_on_close: bool,
 }
 
 impl Default for Settings {
@@ -82,6 +84,7 @@ impl Default for Settings {
             overlay: false,
             auto_reapply: false,
             start_with_windows: false,
+            exit_on_close: false,
         }
     }
 }
@@ -139,7 +142,7 @@ impl Settings {
     /// Closing the window keeps the app in the tray, so it keeps collecting performance reports and, with
     /// `auto_reapply`, watching for game updates.
     pub fn keeps_running(&self) -> bool {
-        self.auto_reapply || self.start_with_windows
+        !self.exit_on_close
     }
 
     /// The repos to show; an emptied list falls back to the default repos.
@@ -164,11 +167,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn either_background_option_keeps_the_app_in_the_tray() {
-        let base = Settings::default();
-        assert!(!base.keeps_running());
-        assert!(Settings { start_with_windows: true, ..base.clone() }.keeps_running());
-        assert!(Settings { auto_reapply: true, ..base }.keeps_running());
+    fn closing_keeps_the_app_in_the_tray_unless_set_to_exit() {
+        assert!(Settings::default().keeps_running());
+        assert!(!Settings { exit_on_close: true, ..Settings::default() }.keeps_running());
+        // Settings saved before the option existed keep the app in the tray.
+        let old: Settings = serde_json::from_str(r#"{"autoReapply": false}"#).unwrap();
+        assert!(old.keeps_running());
     }
 
     #[test]

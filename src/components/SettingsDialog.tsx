@@ -215,14 +215,24 @@ function GameUpdatesSection({ onNotify }: { onNotify: (kind: "ok" | "error" | "i
   if (!a) return null;
   return (
     <fieldset className="field">
-      <legend className="field-title">Game updates</legend>
+      <legend className="field-title">Background and game updates</legend>
+      <label className="tweak-row">
+        <input type="checkbox" checked={a.exitOnClose} onChange={(e) => change({ ...a, exitOnClose: e.target.checked })} />
+        <span className="tweak-text">
+          <span>Closing the window exits the app</span>
+          <small className="muted">
+            Off: closing keeps the app in the tray (right-click its icon › Quit to exit), so it keeps collecting performance
+            reports.
+          </small>
+        </span>
+      </label>
       <label className="tweak-row">
         <input type="checkbox" checked={a.autoReapply} onChange={(e) => change({ ...a, autoReapply: e.target.checked })} />
         <span className="tweak-text">
           <span>Re-apply my config after game updates</span>
           <small className="muted">
-            When an update replaces gameinfo.gi, the app applies your config again by itself (while Deadlock is closed) and
-            shows a notification. Closing the window keeps the app in the tray so it can do this.
+            When an update replaces gameinfo.gi, the app applies your config again by itself (while Deadlock is closed and
+            the app is running, in the window or the tray) and shows a notification.
           </small>
         </span>
       </label>
@@ -234,10 +244,7 @@ function GameUpdatesSection({ onNotify }: { onNotify: (kind: "ok" | "error" | "i
         />
         <span className="tweak-text">
           <span>Start with Windows in the tray</span>
-          <small className="muted">
-            Closing the window keeps the app in the tray (right-click its icon › Quit to exit), so performance reports are
-            collected even if you never open it.
-          </small>
+          <small className="muted">Starts hidden in the tray, so performance reports are collected even if you never open the app.</small>
         </span>
       </label>
       <label className="tweak-row">

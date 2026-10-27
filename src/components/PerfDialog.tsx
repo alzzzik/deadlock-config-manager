@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { ConfigStats, PerfView, api, errorText, timeAgo } from "../api";
+import { Automation, ConfigStats, PerfView, api, errorText, timeAgo } from "../api";
 import { Modal } from "./Modal";
 
 interface PerfDialogProps {
@@ -17,6 +17,19 @@ const pct = (a: number, b: number) => {
 /** Real-game FPS per config, from Deadlock's own performance reports in console.log. */
 export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
   const [view, setView] = useState<PerfView | null>(null);
+  const [automation, setAutomation] = useState<Automation | null>(null);
+
+  useEffect(() => {
+    api.getAutomation().then(setAutomation, () => setAutomation(null));
+  }, []);
+
+  /** "Run in the background" is the same setting as Settings › "Closing the window exits the app", inverted. */
+  const setBackground = (on: boolean) => {
+    if (!automation) return;
+    const next = { ...automation, exitOnClose: !on };
+    setAutomation(next);
+    api.setAutomation(next).then(setAutomation, (e) => onNotify("error", errorText(e)));
+  };
 
   const load = () => api.getPerf().then(setView, (e) => onNotify("error", errorText(e)));
 
@@ -60,6 +73,21 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
         it's open (or in the tray) and groups them by the config you had applied. Numbers come from real games, so they
         vary with fights and heroes: compare configs over several matches.
       </p>
+      {automation && (
+        <label className="switch-row">
+          <input
+            type="checkbox"
+            role="switch"
+            className="switch"
+            checked={!automation.exitOnClose}
+            onChange={(e) => setBackground(e.target.checked)}
+          />
+          <span className="tweak-text">
+            <span>Run in the background</span>
+            <small className="muted">Closing the window keeps the app in the tray, so no matches are missed.</small>
+          </span>
+        </label>
+      )}
       {view && (!view.logging || view.stats.length === 0) && (
         <div className="notice is-warn notice-action">
           <span>

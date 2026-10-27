@@ -135,7 +135,7 @@ export type ConfigStats = {
 export type PerfView = { stats: ConfigStats[]; recent: PerfSession[]; logging: boolean; minSeconds: number; minSessions: number };
 
 
-export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean };
+export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean; exitOnClose: boolean };
 
 export type ConvarInfo = { text: string | null; ignored: boolean; default: string | null };
 

@@ -904,17 +904,18 @@ pub struct AutomationSettings {
     pub overlay: bool,
     pub auto_reapply: bool,
     pub start_with_windows: bool,
+    pub exit_on_close: bool,
 }
 
 #[tauri::command]
 pub fn get_automation(state: State<AppState>) -> AutomationSettings {
     let s = state.snapshot();
-    AutomationSettings { overlay: s.overlay, auto_reapply: s.auto_reapply, start_with_windows: s.start_with_windows }
+    AutomationSettings { overlay: s.overlay, auto_reapply: s.auto_reapply, start_with_windows: s.start_with_windows, exit_on_close: s.exit_on_close }
 }
 
 #[tauri::command]
-pub fn set_automation(app: tauri::AppHandle, state: State<AppState>, overlay: bool, auto_reapply: bool, start_with_windows: bool) -> Result<AutomationSettings, String> {
-    let s = state.update(|s| Settings { overlay, auto_reapply, start_with_windows, ..s })?;
+pub fn set_automation(app: tauri::AppHandle, state: State<AppState>, overlay: bool, auto_reapply: bool, start_with_windows: bool, exit_on_close: bool) -> Result<AutomationSettings, String> {
+    let s = state.update(|s| Settings { overlay, auto_reapply, start_with_windows, exit_on_close, ..s })?;
     {
         use tauri_plugin_autostart::ManagerExt;
         let launcher = app.autolaunch();
@@ -923,7 +924,7 @@ pub fn set_automation(app: tauri::AppHandle, state: State<AppState>, overlay: bo
             diag::error(&format!("autostart: {e}"));
         }
     }
-    Ok(AutomationSettings { overlay: s.overlay, auto_reapply: s.auto_reapply, start_with_windows: s.start_with_windows })
+    Ok(AutomationSettings { overlay: s.overlay, auto_reapply: s.auto_reapply, start_with_windows: s.start_with_windows, exit_on_close: s.exit_on_close })
 }
 
 /// What the last game update changed for the applied config. None unless a game update replaced it.
