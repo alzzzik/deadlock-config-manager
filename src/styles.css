@@ -458,6 +458,7 @@ input::placeholder { color: var(--text-faint); }
 
 /* ---------- first-run guide ---------- */
 .guide-choices { display: grid; gap: 8px; margin-top: 12px; }
+.guide-launch { margin: 16px 0 6px; }
 .guide-choice {
   display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; cursor: pointer;
   border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--surface-2);
@@ -564,3 +565,4 @@ input::placeholder { color: var(--text-faint); }
 /* ---------- launch options ---------- */
 .launch-recommended { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r); background: var(--surface-2); }
 .launch-recommended code { flex: 1; min-width: 0; color: var(--accent-text); overflow-wrap: anywhere; font-size: 12px; }
+.nowrap { white-space: nowrap; }

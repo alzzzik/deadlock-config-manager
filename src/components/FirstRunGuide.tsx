@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal } from "./Modal";
+import { LaunchOptions } from "./LaunchOptions";
 
 /** A starting config, found by repo and folder once the repo is linked. */
 export interface GuideChoice {
@@ -38,10 +39,11 @@ interface FirstRunGuideProps {
   busy: boolean;
   onPick: (choice: GuideChoice) => void;
   onSkip: () => void;
+  onNotify: (kind: "ok" | "error" | "info", text: string) => void;
 }
 
 /** First launch: pick a starting config instead of facing a list of repos. */
-export function FirstRunGuide({ busy, onPick, onSkip }: FirstRunGuideProps) {
+export function FirstRunGuide({ busy, onPick, onSkip, onNotify }: FirstRunGuideProps) {
   const [picked, setPicked] = useState<GuideChoice>(GUIDE_CHOICES[0]);
   return (
     <Modal
@@ -73,6 +75,8 @@ export function FirstRunGuide({ busy, onPick, onSkip }: FirstRunGuideProps) {
           </label>
         ))}
       </div>
+      <p className="muted small guide-launch">Also add these launch options in Steam (right-click Deadlock › Properties):</p>
+      <LaunchOptions onNotify={onNotify} />
     </Modal>
   );
 }

@@ -658,7 +658,7 @@ export default function App() {
       {dialog.kind === "perf" && (
         <PerfDialog onClose={() => setDialog({ kind: "none" })} onNotify={push} />
       )}
-      {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} />}
+      {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} onNotify={push} />}
       {dialog.kind === "preview" && (
         <PreviewDialog preview={dialog.preview} onCancel={() => setDialog({ kind: "none" })} onConfirm={dialog.proceed} onConfirmSafe={dialog.proceedSafe} />
       )}
