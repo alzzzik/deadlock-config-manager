@@ -560,7 +560,9 @@ input::placeholder { color: var(--text-faint); }
 .qs-reset:hover:not(:disabled) { color: var(--accent-text); }
 .fix-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px; border-radius: var(--r-sm); cursor: pointer; font-size: var(--fs-sm); }
 .fix-row:hover { background: var(--surface-2); }
-.fix-row input { accent-color: var(--accent); width: 15px; height: 15px; }
+.fix-row.is-locked { cursor: default; }
+.fix-row.is-locked:hover { background: none; }
+.switch:disabled { opacity: 0.5; cursor: default; }
 
 /* ---------- launch options ---------- */
 .launch-recommended { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r); background: var(--surface-2); }

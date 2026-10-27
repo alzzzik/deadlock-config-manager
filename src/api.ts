@@ -150,7 +150,9 @@ export type LibraryEntry = {
 
 /** One editable setting: your value (null = the config's) and what the config itself sets. */
 export type TweakRow = { id: string; label: string; description: string; value: string | null; configValue: string | null };
-export type FixRow = { id: string; label: string; on: boolean };
+/** A switch for something configs often hide. `on`: shown in game now; `configShows`: the config shows it on its
+ * own; `canHide`: it can be switched off (distance and detail settings only switch to the fix). */
+export type FixRow = { id: string; label: string; on: boolean; configShows: boolean; canHide: boolean };
 export type TweaksView = { rows: TweakRow[]; fixes: FixRow[] };
 
 export type ApplyResponse =

@@ -471,10 +471,17 @@ pub fn get_diagnostics(state: State<AppState>) -> String {
 /// Whether the game is logging and how many sessions are stored, for bug reports about an empty Performance view.
 fn perf_status(state: &AppState) -> String {
     let log = console_log_path(state).and_then(|p| fs::metadata(p).ok()).map(|m| m.len());
-    let condebug = state.perf_log.lock().unwrap_or_else(|e| e.into_inner()).condebug();
+    let (condebug, reports) = {
+        let tail = state.perf_log.lock().unwrap_or_else(|e| e.into_inner());
+        (tail.condebug(), tail.summaries())
+    };
     let stored = crate::perf::load(&state.dir).len();
     match log {
-        Some(len) => format!("console.log {} MB, -condebug {}, {stored} sessions stored", len / 1_000_000, if condebug { "yes" } else { "no" }),
+        Some(len) => format!(
+            "console.log {} MB, -condebug {}, {reports} reports in this log, {stored} sessions stored",
+            len / 1_000_000,
+            if condebug { "yes" } else { "no" }
+        ),
         None => format!("no console.log, {stored} sessions stored"),
     }
 }
@@ -557,7 +564,12 @@ pub struct TweakRow {
 pub struct FixRow {
     pub id: &'static str,
     pub label: &'static str,
+    /// Shown in game with the current settings.
     pub on: bool,
+    /// The applied config shows it on its own.
+    pub config_shows: bool,
+    /// Can be switched off (plain on/off settings); distance and detail settings only switch to the fix.
+    pub can_hide: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -598,7 +610,20 @@ fn tweaks_view(state: &AppState) -> TweaksView {
             config_value: src.as_deref().and_then(|s| overrides::convar_value(s, convar)),
         })
         .collect();
-    let fixes = overrides::FIXES.iter().map(|f| FixRow { id: f.id, label: f.label, on: o.fixes.iter().any(|x| x == f.id) }).collect();
+    let fixes = overrides::FIXES
+        .iter()
+        .map(|f| {
+            let config_shows = (f.shown)(src.as_deref().unwrap_or_default());
+            let on = if o.fixes.iter().any(|x| x == f.id) {
+                true
+            } else if o.hidden.iter().any(|x| x == f.id) {
+                false
+            } else {
+                config_shows
+            };
+            FixRow { id: f.id, label: f.label, on, config_shows, can_hide: f.hide.is_some() }
+        })
+        .collect();
     TweaksView { rows, fixes }
 }
 
@@ -668,12 +693,11 @@ pub fn set_tweak(state: State<AppState>, id: String, value: Option<String>) -> R
 /// Turns a fix on or off and applies it.
 #[tauri::command]
 pub fn set_fix(state: State<AppState>, id: String, on: bool) -> Result<TweaksView, String> {
-    if !overrides::FIXES.iter().any(|f| f.id == id) {
-        return Err("Unknown fix.".into());
-    }
+    let fix = overrides::FIXES.iter().find(|f| f.id == id).ok_or("Unknown fix.")?;
     let previous = state.snapshot().overrides;
-    let fixes: Vec<String> = previous.fixes.iter().filter(|x| **x != id).cloned().chain(on.then(|| id.clone())).collect();
-    state.update(|s| Settings { overrides: Overrides { fixes, ..s.overrides.clone() }, ..s })?;
+    let config_shows = (fix.shown)(config_source(&state).as_deref().unwrap_or_default());
+    let next = overrides::set_switch(&previous, fix, on, config_shows);
+    state.update(|s| Settings { overrides: next, ..s })?;
     if let Err(e) = diag::logged("apply fix", apply_tweaks_now(&state)) {
         state.update(|s| Settings { overrides: previous, ..s })?;
         return Err(e);

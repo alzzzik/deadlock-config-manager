@@ -62,6 +62,8 @@ struct Parser {
     /// Matchmaking refused ranked. Valve's reason is the token `Citadel_StartMatchmaking_UnverifiedPGI`
     /// (GameTracking-Deadlock commit 8febc71f); matched loosely since the exact log line hasn't been seen yet.
     ranked_refused: bool,
+    /// "[VProf] Summary" lines seen, read or not, so a bug report can tell "no reports" from "unread reports".
+    summaries: usize,
 }
 
 impl Parser {
@@ -82,6 +84,7 @@ impl Parser {
         } else if line.contains("[VProf] VProfLite started.") {
             self.session_map = self.last_map.clone();
         } else if let Some(rest) = after(line, "[VProf] Summary of ") {
+            self.summaries += 1;
             // "123650 frames and 180 1-second intervals." or, in the short form, "155708 frames."
             let mut words = rest.split_whitespace();
             let frames = words.next().and_then(|w| w.parse().ok());
@@ -179,6 +182,11 @@ impl LogTail {
     /// The current log's launch used -condebug.
     pub fn condebug(&self) -> bool {
         self.parser.condebug
+    }
+
+    /// Performance report summaries in the current log, including ones that couldn't be read.
+    pub fn summaries(&self) -> usize {
+        self.parser.summaries
     }
 
     /// The current log shows matchmaking refused ranked because of gameinfo.gi.
@@ -342,6 +350,7 @@ mod tests {
         assert_eq!(early.len(), 1);
         assert_eq!(early[0].map, "dl_hideout");
         assert!(tail.condebug());
+        assert_eq!(tail.summaries(), 1);
         assert!(tail.read_new(&path).unwrap().is_empty());
         append(&path, rest);
         let late = tail.read_new(&path).unwrap();

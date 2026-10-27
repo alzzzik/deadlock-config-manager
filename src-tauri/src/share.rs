@@ -150,7 +150,7 @@ pub fn decode(text: &str) -> Result<Shared, String> {
     let fix_bits = if flags & HAS_FIXES != 0 { next()? } else { 0 };
     let fixes = FIXES.iter().enumerate().filter(|(i, _)| fix_bits & (1 << i) != 0).map(|(_, f)| f.id.to_string()).collect();
     let aspect = aspect.map(|a| crate::overrides::parse_aspect(&a)).transpose()?;
-    Ok(Shared { repo, pack_hash, safe: flags & SAFE != 0, settings: Overrides { fixes, aspect, fps_max, fps_max_ui } })
+    Ok(Shared { repo, pack_hash, safe: flags & SAFE != 0, settings: Overrides { fixes, aspect, fps_max, fps_max_ui, ..Default::default() } })
 }
 
 /// ConVars differences of `src` against `stock`, as overrides that rebuild `src`'s ConVars from stock.
@@ -191,7 +191,7 @@ mod tests {
             safe: true,
             ..shared(
                 "dacooderr/OptiLock",
-                Overrides { fixes: vec!["doorman_ult".into(), "decals".into()], aspect: Some("2.15".into()), fps_max: Some(400), fps_max_ui: Some(120) },
+                Overrides { fixes: vec!["doorman_ult".into(), "decals".into()], aspect: Some("2.15".into()), fps_max: Some(400), fps_max_ui: Some(120), ..Default::default() },
             )
         };
         let code = encode(&full).unwrap();

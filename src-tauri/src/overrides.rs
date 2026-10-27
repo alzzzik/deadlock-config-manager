@@ -24,8 +24,10 @@ impl Entry {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Overrides {
-    /// Ids from [`FIXES`] that are turned on.
+    /// Ids from [`FIXES`] switched on (shown) where the config hides them.
     pub fixes: Vec<String>,
+    /// Ids from [`FIXES`] switched off (hidden) where the config shows them; only fixes with `hide`.
+    pub hidden: Vec<String>,
     /// View width through `r_aspectratio`. None keeps the config's value.
     pub aspect: Option<String>,
     /// Frame rate cap in matches (`fps_max`, 0 = no cap). None keeps the config's value.
@@ -37,20 +39,102 @@ pub struct Overrides {
 pub struct Fix {
     pub id: &'static str,
     pub label: &'static str,
+    /// Lines that make it show.
     pub entries: fn() -> Vec<Entry>,
+    /// Lines that hide it, for things that are plainly on or off. None for distance and detail settings,
+    /// where "off" means the config's own value.
+    pub hide: Option<fn() -> Vec<Entry>>,
+    /// Whether a gameinfo.gi shows it.
+    pub shown: fn(&str) -> bool,
 }
 
-/// Fixes from the OptimizationLock FAQ for things aggressive configs hide.
+fn is_true(v: Option<String>) -> bool {
+    v.is_some_and(|v| matches!(v.trim(), "true" | "1"))
+}
+
+fn is_false(v: Option<String>) -> bool {
+    v.is_some_and(|v| matches!(v.trim(), "false" | "0"))
+}
+
+fn number(v: Option<String>) -> Option<f64> {
+    v.and_then(|v| v.trim().parse().ok())
+}
+
+/// Things aggressive configs hide (fixes from the OptimizationLock FAQ), as switches. Share codes store
+/// them by position, so new ones go at the end.
 pub const FIXES: [Fix; 8] = [
-    Fix { id: "portraits_dark", label: "Heroes look dark in the shop and end screen", entries: || vec![Entry::set("lb_enable_dynamic_lights", "true")] },
-    Fix { id: "portraits_missing", label: "Heroes missing in the shop and end screen", entries: || vec![Entry::off("citadel_portrait_world_renderer_off")] },
-    Fix { id: "doorman_ult", label: "Doorman ult indicator not visible", entries: || vec![Entry::set("cl_ragdoll_limit", "-1")] },
-    Fix { id: "far_boxes", label: "Boxes and health bars vanish at a distance", entries: || vec![Entry::set("r_size_cull_threshold", "0.7")] },
-    Fix { id: "buildings_pop", label: "Buildings pop in and out", entries: || vec![Entry::off("r_farz"), Entry::off("r_mapextents")] },
-    Fix { id: "lod_holes", label: "Holes in Victor and Paige, Sinner's lights look like triangles", entries: || vec![Entry::off("sc_screen_size_lod_scale_override")] },
-    Fix { id: "decals", label: "Lash's ground slam not visible", entries: || vec![Entry::off("r_drawdecals")] },
-    Fix { id: "far_effects", label: "Blast vent wind or in-world text not visible at range", entries: || vec![Entry::off("sc_fade_distance_scale_override"), Entry::off("citadel_in_world_item_panel_dpi")] },
+    Fix {
+        id: "portraits_dark",
+        label: "Hero lighting in the shop and end screen",
+        entries: || vec![Entry::set("lb_enable_dynamic_lights", "true")],
+        hide: Some(|| vec![Entry::set("lb_enable_dynamic_lights", "false")]),
+        shown: |src| !is_false(convar_value(src, "lb_enable_dynamic_lights")),
+    },
+    Fix {
+        id: "portraits_missing",
+        label: "Hero models in the shop and end screen",
+        entries: || vec![Entry::off("citadel_portrait_world_renderer_off")],
+        hide: Some(|| vec![Entry::set("citadel_portrait_world_renderer_off", "true")]),
+        shown: |src| !is_true(convar_value(src, "citadel_portrait_world_renderer_off")),
+    },
+    Fix {
+        id: "doorman_ult",
+        label: "Doorman's ult indicator",
+        entries: || vec![Entry::set("cl_ragdoll_limit", "-1")],
+        hide: Some(|| vec![Entry::set("cl_ragdoll_limit", "0")]),
+        shown: |src| number(convar_value(src, "cl_ragdoll_limit")) != Some(0.0),
+    },
+    Fix {
+        id: "far_boxes",
+        label: "Boxes and health bars at a distance",
+        entries: || vec![Entry::set("r_size_cull_threshold", "0.7")],
+        hide: None,
+        shown: |src| number(convar_value(src, "r_size_cull_threshold")).is_none_or(|v| v <= 0.7),
+    },
+    Fix {
+        id: "buildings_pop",
+        label: "Distant buildings (no popping in and out)",
+        entries: || vec![Entry::off("r_farz"), Entry::off("r_mapextents")],
+        hide: None,
+        shown: |src| {
+            number(convar_value(src, "r_farz")).is_none_or(|v| v <= 0.0) && number(convar_value(src, "r_mapextents")).is_none_or(|v| v >= 16384.0)
+        },
+    },
+    Fix {
+        id: "lod_holes",
+        label: "Full-detail models (no holes in Victor and Paige, round lights on Sinner)",
+        entries: || vec![Entry::off("sc_screen_size_lod_scale_override")],
+        hide: None,
+        shown: |src| convar_value(src, "sc_screen_size_lod_scale_override").is_none(),
+    },
+    Fix {
+        id: "decals",
+        label: "Ground marks, like Lash's ground slam",
+        entries: || vec![Entry::off("r_drawdecals")],
+        hide: Some(|| vec![Entry::set("r_drawdecals", "0")]),
+        shown: |src| !is_false(convar_value(src, "r_drawdecals")),
+    },
+    Fix {
+        id: "far_effects",
+        label: "Blast vent wind and in-world text at range",
+        entries: || vec![Entry::off("sc_fade_distance_scale_override"), Entry::off("citadel_in_world_item_panel_dpi")],
+        hide: None,
+        shown: |src| convar_value(src, "sc_fade_distance_scale_override").is_none() && convar_value(src, "citadel_in_world_item_panel_dpi").is_none(),
+    },
 ];
+
+/// The overrides after flipping switch `fix` to `on`, for a config that shows it or not (`config_shows`).
+/// Only differences from the config are kept, so another config later starts from its own values.
+pub fn set_switch(o: &Overrides, fix: &Fix, on: bool, config_shows: bool) -> Overrides {
+    let without = |ids: &[String]| ids.iter().filter(|x| *x != fix.id).cloned().collect::<Vec<_>>();
+    let (mut fixes, mut hidden) = (without(&o.fixes), without(&o.hidden));
+    if on && !config_shows {
+        fixes.push(fix.id.into());
+    } else if !on && config_shows && fix.hide.is_some() {
+        hidden.push(fix.id.into());
+    }
+    Overrides { fixes, hidden, ..o.clone() }
+}
 
 const MAX_ASPECT: f64 = 4.0;
 pub const MAX_FPS: u32 = 1000;
@@ -71,7 +155,10 @@ impl Overrides {
 
     /// All entries in apply order: fixes, then view width and FPS caps.
     pub fn effective(&self) -> Vec<Entry> {
-        let fixes = FIXES.iter().filter(|f| self.fixes.iter().any(|id| id == f.id)).flat_map(|f| (f.entries)());
+        let has = |ids: &[String], f: &Fix| ids.iter().any(|id| id == f.id);
+        let shown = FIXES.iter().filter(|f| has(&self.fixes, f)).flat_map(|f| (f.entries)());
+        let hidden = FIXES.iter().filter(|f| has(&self.hidden, f)).filter_map(|f| f.hide).flat_map(|hide| hide());
+        let fixes = shown.chain(hidden);
         let aspect = self.aspect.as_deref().and_then(|a| parse_aspect(a).ok()).map(|a| Entry::set("r_aspectratio", &a));
         let fps = self.fps_max.map(|v| Entry::set("fps_max", &v.min(MAX_FPS).to_string()));
         let fps_ui = self.fps_max_ui.map(|v| Entry::set("fps_max_ui", &v.min(MAX_FPS).to_string()));
@@ -291,16 +378,47 @@ mod tests {
 
     #[test]
     fn effective_merges_fixes_view_and_fps() {
-        let o = Overrides { fixes: vec!["doorman_ult".into(), "buildings_pop".into()], aspect: Some("2,15".into()), fps_max: Some(5000), fps_max_ui: Some(60) };
+        let o = Overrides { fixes: vec!["doorman_ult".into(), "buildings_pop".into()], hidden: vec!["decals".into()], aspect: Some("2,15".into()), fps_max: Some(5000), fps_max_ui: Some(60) };
         let e = o.effective();
         assert!(e.contains(&Entry::set("r_aspectratio", "2.15")));
         assert!(e.contains(&Entry::set("fps_max", "1000")));
         assert!(e.contains(&Entry::set("fps_max_ui", "60")));
         assert!(e.contains(&Entry::set("cl_ragdoll_limit", "-1")));
         assert!(e.contains(&Entry::off("r_mapextents")));
+        assert!(e.contains(&Entry::set("r_drawdecals", "0")));
         assert!(Overrides::default().is_empty());
         assert!(Overrides { aspect: Some("wide".into()), ..Default::default() }.is_empty());
         assert!(parse_aspect("9").is_err() && parse_aspect("0").is_ok());
+    }
+
+    fn fix(id: &str) -> &'static Fix {
+        FIXES.iter().find(|f| f.id == id).unwrap()
+    }
+
+    #[test]
+    fn switches_read_what_a_config_shows() {
+        // GI: r_farz 4000 hides distant buildings, cl_ragdoll_limit 0 hides Doorman's ult, the rest is unset.
+        assert!(!(fix("buildings_pop").shown)(GI));
+        assert!(!(fix("doorman_ult").shown)(GI));
+        assert!((fix("portraits_missing").shown)(GI) && (fix("decals").shown)(GI) && (fix("far_boxes").shown)(GI));
+        let hidden = apply(GI, &(fix("portraits_missing").hide.unwrap())()).unwrap();
+        assert!(!(fix("portraits_missing").shown)(&hidden));
+        let shown = apply(GI, &(fix("doorman_ult").entries)()).unwrap();
+        assert!((fix("doorman_ult").shown)(&shown));
+    }
+
+    #[test]
+    fn switches_keep_only_differences_from_the_config() {
+        let none = Overrides::default();
+        let portraits = fix("portraits_missing");
+        // Config shows the models: turning them off is stored, turning them back on clears it.
+        let off = set_switch(&none, portraits, false, true);
+        assert_eq!(off.hidden, vec!["portraits_missing".to_string()]);
+        assert_eq!(set_switch(&off, portraits, true, true), none);
+        // Config hides them: turning them on is stored.
+        assert_eq!(set_switch(&none, portraits, true, false).fixes, vec!["portraits_missing".to_string()]);
+        // Distance settings have no "hide" value: off keeps the config's own.
+        assert_eq!(set_switch(&none, fix("far_boxes"), false, true), none);
     }
 
     #[test]
@@ -309,3 +427,4 @@ mod tests {
         assert_eq!(convar_value(GI, "citadel_camera_hero_fov"), None);
     }
 }
+
