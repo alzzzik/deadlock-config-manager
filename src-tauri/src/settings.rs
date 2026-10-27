@@ -61,7 +61,7 @@ pub struct Settings {
     pub overlay: bool,
     /// Re-apply the last config by itself after a game update replaces gameinfo.gi.
     pub auto_reapply: bool,
-    /// Start hidden in the tray when Windows starts (only used with `auto_reapply`).
+    /// Start hidden in the tray when Windows starts.
     pub start_with_windows: bool,
 }
 
@@ -136,6 +136,12 @@ fn migrate(s: Settings) -> Settings {
 }
 
 impl Settings {
+    /// Closing the window keeps the app in the tray, so it keeps collecting performance reports and, with
+    /// `auto_reapply`, watching for game updates.
+    pub fn keeps_running(&self) -> bool {
+        self.auto_reapply || self.start_with_windows
+    }
+
     /// The repos to show; an emptied list falls back to the default repos.
     pub fn effective_repos(&self) -> Vec<String> {
         if self.repos.is_empty() {
@@ -156,6 +162,14 @@ pub fn save(dir: &Path, settings: &Settings) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn either_background_option_keeps_the_app_in_the_tray() {
+        let base = Settings::default();
+        assert!(!base.keeps_running());
+        assert!(Settings { start_with_windows: true, ..base.clone() }.keeps_running());
+        assert!(Settings { auto_reapply: true, ..base }.keeps_running());
+    }
 
     #[test]
     fn round_trips_and_fills_defaults() {

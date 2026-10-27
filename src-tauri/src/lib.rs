@@ -97,17 +97,17 @@ pub fn run() {
             }
             // The window starts hidden (tauri.conf.json) so a Windows-start launch can stay in the tray.
             let background = std::env::args().any(|a| a == BACKGROUND_FLAG);
-            let auto = app.state::<commands::AppState>().snapshot().auto_reapply;
-            if !(background && auto) {
+            let keeps_running = app.state::<commands::AppState>().snapshot().keeps_running();
+            if !(background && keeps_running) {
                 show_main(app.handle());
             }
             watch::start(app.handle().clone());
             Ok(())
         })
-        // With auto re-apply on, closing the window keeps the app in the tray so it can watch for updates.
+        // With auto re-apply or start-with-Windows on, closing the window keeps the app in the tray.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.app_handle().state::<commands::AppState>().snapshot().auto_reapply {
+                if window.app_handle().state::<commands::AppState>().snapshot().keeps_running() {
                     api.prevent_close();
                     let _ = window.hide();
                 }

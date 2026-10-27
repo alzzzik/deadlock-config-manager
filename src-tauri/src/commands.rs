@@ -914,12 +914,11 @@ pub fn get_automation(state: State<AppState>) -> AutomationSettings {
 
 #[tauri::command]
 pub fn set_automation(app: tauri::AppHandle, state: State<AppState>, overlay: bool, auto_reapply: bool, start_with_windows: bool) -> Result<AutomationSettings, String> {
-    let start = auto_reapply && start_with_windows;
-    let s = state.update(|s| Settings { overlay, auto_reapply, start_with_windows: start, ..s })?;
+    let s = state.update(|s| Settings { overlay, auto_reapply, start_with_windows, ..s })?;
     {
         use tauri_plugin_autostart::ManagerExt;
         let launcher = app.autolaunch();
-        let result = if start { launcher.enable() } else { launcher.disable() };
+        let result = if start_with_windows { launcher.enable() } else { launcher.disable() };
         if let Err(e) = result {
             diag::error(&format!("autostart: {e}"));
         }

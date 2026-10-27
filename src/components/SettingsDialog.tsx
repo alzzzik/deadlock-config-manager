@@ -230,12 +230,14 @@ function GameUpdatesSection({ onNotify }: { onNotify: (kind: "ok" | "error" | "i
         <input
           type="checkbox"
           checked={a.startWithWindows}
-          disabled={!a.autoReapply}
           onChange={(e) => change({ ...a, startWithWindows: e.target.checked })}
         />
         <span className="tweak-text">
           <span>Start with Windows in the tray</span>
-          <small className="muted">So updates are handled even if you never open the app.</small>
+          <small className="muted">
+            Closing the window keeps the app in the tray (right-click its icon › Quit to exit), so performance reports are
+            collected even if you never open it.
+          </small>
         </span>
       </label>
       <label className="tweak-row">
