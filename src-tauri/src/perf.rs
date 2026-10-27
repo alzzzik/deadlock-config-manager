@@ -45,25 +45,37 @@ fn timestamp(line: &str) -> String {
     line.get(..14).filter(|t| t.as_bytes().get(2) == Some(&b'/')).unwrap_or("").to_string()
 }
 
-/// Every complete VProf report in a console.log, with the map that was being played.
-pub fn parse(log: &str) -> Vec<Report> {
-    let mut out = Vec::new();
-    let mut last_map = String::new();
-    let mut session_map = String::new();
-    let mut current: Option<Report> = None;
-    for line in log.lines() {
+/// Reads a console.log line by line, so a log can be fed in pieces as the game writes it.
+#[derive(Debug, Default)]
+struct Parser {
+    last_map: String,
+    session_map: String,
+    current: Option<Report>,
+    /// The log's command line has -condebug (it always does if the file exists, but this confirms it's current).
+    condebug: bool,
+}
+
+impl Parser {
+    /// Returns a report when `line` completes one.
+    fn line(&mut self, line: &str) -> Option<Report> {
+        // Almost every line is game spam; only these three tags matter.
+        if !(line.contains("[VProf]") || line.contains("Loading map \"") || line.contains("[CommandLine]")) {
+            return None;
+        }
         if let Some(rest) = after(line, "Loading map \"") {
-            last_map = rest.split('"').next().unwrap_or("").to_string();
+            self.last_map = rest.split('"').next().unwrap_or("").to_string();
+        } else if line.contains("[CommandLine]") {
+            self.condebug |= line.split_whitespace().any(|w| w.eq_ignore_ascii_case("-condebug"));
         } else if line.contains("[VProf] VProfLite started.") {
-            session_map = last_map.clone();
+            self.session_map = self.last_map.clone();
         } else if let Some(rest) = after(line, "[VProf] Summary of ") {
             // "123650 frames and 180 1-second intervals."
             let mut words = rest.split_whitespace();
             let frames = words.next().and_then(|w| w.parse().ok());
             let seconds = words.nth(2).and_then(|w| w.parse().ok());
-            current = frames.zip(seconds).map(|(frames, seconds)| Report {
+            self.current = frames.zip(seconds).map(|(frames, seconds)| Report {
                 time: timestamp(line),
-                map: session_map.clone(),
+                map: self.session_map.clone(),
                 frames,
                 seconds,
                 avg_fps: 0.0,
@@ -71,30 +83,80 @@ pub fn parse(log: &str) -> Vec<Report> {
                 frame_ms: 0.0,
                 frame_ms_p99: 0.0,
             });
-        } else if let (Some(rest), Some(r)) = (after(line, "[VProf] FPS: Avg="), current.as_mut()) {
+        } else if let (Some(rest), Some(r)) = (after(line, "[VProf] FPS: Avg="), self.current.as_mut()) {
             // "718.6, P1=276.6"
             let (avg, p1) = rest.split_once(", P1=").unwrap_or((rest, ""));
             r.avg_fps = avg.trim().parse().unwrap_or(0.0);
             r.p1_fps = p1.trim().parse().unwrap_or(0.0);
-        } else if let (Some(rest), Some(r)) = (after(line, "[VProf]"), current.as_mut()) {
+        } else if let (Some(rest), Some(r)) = (after(line, "[VProf]"), self.current.as_mut()) {
             let cols: Vec<&str> = rest.split_whitespace().collect();
             if cols.first() == Some(&"FrameTotal") && cols.len() >= 3 {
                 r.frame_ms = cols[1].parse().unwrap_or(0.0);
                 r.frame_ms_p99 = cols[2].parse().unwrap_or(0.0);
-                if r.avg_fps > 0.0 {
-                    out.push(r.clone());
-                }
-                current = None;
+                return self.current.take().filter(|r| r.avg_fps > 0.0);
             }
         }
+        None
     }
-    out
 }
 
-/// True when the log shows the game was started with -condebug (it always is if the file exists, but
-/// the command line line confirms it's current).
-pub fn condebug_on(log: &str) -> bool {
-    log.lines().filter(|l| l.contains("[CommandLine]")).any(|l| l.split_whitespace().any(|w| w.eq_ignore_ascii_case("-condebug")))
+/// Every complete VProf report in a console.log, with the map that was being played.
+pub fn parse(log: &str) -> Vec<Report> {
+    let mut p = Parser::default();
+    log.lines().filter_map(|l| p.line(l)).collect()
+}
+
+/// Enough of the log's start to tell one game launch's log from the next (it begins with a timestamp).
+const HEAD_LEN: usize = 64;
+
+/// Where the app got to in console.log. A long match with -condebug can write hundreds of MB, so only
+/// bytes added since the last read are parsed.
+#[derive(Debug, Default)]
+pub struct LogTail {
+    offset: u64,
+    head: Vec<u8>,
+    parser: Parser,
+}
+
+impl LogTail {
+    /// Reports completed since the last call. Starts over when the game began a new log.
+    pub fn read_new(&mut self, path: &Path) -> std::io::Result<Vec<Report>> {
+        use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+        let mut file = fs::File::open(path)?;
+        let len = file.metadata()?.len();
+        let mut head = Vec::with_capacity(HEAD_LEN);
+        (&mut file).take(HEAD_LEN as u64).read_to_end(&mut head)?;
+        if len < self.offset || !head.starts_with(&self.head) {
+            *self = Self::default();
+        }
+        self.head = head;
+        file.seek(SeekFrom::Start(self.offset))?;
+        let mut reader = BufReader::with_capacity(1 << 20, file);
+        let mut out = Vec::new();
+        let mut buf = Vec::new();
+        loop {
+            buf.clear();
+            let n = match reader.read_until(b'\n', &mut buf) {
+                Ok(n) => n,
+                // Keep what was read; the offset stops at the last whole line, so the rest is read next time.
+                Err(_) if !out.is_empty() => break,
+                Err(e) => return Err(e),
+            };
+            // A line without its newline is still being written; it's read whole next time.
+            if n == 0 || buf.last() != Some(&b'\n') {
+                break;
+            }
+            self.offset += n as u64;
+            let line = String::from_utf8_lossy(&buf);
+            out.extend(self.parser.line(line.trim_end_matches(['\r', '\n'])));
+        }
+        Ok(out)
+    }
+
+    /// The current log's launch used -condebug.
+    pub fn condebug(&self) -> bool {
+        self.parser.condebug
+    }
 }
 
 /// A stored report with the config that was applied when it was recorded.
@@ -216,8 +278,47 @@ mod tests {
         assert_eq!((r[1].frames, r[1].seconds), (123650, 180));
         assert_eq!((r[1].avg_fps, r[1].p1_fps), (718.6, 276.6));
         assert_eq!((r[1].frame_ms, r[1].frame_ms_p99), (1.39, 3.62));
-        assert!(condebug_on(LOG));
         assert!(parse("nothing here").is_empty());
+    }
+
+    fn append(path: &Path, text: &str) {
+        use std::io::Write;
+        fs::OpenOptions::new().create(true).append(true).open(path).unwrap().write_all(text.as_bytes()).unwrap();
+    }
+
+    #[test]
+    fn reads_only_what_the_game_added_since_the_last_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("console.log");
+        let mut tail = LogTail::default();
+        // The game writes the log in pieces, sometimes stopping mid-line.
+        let (first, rest) = LOG.split_at(LOG.find("Summary of 123650").unwrap() + 10);
+        append(&path, first);
+        let early = tail.read_new(&path).unwrap();
+        assert_eq!(early.len(), 1);
+        assert_eq!(early[0].map, "dl_hideout");
+        assert!(tail.condebug());
+        assert!(tail.read_new(&path).unwrap().is_empty());
+        append(&path, rest);
+        let late = tail.read_new(&path).unwrap();
+        assert_eq!(late, parse(LOG)[1..].to_vec());
+        assert!(tail.read_new(&path).unwrap().is_empty());
+    }
+
+    #[test]
+    fn starts_over_when_the_game_begins_a_new_log() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("console.log");
+        let mut tail = LogTail::default();
+        let short = "10/22 20:00:00 [CommandLine] -steam -condebug\n10/22 20:00:01 quit\n";
+        fs::write(&path, short).unwrap();
+        assert!(tail.read_new(&path).unwrap().is_empty());
+        // The next launch rewrites the file and is already longer than the old one when it's read.
+        fs::write(&path, LOG).unwrap();
+        assert_eq!(tail.read_new(&path).unwrap(), parse(LOG));
+        fs::write(&path, "10/23 09:00:00 [CommandLine] -steam\n").unwrap();
+        assert!(tail.read_new(&path).unwrap().is_empty());
+        assert!(!tail.condebug());
     }
 
     fn session(key: &str, avg: f64, secs: u64, time: &str) -> Session {
@@ -274,4 +375,18 @@ mod tests {
         }
         println!("{reports:#?}");
     }
+
+    #[test]
+    #[ignore = "times reading this PC's real Deadlock console.log"]
+    fn times_reading_this_pcs_console_log() {
+        let path = Path::new(r"C:\Program Files (x86)\Steam\steamapps\common\Deadlock\game\citadel\console.log");
+        let mut tail = LogTail::default();
+        let t = std::time::Instant::now();
+        let reports = tail.read_new(path).unwrap();
+        let first = t.elapsed();
+        let t = std::time::Instant::now();
+        tail.read_new(path).unwrap();
+        println!("{} MB: first read {first:?} ({} reports, condebug {}), next read {:?}", fs::metadata(path).unwrap().len() / 1_000_000, reports.len(), tail.condebug(), t.elapsed());
+    }
 }
+

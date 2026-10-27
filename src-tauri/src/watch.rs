@@ -22,11 +22,10 @@ pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
         // Hash of the installed gameinfo.gi we last failed to fix, so a failure isn't retried every tick.
         let mut gave_up_on: Option<String> = None;
-        let mut log_seen: Option<std::time::SystemTime> = None;
         let mut launch = crate::launch_guard::LaunchWatch::default();
         loop {
             let state = app.state::<AppState>();
-            if let Some(new) = commands::collect_perf(&state, &mut log_seen) {
+            if let Some(new) = commands::collect_perf(&state) {
                 if new > 0 {
                     let _ = app.emit(PERF_CHANGED, ());
                 }

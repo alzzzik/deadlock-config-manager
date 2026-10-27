@@ -17,13 +17,15 @@ use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 
 pub struct AppState {
     pub dir: PathBuf,
     pub settings: Mutex<Settings>,
     /// Held for a whole apply or restore so the UI and the background re-apply never write at once.
     pub apply_lock: Mutex<()>,
+    /// How far console.log has been read for performance reports.
+    pub perf_log: Mutex<crate::perf::LogTail>,
 }
 
 impl AppState {
@@ -483,7 +485,9 @@ pub fn dismiss_launch_issue(state: State<AppState>) {
 /// Called by the background watcher when a watched launch ended. Reads console.log for a fatal error
 /// written during that run.
 pub fn finish_launch_check(state: &AppState, ran: std::time::Duration, started: std::time::SystemTime) -> Option<crate::launch_guard::Failure> {
+    // A long run's log can be hundreds of MB, and only a quick exit is reported.
     let fatal = console_log_path(state)
+        .filter(|_| crate::launch_guard::is_quick_exit(ran))
         .filter(|p| fs::metadata(p).and_then(|m| m.modified()).is_ok_and(|m| m >= started))
         .and_then(|p| fs::read(p).ok())
         .and_then(|b| crate::launch_guard::fatal_line(&String::from_utf8_lossy(&b)));
@@ -950,17 +954,27 @@ fn console_log_path(state: &AppState) -> Option<PathBuf> {
     ov.gameinfo_path.map(PathBuf::from).and_then(|p| p.parent().map(|d| d.join("console.log")))
 }
 
-/// Reads new VProf reports from console.log when it changed since `seen`, labelled with the config that
+/// Reads VProf reports the game added to console.log since the last call, labelled with the config that
 /// is applied now. Returns the number of new reports, or None when there's no log.
-pub fn collect_perf(state: &AppState, seen: &mut Option<std::time::SystemTime>) -> Option<usize> {
+pub fn collect_perf(state: &AppState) -> Option<usize> {
     let path = console_log_path(state)?;
-    let modified = fs::metadata(&path).and_then(|m| m.modified()).ok()?;
-    if *seen == Some(modified) {
+    // Held until the reports are stored, so the watcher and the Performance view don't record at once.
+    let mut tail = state.perf_log.lock().unwrap_or_else(|e| e.into_inner());
+    let reports = match tail.read_new(&path) {
+        Ok(r) => r,
+        Err(e) => {
+            // A missing log starts over; other errors (the game holding the file) are retried from here.
+            if e.kind() == std::io::ErrorKind::NotFound {
+                *tail = Default::default();
+            } else {
+                diag::error(&format!("reading console.log: {e}"));
+            }
+            return None;
+        }
+    };
+    if reports.is_empty() {
         return Some(0);
     }
-    *seen = Some(modified);
-    let text = String::from_utf8_lossy(&fs::read(&path).ok()?).into_owned();
-    let reports = crate::perf::parse(&text);
     let s = state.snapshot();
     let ov = state.overview(&s);
     let managed = matches!(ov.status, crate::apply::Status::Applied { .. } | crate::apply::Status::AppliedDmm { .. });
@@ -1003,13 +1017,15 @@ pub struct PerfView {
     pub min_sessions: usize,
 }
 
+/// Runs off the window's thread: the first read of a long match's console.log takes a moment.
 #[tauri::command]
-pub fn get_perf(state: State<AppState>) -> PerfView {
-    let mut seen = None;
-    let _ = collect_perf(&state, &mut seen);
-    let logging = console_log_path(&state)
-        .and_then(|p| fs::read(p).ok())
-        .is_some_and(|b| crate::perf::condebug_on(&String::from_utf8_lossy(&b)));
+pub async fn get_perf(app: tauri::AppHandle) -> Result<PerfView, String> {
+    tauri::async_runtime::spawn_blocking(move || perf_view(&app.state::<AppState>())).await.map_err(|e| e.to_string())
+}
+
+fn perf_view(state: &AppState) -> PerfView {
+    let _ = collect_perf(state);
+    let logging = state.perf_log.lock().unwrap_or_else(|e| e.into_inner()).condebug();
     let sessions = crate::perf::load(&state.dir);
     let recent = sessions.iter().rev().filter(|s| s.report.seconds >= crate::perf::MIN_SECONDS).take(20).cloned().collect();
     PerfView { stats: crate::perf::summarize(&sessions), recent, logging, min_seconds: crate::perf::MIN_SECONDS, min_sessions: crate::perf::MIN_SESSIONS }
