@@ -130,14 +130,9 @@ pub fn changed_by(current: &str, stock: &str, applied: Option<&str>, applied_bui
     }
 }
 
-/// Valve's refusal reason (GameTracking-Deadlock commit 8febc71f) is the token
-/// `Citadel_StartMatchmaking_UnverifiedPGI`; matched loosely since the exact log line hasn't been seen yet.
-pub fn shows_ranked_refusal(log: &str) -> bool {
-    log.lines().any(|l| l.contains("UnverifiedPGI"))
-}
-
-/// `resolve` plus the ranked check of the installed file, which needs the cache folder.
-pub fn resolve_with_checks(s: &Settings, cache_dir: &Path) -> Overview {
+/// `resolve` plus the ranked check of the installed file, which needs the cache folder. `ranked_refused`:
+/// console.log shows matchmaking refused ranked (read by the background watcher, see `perf::LogTail`).
+pub fn resolve_with_checks(s: &Settings, cache_dir: &Path, ranked_refused: bool) -> Overview {
     let ov = resolve(s);
     let installed = ov.gameinfo_path.as_ref().filter(|_| ov.gameinfo_found).and_then(|p| std::fs::read_to_string(p).ok());
     let stock = crate::stock::load(cache_dir, installed.as_deref());
@@ -151,20 +146,14 @@ pub fn resolve_with_checks(s: &Settings, cache_dir: &Path) -> Overview {
         }
         _ => None,
     };
-    // Only worth reading the log when the installed file changes engine sections at all.
-    let ranked_blocked = ranked_changes.is_some_and(|n| n > 0)
-        && ov
-            .gameinfo_path
-            .as_deref()
-            .and_then(|p| Path::new(p).parent().map(|d| d.join("console.log")))
-            .and_then(|log| std::fs::read(log).ok())
-            .is_some_and(|b| shows_ranked_refusal(&String::from_utf8_lossy(&b)));
+    // Only the installed file's engine changes can cause the refusal.
+    let ranked_blocked = ranked_changes.is_some_and(|n| n > 0) && ranked_refused;
     Overview { ranked_changes, changed_by, game_build, ranked_blocked, ..ov }
 }
 
 #[tauri::command]
 pub fn get_overview(state: State<AppState>) -> Overview {
-    resolve_with_checks(&state.snapshot(), &state.dir.join("cache"))
+    state.overview(&state.snapshot())
 }
 
 #[tauri::command]
@@ -358,3 +347,4 @@ mod tests {
         assert!(resolve_pick("video", &deadlock).is_err());
     }
 }
+

@@ -25,10 +25,15 @@ pub fn start(app: AppHandle) {
         let mut launch = crate::launch_guard::LaunchWatch::default();
         loop {
             let state = app.state::<AppState>();
+            let was_refused = state.ranked_refused.load(std::sync::atomic::Ordering::Relaxed);
             if let Some(new) = commands::collect_perf(&state) {
                 if new > 0 {
                     let _ = app.emit(PERF_CHANGED, ());
                 }
+            }
+            // The status strip's ranked warning comes from the log; refresh it when this read changed it.
+            if state.ranked_refused.load(std::sync::atomic::Ordering::Relaxed) != was_refused {
+                let _ = app.emit(FILES_CHANGED, ());
             }
             for _ in 0..(CHECK_EVERY.as_secs() / LAUNCH_TICK.as_secs()) {
                 std::thread::sleep(LAUNCH_TICK);

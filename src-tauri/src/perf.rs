@@ -59,11 +59,18 @@ struct Parser {
     short: bool,
     /// The log's command line has -condebug (it always does if the file exists, but this confirms it's current).
     condebug: bool,
+    /// Matchmaking refused ranked. Valve's reason is the token `Citadel_StartMatchmaking_UnverifiedPGI`
+    /// (GameTracking-Deadlock commit 8febc71f); matched loosely since the exact log line hasn't been seen yet.
+    ranked_refused: bool,
 }
 
 impl Parser {
     /// Returns a report when `line` completes one.
     fn line(&mut self, line: &str) -> Option<Report> {
+        if line.contains("UnverifiedPGI") {
+            self.ranked_refused = true;
+            return None;
+        }
         // Almost every line is game spam; only these three tags matter.
         if !(line.contains("[VProf]") || line.contains("Loading map \"") || line.contains("[CommandLine]")) {
             return None;
@@ -172,6 +179,11 @@ impl LogTail {
     /// The current log's launch used -condebug.
     pub fn condebug(&self) -> bool {
         self.parser.condebug
+    }
+
+    /// The current log shows matchmaking refused ranked because of gameinfo.gi.
+    pub fn ranked_refused(&self) -> bool {
+        self.parser.ranked_refused
     }
 }
 
@@ -351,6 +363,19 @@ mod tests {
         fs::write(&path, "10/23 09:00:00 [CommandLine] -steam\n").unwrap();
         assert!(tail.read_new(&path).unwrap().is_empty());
         assert!(!tail.condebug());
+    }
+
+    #[test]
+    fn notices_matchmaking_refusing_ranked() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("console.log");
+        let mut tail = LogTail::default();
+        append(&path, LOG);
+        tail.read_new(&path).unwrap();
+        assert!(!tail.ranked_refused());
+        append(&path, "10/22 23:05:00 [Matchmaking] Citadel_StartMatchmaking_UnverifiedPGI\n");
+        tail.read_new(&path).unwrap();
+        assert!(tail.ranked_refused());
     }
 
     fn session(key: &str, avg: f64, secs: u64, time: &str) -> Session {

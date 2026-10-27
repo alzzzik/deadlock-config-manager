@@ -16,6 +16,7 @@ use crate::writer::{self, FileWrite, WriteOutcome};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{Manager, State};
 
@@ -26,6 +27,9 @@ pub struct AppState {
     pub apply_lock: Mutex<()>,
     /// How far console.log has been read for performance reports.
     pub perf_log: Mutex<crate::perf::LogTail>,
+    /// console.log shows matchmaking refused ranked; copied from `perf_log` after each read so status
+    /// checks on the window's thread never wait for a read.
+    pub ranked_refused: AtomicBool,
 }
 
 impl AppState {
@@ -43,7 +47,7 @@ impl AppState {
 
     /// Overview including the checks that read the cache (ranked safety).
     pub fn overview(&self, s: &Settings) -> crate::overview::Overview {
-        crate::overview::resolve_with_checks(s, &self.dir.join("cache"))
+        crate::overview::resolve_with_checks(s, &self.dir.join("cache"), self.ranked_refused.load(Ordering::Relaxed))
     }
 
     fn backups_dir(&self) -> PathBuf {
@@ -960,12 +964,15 @@ pub fn collect_perf(state: &AppState) -> Option<usize> {
     let path = console_log_path(state)?;
     // Held until the reports are stored, so the watcher and the Performance view don't record at once.
     let mut tail = state.perf_log.lock().unwrap_or_else(|e| e.into_inner());
-    let reports = match tail.read_new(&path) {
+    let read = tail.read_new(&path);
+    state.ranked_refused.store(tail.ranked_refused(), Ordering::Relaxed);
+    let reports = match read {
         Ok(r) => r,
         Err(e) => {
             // A missing log starts over; other errors (the game holding the file) are retried from here.
             if e.kind() == std::io::ErrorKind::NotFound {
                 *tail = Default::default();
+                state.ranked_refused.store(false, Ordering::Relaxed);
             } else {
                 diag::error(&format!("reading console.log: {e}"));
             }
