@@ -75,7 +75,10 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
         </div>
       )}
       {view && view.stats.length === 0 && (
-        <p className="muted">No matches recorded yet. Sessions shorter than {view.minSeconds} seconds are left out.</p>
+        <p className="muted">
+          No matches recorded yet. Deadlock writes a report when a match ends, and each game launch starts a new log, so
+          keep this app open or in the tray while you play. Sessions shorter than {view.minSeconds} seconds are left out.
+        </p>
       )}
       {view && view.stats.length > 0 && (
         <table className="perf-table">

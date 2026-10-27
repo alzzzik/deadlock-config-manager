@@ -461,10 +461,22 @@ pub fn get_diagnostics(state: State<AppState>) -> String {
             ("Deadlock running", ov.deadlock_running.to_string()),
             ("Install", install_kind().to_string()),
             ("Last failed launch", launch_failure_text(crate::launch_guard::load(&state.dir).failure.as_ref())),
+            ("Performance", perf_status(&state)),
         ],
         log: diag::report_log(&state.dir),
         user: user.as_deref(),
     })
+}
+
+/// Whether the game is logging and how many sessions are stored, for bug reports about an empty Performance view.
+fn perf_status(state: &AppState) -> String {
+    let log = console_log_path(state).and_then(|p| fs::metadata(p).ok()).map(|m| m.len());
+    let condebug = state.perf_log.lock().unwrap_or_else(|e| e.into_inner()).condebug();
+    let stored = crate::perf::load(&state.dir).len();
+    match log {
+        Some(len) => format!("console.log {} MB, -condebug {}, {stored} sessions stored", len / 1_000_000, if condebug { "yes" } else { "no" }),
+        None => format!("no console.log, {stored} sessions stored"),
+    }
 }
 
 fn launch_failure_text(f: Option<&crate::launch_guard::Failure>) -> String {
