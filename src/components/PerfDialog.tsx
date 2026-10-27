@@ -60,11 +60,12 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
         it's open (or in the tray) and groups them by the config you had applied. Numbers come from real games, so they
         vary with fights and heroes: compare configs over several matches.
       </p>
-      {view && !view.logging && (
+      {view && (!view.logging || view.stats.length === 0) && (
         <div className="notice is-warn notice-action">
           <span>
-            The game isn't writing its log yet. Add <code>-condebug</code> to Deadlock's launch options in Steam, then play as
-            usual.
+            {view.stats.length === 0 ? "No performance reports yet." : "New matches aren't being recorded."} Deadlock only writes
+            reports with <code>-condebug</code> in its launch options: add it in
+            Steam (right-click Deadlock › Properties), then play a match.
           </span>
           <button
             className="btn btn-secondary btn-sm"
@@ -73,12 +74,6 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
             Copy
           </button>
         </div>
-      )}
-      {view && view.stats.length === 0 && (
-        <p className="muted">
-          No matches recorded yet. Deadlock writes a report when a match ends, and each game launch starts a new log, so
-          keep this app open or in the tray while you play. Sessions shorter than {view.minSeconds} seconds are left out.
-        </p>
       )}
       {view && view.stats.length > 0 && (
         <table className="perf-table">
