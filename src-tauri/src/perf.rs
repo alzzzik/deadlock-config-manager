@@ -27,6 +27,9 @@ pub struct Report {
     /// Log timestamp, e.g. "10/22 23:01:26" (the log has no year).
     pub time: String,
     pub map: String,
+    /// An online match (the map came from the server), not the hideout or a local map like Explore NYC.
+    #[serde(default)]
+    pub online: bool,
     pub frames: u64,
     pub seconds: u64,
     pub avg_fps: f64,
@@ -53,7 +56,13 @@ fn round2(x: f64) -> f64 {
 #[derive(Debug, Default)]
 struct Parser {
     last_map: String,
+    /// The last map was joined from a server: matches only log "[Client] Created physics for <map>",
+    /// while local maps (hideout, Explore NYC) first log "Loading map".
+    last_online: bool,
+    /// The map last loaded locally, until the client has created its physics.
+    local_map: Option<String>,
     session_map: String,
+    session_online: bool,
     current: Option<Report>,
     /// The current report is the short form (no interval count or frame-time table).
     short: bool,
@@ -73,16 +82,24 @@ impl Parser {
             self.ranked_refused = true;
             return None;
         }
-        // Almost every line is game spam; only these three tags matter.
-        if !(line.contains("[VProf]") || line.contains("Loading map \"") || line.contains("[CommandLine]")) {
+        // Almost every line is game spam; only these tags matter.
+        if !(line.contains("[VProf]") || line.contains("Loading map \"") || line.contains("Created physics for ") || line.contains("[CommandLine]")) {
             return None;
         }
         if let Some(rest) = after(line, "Loading map \"") {
-            self.last_map = rest.split('"').next().unwrap_or("").to_string();
+            let map = rest.split('"').next().unwrap_or("").to_string();
+            self.local_map = Some(map.clone());
+            self.last_map = map;
+            self.last_online = false;
+        } else if let Some(map) = after(line, "[Client] Created physics for ").map(str::trim) {
+            self.last_online = self.local_map.as_deref() != Some(map);
+            self.last_map = map.to_string();
+            self.local_map = None;
         } else if line.contains("[CommandLine]") {
             self.condebug |= line.split_whitespace().any(|w| w.eq_ignore_ascii_case("-condebug"));
         } else if line.contains("[VProf] VProfLite started.") {
             self.session_map = self.last_map.clone();
+            self.session_online = self.last_online;
         } else if let Some(rest) = after(line, "[VProf] Summary of ") {
             self.summaries += 1;
             // "123650 frames and 180 1-second intervals." or, in the short form, "155708 frames."
@@ -93,6 +110,7 @@ impl Parser {
             self.current = frames.map(|frames| Report {
                 time: timestamp(line),
                 map: self.session_map.clone(),
+                online: self.session_online,
                 frames,
                 seconds: seconds.unwrap_or(0),
                 avg_fps: 0.0,
@@ -220,19 +238,30 @@ pub fn load(app_dir: &Path) -> Vec<Session> {
     fs::read(store_file(app_dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
 }
 
+/// The same report read again. Not by map: before 0.9.3 matches were stored under the hideout's name.
 fn same(a: &Report, b: &Report) -> bool {
-    a.time == b.time && a.frames == b.frames && a.map == b.map
+    a.time == b.time && a.frames == b.frames
 }
 
 /// Adds reports that aren't stored yet. Returns how many were new.
 pub fn record(app_dir: &Path, reports: &[Report], label: impl Fn(&Report) -> Session) -> Result<usize, String> {
-    let mut all = load(app_dir);
-    let new: Vec<Session> = reports.iter().filter(|r| !all.iter().any(|s| same(&s.report, r))).map(label).collect();
-    if new.is_empty() {
+    let stored = load(app_dir);
+    // A report read again corrects the stored map (matches used to be stored under the hideout's name).
+    let fixed: Vec<Session> = stored
+        .iter()
+        .map(|s| match reports.iter().find(|r| same(&s.report, r)) {
+            Some(r) if (&r.map, r.online) != (&s.report.map, s.report.online) => {
+                Session { report: Report { map: r.map.clone(), online: r.online, ..s.report.clone() }, ..s.clone() }
+            }
+            _ => s.clone(),
+        })
+        .collect();
+    let new: Vec<Session> = reports.iter().filter(|r| !stored.iter().any(|s| same(&s.report, r))).map(label).collect();
+    if new.is_empty() && fixed == stored {
         return Ok(0);
     }
     let count = new.len();
-    all.extend(new);
+    let all: Vec<Session> = fixed.into_iter().chain(new).collect();
     let skip = all.len().saturating_sub(MAX_STORED);
     let kept: Vec<Session> = all.into_iter().skip(skip).collect();
     let json = serde_json::to_vec_pretty(&kept).map_err(|e| e.to_string())?;
@@ -318,6 +347,29 @@ mod tests {
     }
 
     #[test]
+    fn tells_online_matches_from_local_maps() {
+        // Trimmed from real logs: the hideout and Explore NYC load locally; a match is joined from a server.
+        let log = "10/27 19:31:41 Loading map \"dl_hideout\"\n\
+            10/27 19:31:48 [Server] Created physics for dl_hideout\n\
+            10/27 19:31:48 [Client] Created physics for dl_hideout\n\
+            10/27 19:31:50 [VProf] VProfLite started.\n\
+            10/27 19:32:36 [VProf] Summary of 7904 frames.  (3309 frames excluded from analysis.)\n\
+            10/27 19:32:36 [VProf] FPS: Avg=288.8, P1=61.9\n\
+            10/27 19:32:55 [Client] Created physics for dl_midtown\n\
+            10/27 19:33:22 [VProf] VProfLite started.\n\
+            10/27 19:49:16 [VProf] Summary of 150030 frames.  (35219 frames excluded from analysis.)\n\
+            10/27 19:49:16 [VProf] FPS: Avg=187.5, P1=54.7\n\
+            10/27 19:49:26 Loading map \"dl_midtown\"\n\
+            10/27 19:49:29 [Server] Created physics for dl_midtown\n\
+            10/27 19:49:30 [Client] Created physics for dl_midtown\n\
+            10/27 19:49:31 [VProf] VProfLite started.\n\
+            10/27 19:55:31 [VProf] Summary of 150000 frames.  (100 frames excluded from analysis.)\n\
+            10/27 19:55:31 [VProf] FPS: Avg=400.0, P1=100.0\n";
+        let r: Vec<(String, bool)> = parse(log).into_iter().map(|r| (r.map, r.online)).collect();
+        assert_eq!(r, vec![("dl_hideout".into(), false), ("dl_midtown".into(), true), ("dl_midtown".into(), false)]);
+    }
+
+    #[test]
     fn parses_the_short_report_form() {
         let log = "10/27 02:17:36 Loading map \"dl_hideout\"\n\
             10/27 02:21:28 [VProf] VProfLite started.\n\
@@ -389,7 +441,7 @@ mod tests {
 
     fn session(key: &str, avg: f64, secs: u64, time: &str) -> Session {
         Session {
-            report: Report { time: time.into(), map: "street_test".into(), frames: 1, seconds: secs, avg_fps: avg, p1_fps: avg / 2.0, frame_ms: 1.0, frame_ms_p99: 3.0 },
+            report: Report { time: time.into(), map: "street_test".into(), online: true, frames: 1, seconds: secs, avg_fps: avg, p1_fps: avg / 2.0, frame_ms: 1.0, frame_ms_p99: 3.0 },
             config_key: key.into(),
             config_name: key.into(),
             ranked_safe: false,
@@ -424,6 +476,12 @@ mod tests {
         assert_eq!(record(dir.path(), &reports, label).unwrap(), 2);
         assert_eq!(record(dir.path(), &reports, label).unwrap(), 0);
         assert_eq!(load(dir.path()).len(), 2);
+        // Read again with the right map (matches were stored as the hideout): fixed in place, not added.
+        let relabelled: Vec<Report> = reports.iter().map(|r| Report { map: "dl_midtown".into(), online: true, ..r.clone() }).collect();
+        assert_eq!(record(dir.path(), &relabelled, label).unwrap(), 0);
+        let stored = load(dir.path());
+        assert_eq!(stored.len(), 2);
+        assert!(stored.iter().all(|s| s.report.map == "dl_midtown" && s.report.online && s.config_key == "k"));
         clear(dir.path()).unwrap();
         assert!(load(dir.path()).is_empty());
     }
@@ -455,4 +513,5 @@ mod tests {
         println!("{} MB: first read {first:?} ({} reports, condebug {}), next read {:?}", fs::metadata(path).unwrap().len() / 1_000_000, reports.len(), tail.condebug(), t.elapsed());
     }
 }
+
 

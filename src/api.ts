@@ -114,6 +114,8 @@ export type StoreView = { entries: StoreEntry[]; checked: string | null; online:
 export type PerfReport = {
   time: string;
   map: string;
+  /** An online match; otherwise the hideout or a local map such as Explore NYC. */
+  online?: boolean;
   frames: number;
   seconds: number;
   avgFps: number;

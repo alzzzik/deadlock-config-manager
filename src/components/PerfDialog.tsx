@@ -146,7 +146,7 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
           <ul>
             {view.recent.map((r) => (
               <li key={r.time + r.frames} className="small">
-                <code>{r.time}</code> {r.map} · {Math.round(r.seconds / 60)} min · {fps(r.avgFps)} avg / {fps(r.p1Fps)} 1% low ·{" "}
+                <code>{r.time}</code> {r.online ? `Match on ${r.map}` : r.map} · {Math.round(r.seconds / 60)} min · {fps(r.avgFps)} avg / {fps(r.p1Fps)} 1% low ·{" "}
                 <span className="muted">{r.configName}</span>
               </li>
             ))}
