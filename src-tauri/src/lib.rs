@@ -103,8 +103,8 @@ pub fn run() {
             watch::start(app.handle().clone());
             Ok(())
         })
-        // Closing the window keeps the app in the tray (to collect performance reports and watch for game
-        // updates) unless the player chose to exit on close.
+        // Closing the window exits, unless the player turned that off to keep the app in the tray (to collect
+        // performance reports and watch for game updates).
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.app_handle().state::<commands::AppState>().snapshot().keeps_running() {

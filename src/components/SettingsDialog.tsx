@@ -221,8 +221,8 @@ function GameUpdatesSection({ onNotify }: { onNotify: (kind: "ok" | "error" | "i
         <span className="tweak-text">
           <span>Closing the window exits the app</span>
           <small className="muted">
-            Off: closing keeps the app in the tray (right-click its icon › Quit to exit), so it keeps collecting performance
-            reports.
+            Turn off to keep the app in the tray instead (right-click its icon › Quit to exit), so it keeps collecting
+            performance reports.
           </small>
         </span>
       </label>

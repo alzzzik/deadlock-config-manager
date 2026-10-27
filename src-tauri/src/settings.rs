@@ -84,7 +84,7 @@ impl Default for Settings {
             overlay: false,
             auto_reapply: false,
             start_with_windows: false,
-            exit_on_close: false,
+            exit_on_close: true,
         }
     }
 }
@@ -124,7 +124,17 @@ pub fn load(dir: &Path) -> Settings {
         let _ = fs::rename(&path, dir.join("settings.corrupt.json"));
         Settings::default()
     });
-    migrate(parsed)
+    migrate(keep_tray_for_auto_reapply(&text, parsed))
+}
+
+/// Before `exit_on_close` existed, auto re-apply kept the app in the tray on close; keep that for those players.
+fn keep_tray_for_auto_reapply(text: &str, s: Settings) -> Settings {
+    let saved_before = serde_json::from_str::<serde_json::Value>(text).is_ok_and(|v| v.get("exitOnClose").is_none());
+    if saved_before && s.auto_reapply {
+        Settings { exit_on_close: false, ..s }
+    } else {
+        s
+    }
 }
 
 /// Moves a legacy single `repo` into `repos`.
@@ -167,12 +177,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn closing_keeps_the_app_in_the_tray_unless_set_to_exit() {
-        assert!(Settings::default().keeps_running());
-        assert!(!Settings { exit_on_close: true, ..Settings::default() }.keeps_running());
-        // Settings saved before the option existed keep the app in the tray.
-        let old: Settings = serde_json::from_str(r#"{"autoReapply": false}"#).unwrap();
-        assert!(old.keeps_running());
+    fn closing_exits_by_default_and_auto_reapply_players_keep_the_tray() {
+        assert!(!Settings::default().keeps_running());
+        assert!(Settings { exit_on_close: false, ..Settings::default() }.keeps_running());
+        let dir = tempfile::tempdir().unwrap();
+        // Saved before the option existed: auto re-apply kept the app in the tray, so it still does.
+        fs::write(dir.path().join("settings.json"), r#"{"autoReapply": true}"#).unwrap();
+        assert!(load(dir.path()).keeps_running());
+        fs::write(dir.path().join("settings.json"), r#"{"autoReapply": false}"#).unwrap();
+        assert!(!load(dir.path()).keeps_running());
+        // Once saved with the option, the player's choice wins.
+        fs::write(dir.path().join("settings.json"), r#"{"autoReapply": true, "exitOnClose": true}"#).unwrap();
+        assert!(!load(dir.path()).keeps_running());
     }
 
     #[test]
