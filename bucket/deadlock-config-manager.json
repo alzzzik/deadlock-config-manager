@@ -1,13 +1,13 @@
 {
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Windows app that installs Deadlock FPS configs from GitHub, with a preview, backups and restore.",
   "homepage": "https://github.com/alzzzik/deadlock-config-manager",
   "license": "MIT",
   "notes": "Update with 'scoop update deadlock-config-manager'. Settings and backups live in %APPDATA%\\DeadlockConfigManager.",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/alzzzik/deadlock-config-manager/releases/download/v0.9.1/Deadlock.Config.Manager_0.9.1_x64_portable.zip",
-      "hash": "ddfa61fc60ba39e534d4fb80758d8eb8ec2a1e8bd27c11b84282034d18d5cad2"
+      "url": "https://github.com/alzzzik/deadlock-config-manager/releases/download/v0.9.2/Deadlock.Config.Manager_0.9.2_x64_portable.zip",
+      "hash": "2b233bb4f5716bb9848888f103dac5010e58a538f493a7853ca2a1b9c9cbe24b"
     }
   },
   "bin": "deadlock-config-manager.exe",
