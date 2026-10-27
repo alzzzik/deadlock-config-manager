@@ -45,12 +45,18 @@ fn timestamp(line: &str) -> String {
     line.get(..14).filter(|t| t.as_bytes().get(2) == Some(&b'/')).unwrap_or("").to_string()
 }
 
+fn round2(x: f64) -> f64 {
+    (x * 100.0).round() / 100.0
+}
+
 /// Reads a console.log line by line, so a log can be fed in pieces as the game writes it.
 #[derive(Debug, Default)]
 struct Parser {
     last_map: String,
     session_map: String,
     current: Option<Report>,
+    /// The current report is the short form (no interval count or frame-time table).
+    short: bool,
     /// The log's command line has -condebug (it always does if the file exists, but this confirms it's current).
     condebug: bool,
 }
@@ -69,15 +75,16 @@ impl Parser {
         } else if line.contains("[VProf] VProfLite started.") {
             self.session_map = self.last_map.clone();
         } else if let Some(rest) = after(line, "[VProf] Summary of ") {
-            // "123650 frames and 180 1-second intervals."
+            // "123650 frames and 180 1-second intervals." or, in the short form, "155708 frames."
             let mut words = rest.split_whitespace();
             let frames = words.next().and_then(|w| w.parse().ok());
-            let seconds = words.nth(2).and_then(|w| w.parse().ok());
-            self.current = frames.zip(seconds).map(|(frames, seconds)| Report {
+            let seconds: Option<u64> = words.nth(2).and_then(|w| w.parse().ok());
+            self.short = seconds.is_none();
+            self.current = frames.map(|frames| Report {
                 time: timestamp(line),
                 map: self.session_map.clone(),
                 frames,
-                seconds,
+                seconds: seconds.unwrap_or(0),
                 avg_fps: 0.0,
                 p1_fps: 0.0,
                 frame_ms: 0.0,
@@ -88,6 +95,15 @@ impl Parser {
             let (avg, p1) = rest.split_once(", P1=").unwrap_or((rest, ""));
             r.avg_fps = avg.trim().parse().unwrap_or(0.0);
             r.p1_fps = p1.trim().parse().unwrap_or(0.0);
+            if self.short {
+                // No table follows. The full form's FrameTotal Avg and P99 equal 1000/Avg and 1000/P1.
+                if r.avg_fps > 0.0 && r.p1_fps > 0.0 {
+                    r.seconds = (r.frames as f64 / r.avg_fps).round() as u64;
+                    r.frame_ms = round2(1000.0 / r.avg_fps);
+                    r.frame_ms_p99 = round2(1000.0 / r.p1_fps);
+                }
+                return self.current.take().filter(|r| r.frame_ms > 0.0);
+            }
         } else if let (Some(rest), Some(r)) = (after(line, "[VProf]"), self.current.as_mut()) {
             let cols: Vec<&str> = rest.split_whitespace().collect();
             if cols.first() == Some(&"FrameTotal") && cols.len() >= 3 {
@@ -279,6 +295,22 @@ mod tests {
         assert_eq!((r[1].avg_fps, r[1].p1_fps), (718.6, 276.6));
         assert_eq!((r[1].frame_ms, r[1].frame_ms_p99), (1.39, 3.62));
         assert!(parse("nothing here").is_empty());
+    }
+
+    #[test]
+    fn parses_the_short_report_form() {
+        let log = "10/27 02:17:36 Loading map \"dl_hideout\"\n\
+            10/27 02:21:28 [VProf] VProfLite started.\n\
+            10/27 02:34:09 [VProf] Summary of 155708 frames.  (53503 frames excluded from analysis.)\n\
+            10/27 02:34:09 [VProf] FPS: Avg=259.1, P1=82.4\n\
+            10/27 02:34:09 [Client] Source2 engine networking summary.  150 seconds.\n\
+            10/27 02:34:09 [VProf] VProfLite stopped.\n";
+        let r = parse(log);
+        assert_eq!(r.len(), 1);
+        assert_eq!((r[0].map.as_str(), r[0].time.as_str(), r[0].frames), ("dl_hideout", "10/27 02:34:09", 155708));
+        assert_eq!((r[0].avg_fps, r[0].p1_fps), (259.1, 82.4));
+        assert_eq!(r[0].seconds, 601);
+        assert_eq!((r[0].frame_ms, r[0].frame_ms_p99), (3.86, 12.14));
     }
 
     fn append(path: &Path, text: &str) {
