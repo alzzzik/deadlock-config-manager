@@ -328,3 +328,14 @@ export function fovFor(aspect: number): number | null {
   const [a1, f1] = FOV_POINTS[i];
   return Math.round(f0 + ((aspect - a0) / (a1 - a0)) * (f1 - f0));
 }
+
+/** The "- " lines at the top of a release's notes (what changed), for the update bar. */
+export function updateNotes(body: string | undefined, max = 4): string[] {
+  return (body ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("- "))
+    .map((l) => l.slice(2).trim())
+    .filter(Boolean)
+    .slice(0, max);
+}

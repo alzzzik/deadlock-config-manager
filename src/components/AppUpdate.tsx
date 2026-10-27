@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { InstallKind, api, errorText } from "../api";
+import { InstallKind, api, errorText, updateNotes } from "../api";
 
 /** How often the app checks GitHub for a newer version of itself while open. */
 const APP_UPDATE_CHECK_MS = 6 * 60 * 60 * 1000;
@@ -91,6 +91,13 @@ export function UpdateBar({ state, onInstall, onDismiss }: UpdateBarProps) {
           <button className="btn btn-secondary btn-sm" onClick={() => onInstall(state.update)}>
             Install and restart
           </button>
+          {updateNotes(state.update.body).length > 0 && (
+            <ul className="update-notes muted">
+              {updateNotes(state.update.body).map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          )}
         </>
       )}
       {state.kind === "installing" && (

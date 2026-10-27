@@ -433,6 +433,8 @@ input::placeholder { color: var(--text-faint); }
   border-bottom: 1px solid var(--line);
   background: var(--accent-wash); font-size: var(--fs-sm);
 }
+.update-bar { flex-wrap: wrap; }
+.update-notes { flex-basis: 100%; margin: 0; padding-left: 18px; }
 .update-bar.is-bad { background: var(--bad-wash); color: var(--bad); }
 .about-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 

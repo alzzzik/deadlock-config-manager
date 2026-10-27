@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, matchesSearch, pinKey, sortStore, PackInfo, AppliedRecord, StoreEntry } from "./api";
+import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, matchesSearch, pinKey, sortStore, updateNotes, PackInfo, AppliedRecord, StoreEntry } from "./api";
 
 const pack = (over: Partial<PackInfo> = {}): PackInfo => ({
   repo: "alzzzik/alz-deadlock-cfg",
@@ -95,5 +95,14 @@ describe("store dates", () => {
     expect(isRecent(gb(5, "2026-07-24"), NOW)).toBe(true);
     expect(isRecent(gb(1, "2026-02-05"), NOW)).toBe(false);
     expect(isRecent(gb(2, null), NOW)).toBe(false);
+  });
+});
+
+describe("updateNotes", () => {
+  it("lists the release's change lines and skips the download text", () => {
+    const body = "- Performance opens right away\n- Records matches again\n\nDownload **setup.exe** and run it.\n";
+    expect(updateNotes(body)).toEqual(["Performance opens right away", "Records matches again"]);
+    expect(updateNotes(undefined)).toEqual([]);
+    expect(updateNotes("- a\n- b\n- c", 2)).toEqual(["a", "b"]);
   });
 });

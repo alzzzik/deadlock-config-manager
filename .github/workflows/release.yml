@@ -46,6 +46,19 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
+      # What changed: the tag message's lines after its first (e.g. "- Faster Performance view"). They head
+      # the release notes, and the app's update bar lists the "- " lines.
+      - name: Release notes from the tag message
+        id: notes
+        shell: bash
+        run: |
+          git fetch --force --depth=1 origin "+refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          {
+            echo 'text<<END_OF_NOTES'
+            git tag -l --format='%(contents:body)' "$GITHUB_REF_NAME"
+            echo 'END_OF_NOTES'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build installer and draft release
         id: tauri
         uses: tauri-apps/tauri-action@v0
@@ -59,6 +72,8 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Deadlock Config Manager ${{ github.ref_name }}
           releaseBody: |
+            ${{ steps.notes.outputs.text }}
+
             Download **Deadlock.Config.Manager_*_x64-setup.exe** and run it. Copies from v0.3.0 on update themselves. The portable zip runs without installing and doesn't update itself.
 
             If Windows says "Windows protected your PC", click **More info → Run anyway** (the app isn't code-signed).

@@ -39,7 +39,9 @@ npm test                                        # UI unit tests (Vitest, from th
 
 1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`
    (then `npm install --package-lock-only` and `cargo check` to refresh the lock files).
-2. Commit, push, then push a tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`.
+2. Commit, push, then push a tag whose message lists what changed, one `- ` line each:
+   `git tag -a vX.Y.Z -m "vX.Y.Z" -m "- First change" && git push origin vX.Y.Z`. Those lines head the
+   release notes, and the app's update bar shows them before people install.
 3. The **Release** workflow runs the tests, builds the installer and creates a **draft** release with
    `latest.json`, `SHA256SUMS.txt` and a build attestation. Check it, then publish. Installed copies only see
    the update once the release is published.
