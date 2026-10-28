@@ -1,9 +1,13 @@
 //! What the player changed on top of the applied config: ConVars lines in the installed gameinfo.gi that
-//! differ from the config's own file, whether from Settings (switches, view width, FPS caps) or edited by
-//! hand. Lines Valve's file adds (overlay mode) don't count.
+//! differ from the config's own file, whether from the "What you see in game" switches or edited by hand.
+//! Lines Valve's file adds (overlay mode) and the personal settings rows don't count.
 
 use crate::kv;
 use std::collections::BTreeMap;
+
+/// The settings rows (view width, FPS caps) go on top of every config, so they're the player's own, not a
+/// change to this config.
+const PERSONAL: [&str; 3] = ["r_aspectratio", "fps_max", "fps_max_ui"];
 
 /// ConVars as name (lower case) → value; nested blocks are skipped.
 fn convars(src: &str) -> BTreeMap<String, String> {
@@ -18,7 +22,7 @@ pub fn changes(installed: &str, config: &str, stock: &str) -> Vec<String> {
     let (now, own, valve) = (convars(&crate::gameinfo::strip_dmm_region(installed)), convars(config), convars(stock));
     let edited = own.iter().filter(|(k, v)| now.get(*k) != Some(*v)).map(|(k, _)| format!("{k}={}", now.get(k).map_or("off", String::as_str)));
     let added = now.iter().filter(|(k, v)| !own.contains_key(*k) && valve.get(*k) != Some(*v)).map(|(k, v)| format!("{k}={v}"));
-    let mut all: Vec<String> = edited.chain(added).collect();
+    let mut all: Vec<String> = edited.chain(added).filter(|c| !PERSONAL.iter().any(|p| c.split('=').next() == Some(*p))).collect();
     all.sort();
     all
 }
@@ -37,8 +41,8 @@ mod tests {
         let stock = gi("\t\tfps_max \"400\"\n\t\tr_new_valve_line \"1\"\n");
         // Same as the config, plus a line Valve's file has (overlay): nothing changed.
         assert!(changes(&gi("\t\tr_farz \"4000\"\n\t\tcl_ragdoll_limit \"0\"\n\t\tr_new_valve_line \"1\"\n"), &config, &stock).is_empty());
-        // A switch, a commented-out line and a hand-added line.
-        let edited = gi("\t\t// r_farz \"4000\"\n\t\tcl_ragdoll_limit \"-1\"\n\t\tfps_max \"240\"\n");
-        assert_eq!(changes(&edited, &config, &stock), vec!["cl_ragdoll_limit=-1", "fps_max=240", "r_farz=off"]);
+        // A switch, a commented-out line and a hand-added line; the FPS cap is a personal setting.
+        let edited = gi("\t\t// r_farz \"4000\"\n\t\tcl_ragdoll_limit \"-1\"\n\t\tfps_max \"240\"\n\t\tr_hand_added \"1\"\n");
+        assert_eq!(changes(&edited, &config, &stock), vec!["cl_ragdoll_limit=-1", "r_farz=off", "r_hand_added=1"]);
     }
 }
