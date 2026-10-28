@@ -14,11 +14,12 @@ interface MyConfigsProps {
   onSave: () => void;
   onImport: () => void;
   onExport: (e: LibraryEntry) => void;
+  onRename: (e: LibraryEntry) => void;
   onDelete: (e: LibraryEntry) => void;
 }
 
 /** Saved configs that don't come from a repo. */
-export function MyConfigs({ entries, appliedId, disabled, canSave, onApply, onSave, onImport, onExport, onDelete }: MyConfigsProps) {
+export function MyConfigs({ entries, appliedId, disabled, canSave, onApply, onSave, onImport, onExport, onRename, onDelete }: MyConfigsProps) {
   return (
     <section className="group" aria-labelledby="my-configs-title">
       <GroupHead
@@ -57,6 +58,7 @@ export function MyConfigs({ entries, appliedId, disabled, canSave, onApply, onSa
                   <RepoMenu
                     label={`Options for ${e.name}`}
                     items={[
+                      { label: "Rename…", onClick: () => onRename(e) },
                       { label: "Export as zip…", onClick: () => onExport(e) },
                       { label: "Delete", onClick: () => onDelete(e), danger: true },
                     ]}
@@ -76,16 +78,18 @@ export function MyConfigs({ entries, appliedId, disabled, canSave, onApply, onSa
 
 interface SaveConfigDialogProps {
   suggestedName: string;
+  /** Renaming a saved config instead of saving the installed files. */
+  renaming?: { notes: string };
   onCancel: () => void;
   onSave: (name: string, notes: string) => void;
 }
 
-export function SaveConfigDialog({ suggestedName, onCancel, onSave }: SaveConfigDialogProps) {
+export function SaveConfigDialog({ suggestedName, renaming, onCancel, onSave }: SaveConfigDialogProps) {
   const [name, setName] = useState(suggestedName);
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(renaming?.notes ?? "");
   return (
     <Modal
-      title="Save current config"
+      title={renaming ? "Rename config" : "Save current config"}
       onClose={onCancel}
       footer={
         <>
@@ -94,15 +98,17 @@ export function SaveConfigDialog({ suggestedName, onCancel, onSave }: SaveConfig
             Cancel
           </button>
           <button className="btn btn-primary" onClick={() => onSave(name, notes)} disabled={!name.trim()}>
-            Save
+            {renaming ? "Rename" : "Save"}
           </button>
         </>
       }
     >
-      <p className="muted small">
-        Saves the gameinfo.gi and video.txt installed now, without your GPU lines, so you can apply them again later or
-        share them.
-      </p>
+      {!renaming && (
+        <p className="muted small">
+          Saves the gameinfo.gi and video.txt installed now, without your GPU lines, so you can apply them again later or
+          share them.
+        </p>
+      )}
       <label className="text-field">
         <span>Name</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />

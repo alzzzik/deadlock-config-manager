@@ -803,7 +803,13 @@ pub fn delete_config(state: State<AppState>, id: String) -> Result<Vec<crate::li
 
 #[tauri::command]
 pub fn rename_config(state: State<AppState>, id: String, name: String, notes: String) -> Result<crate::library::Entry, String> {
-    crate::library::rename(&library_dir(&state), &id, &name, &notes)
+    let entry = crate::library::rename(&library_dir(&state), &id, &name, &notes)?;
+    // The top line shows the applied config's recorded name, so keep it in step.
+    let applied_id = format!("{LIBRARY_PREFIX}{id}");
+    if state.snapshot().applied.is_some_and(|a| a.pack_id == applied_id) {
+        state.update(|s| Settings { applied: s.applied.map(|a| AppliedRecord { pack_name: entry.name.clone(), ..a }), ..s })?;
+    }
+    Ok(entry)
 }
 
 /// Applies a saved config, with the same preview, tweaks, ranked-safe option and backup as packs.

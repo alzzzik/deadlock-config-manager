@@ -14,6 +14,8 @@ interface StatusStripProps {
   onMakeRankedSafe: () => void;
   /** Saves the applied config with the changes on top in My configs. */
   onSaveTweaked: () => void;
+  /** Renames the applied config; only for saved configs (My configs). */
+  onRenameApplied: (() => void) | null;
   onAccount: (id: string) => void;
   onLocate: (kind: PathKind) => void;
   onAuto: (kind: PathKind) => void;
@@ -133,7 +135,7 @@ function PathRow({ name, path, state, note, onLocate, onAuto, onOpen }: PathRowP
 }
 
 export function StatusStrip(props: StatusStripProps) {
-  const { overview: o, busy, updateAvailable, updateNote, canReapply, onReapply, onMakeRankedSafe, onSaveTweaked, onAccount, onLocate, onAuto, onOpen } = props;
+  const { overview: o, busy, updateAvailable, updateNote, canReapply, onReapply, onMakeRankedSafe, onSaveTweaked, onRenameApplied, onAccount, onLocate, onAuto, onOpen } = props;
   const h = headline(o.status, o, updateAvailable);
   const gameState: FileState = o.gameinfoFound ? "ok" : o.gameinfoCreatable ? "new" : "bad";
   const videoState: FileState = o.videoFound ? "ok" : o.videoPath ? "new" : "bad";
@@ -176,6 +178,11 @@ export function StatusStrip(props: StatusStripProps) {
             )}
           </p>
         </div>
+        {onRenameApplied && !tweaked && (
+          <button className="btn btn-quiet btn-sm" disabled={busy} onClick={onRenameApplied}>
+            Rename
+          </button>
+        )}
         {tweaked && (
           <button className="btn btn-secondary" disabled={busy} onClick={onSaveTweaked}>
             Save as “{o.tweakName}”

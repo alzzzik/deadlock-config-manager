@@ -217,6 +217,7 @@ export const api = {
   importConfig: (path: string) => invoke<LibraryEntry>("import_config", { path }),
   exportConfig: (id: string, path: string) => invoke<void>("export_config", { id, path }),
   deleteConfig: (id: string) => invoke<LibraryEntry[]>("delete_config", { id }),
+  renameConfig: (id: string, name: string, notes: string) => invoke<LibraryEntry>("rename_config", { id, name, notes }),
   applyLibrary: (id: string, confirmed: boolean, rankedSafe: boolean) =>
     invoke<ApplyResponse>("apply_library", { id, confirmed, rankedSafe }),
   sharePack: (pack: PackInfo, rankedSafe: boolean) => invoke<string>("share_pack", { pack, rankedSafe }),

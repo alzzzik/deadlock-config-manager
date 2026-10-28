@@ -45,6 +45,7 @@ type Dialog =
   | { kind: "settings" }
   | { kind: "guide" }
   | { kind: "saveConfig" }
+  | { kind: "renameConfig"; entry: LibraryEntry }
   | { kind: "import" }
   | { kind: "store" }
   | { kind: "perf" }
@@ -308,6 +309,14 @@ export default function App() {
     api.exportConfig(e.id, path).then(() => push("ok", `Exported ${e.name}.`), fail);
   };
 
+  const renameConfig = (e: LibraryEntry, name: string, notes: string) =>
+    api.renameConfig(e.id, name, notes).then((renamed) => {
+      setDialog({ kind: "none" });
+      setLibrary((cur) => cur.map((x) => (x.id === renamed.id ? renamed : x)));
+      push("ok", `Renamed to ${renamed.name}.`);
+      refreshOverview();
+    }, fail);
+
   const deleteConfig = (e: LibraryEntry) =>
     api.deleteConfig(e.id).then((list) => {
       setLibrary(list);
@@ -460,6 +469,8 @@ export default function App() {
 
   const canWrite = !!overview && (overview.gameinfoFound || overview.gameinfoCreatable);
   const isLibraryApplied = library.some((e) => `${LIBRARY_PREFIX}${e.id}` === overview?.applied?.packId);
+  /** The applied config when it's one of the saved configs in My configs. */
+  const appliedEntry = library.find((e) => overview?.applied?.packId === `${LIBRARY_PREFIX}${e.id}`) ?? null;
   const blocked = busy || !overview || overview.deadlockRunning || !canWrite;
 
   const packCount = allPacks.length;
@@ -511,6 +522,7 @@ export default function App() {
             onReapply={reapply}
             onMakeRankedSafe={makeRankedSafe}
             onSaveTweaked={saveTweaked}
+            onRenameApplied={appliedEntry ? () => setDialog({ kind: "renameConfig", entry: appliedEntry }) : null}
             onAccount={(id) => api.setAccount(id).then(setOverview, fail)}
             onLocate={locate}
             onAuto={auto}
@@ -565,6 +577,7 @@ export default function App() {
             onSave={() => setDialog({ kind: "saveConfig" })}
             onImport={() => setDialog({ kind: "import" })}
             onExport={(e) => void exportConfig(e)}
+            onRename={(e) => setDialog({ kind: "renameConfig", entry: e })}
             onDelete={(e) => void deleteConfig(e)}
           />
 
@@ -636,6 +649,14 @@ export default function App() {
           onShowGuide={() => setDialog({ kind: "guide" })}
           installKind={appUpdate.installKind}
           onNotify={push}
+        />
+      )}
+      {dialog.kind === "renameConfig" && (
+        <SaveConfigDialog
+          suggestedName={dialog.entry.name}
+          renaming={{ notes: dialog.entry.notes }}
+          onCancel={() => setDialog({ kind: "none" })}
+          onSave={(n, notes) => void renameConfig(dialog.entry, n, notes)}
         />
       )}
       {dialog.kind === "saveConfig" && (
