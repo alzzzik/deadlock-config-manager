@@ -196,6 +196,8 @@ pub fn files_from_archive(name: &str, bytes: &[u8]) -> Result<PackFiles, String>
                 if !entry.is_directory() && (file == "gameinfo.gi" || file == "video.txt") && entry.size() <= MAX_FILE_BYTES {
                     let mut text = String::new();
                     r.take(MAX_FILE_BYTES).read_to_string(&mut text)?;
+                    // Kept files count too, so thousands of copies of gameinfo.gi can't fill memory.
+                    unpacked += text.len() as u64;
                     found.push((entry.name().to_string(), text));
                 } else {
                     // Skipped entries still have to be decoded; stop at a cap so a tiny archive can't
@@ -205,6 +207,9 @@ pub fn files_from_archive(name: &str, bytes: &[u8]) -> Result<PackFiles, String>
                 Ok(unpacked <= MAX_7Z_UNPACKED)
             })
             .map_err(|e| format!("Couldn't unpack the 7z file: {e}"))?;
+        if unpacked > MAX_7Z_UNPACKED {
+            return Err("The 7z file unpacks to too much data to be a config.".into());
+        }
         let gameinfo = pick(&found, "gameinfo.gi").cloned().ok_or("The 7z file has no gameinfo.gi.")?;
         return Ok(PackFiles { gameinfo, video: pick(&found, "video.txt").cloned() });
     }
@@ -281,5 +286,13 @@ mod tests {
         assert_eq!(back.gameinfo, GI);
         assert!(back.video.is_some());
         assert!(read_import(&tmp.path().join("nope.txt")).is_err());
+    }
+
+    #[test]
+    fn many_copies_of_gameinfo_in_a_7z_stop_at_the_unpack_cap() {
+        // 12 folders each with a 1.9 MB gameinfo.gi, about 23 MB unpacked from a 4 KB file.
+        let bytes = include_bytes!("../fixtures/many_gameinfo.7z");
+        let err = files_from_archive("x.7z", bytes).err().unwrap_or_default();
+        assert!(err.contains("too much data"), "{err}");
     }
 }

@@ -65,6 +65,10 @@ pub fn start(app: AppHandle) {
                     notify(&app, "Config re-applied", &body);
                     gave_up_on = None;
                 }
+                // The player restored or applied something else meanwhile: nothing to do.
+                Err(e) if e == commands::SUPERSEDED => diag::info(&format!("auto re-apply: {e}")),
+                // Deadlock was started while the config downloaded: try again once it's closed.
+                Err(e) if crate::fsops::deadlock_running() => diag::info(&format!("auto re-apply postponed: {e}")),
                 Err(e) => {
                     diag::error(&format!("auto re-apply: {e}"));
                     notify(&app, "Couldn't re-apply your config", &format!("{e}"));
