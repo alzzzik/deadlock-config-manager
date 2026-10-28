@@ -1070,13 +1070,11 @@ pub fn collect_perf(state: &AppState) -> Option<usize> {
     }
     let s = state.snapshot();
     let ov = state.overview(&s);
-    let managed = matches!(ov.status, crate::apply::Status::Applied { .. } | crate::apply::Status::AppliedDmm { .. });
+    let managed = matches!(ov.status, crate::apply::Status::Applied { .. } | crate::apply::Status::AppliedDmm { .. }) || ov.tweaks > 0;
     let (key, name, safe) = match (&s.applied, managed) {
         (Some(a), true) => {
-            // Sessions with personal changes on top go under "<config> + tweaks #N".
-            let fingerprint = crate::perf::fingerprint(&s.overrides.effective());
-            let base = format!("{}#{}", a.repo.as_deref().unwrap_or("local"), a.pack_id);
-            let (sets, key, name) = crate::perf::label_for(&s.perf_tweaks, &base, &a.pack_name, &fingerprint);
+            // Sessions with changes on top (from Settings or by hand) go under "<config> + tweaks #N".
+            let (sets, key, name) = crate::perf::label_for(&s.perf_tweaks, &perf_key(a), &a.pack_name, &ov.tweak_fingerprint);
             if sets != s.perf_tweaks {
                 if let Err(e) = state.update(|x| Settings { perf_tweaks: sets.clone(), ..x }) {
                     diag::error(&e);
@@ -1131,9 +1129,13 @@ pub async fn get_perf(app: tauri::AppHandle) -> Result<PerfView, String> {
 fn perf_view(state: &AppState) -> PerfView {
     let _ = collect_perf(state);
     let logging = state.perf_log.lock().unwrap_or_else(|e| e.into_inner()).condebug();
-    let names = state.snapshot().perf_names;
-    // Names the player gave an entry replace the recorded ones.
-    let named = |key: &str, name: &str| names.get(key).cloned().unwrap_or_else(|| name.to_string());
+    // Saved configs show their current name from My configs (they can be renamed there).
+    let library = crate::library::list(&library_dir(state));
+    let named = |key: &str, name: &str| {
+        key.strip_prefix(&format!("local#{LIBRARY_PREFIX}"))
+            .and_then(|id| library.iter().find(|e| e.id == id))
+            .map_or_else(|| name.to_string(), |e| e.name.clone())
+    };
     let sessions = crate::perf::load(&state.dir);
     let stats = crate::perf::summarize(&sessions)
         .into_iter()
@@ -1149,34 +1151,62 @@ fn perf_view(state: &AppState) -> PerfView {
     PerfView { stats, recent, logging, min_seconds: crate::perf::MIN_SECONDS, min_sessions: crate::perf::MIN_SESSIONS }
 }
 
-const MAX_PERF_NAME: usize = 40;
+/// The key Performance groups a config's sessions under.
+pub fn perf_key(a: &AppliedRecord) -> String {
+    format!("{}#{}", a.repo.as_deref().unwrap_or("local"), a.pack_id)
+}
 
-/// Names a Performance entry (e.g. "alz + tweaks #1"); an empty name goes back to the recorded one.
+/// Saves the applied config with the changes on top (from Settings or by hand) in My configs, makes it the
+/// applied config without writing game files, and moves the sessions played with those changes to it.
 #[tauri::command]
-pub async fn rename_perf(app: tauri::AppHandle, key: String, name: String) -> Result<PerfView, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let state = app.state::<AppState>();
-        let clean: String = name.trim().chars().filter(|c| !c.is_control()).take(MAX_PERF_NAME).collect();
-        state.update(|s| {
-            let mut names = s.perf_names.clone();
-            if clean.is_empty() {
-                names.remove(&key);
-            } else {
-                names.insert(key.clone(), clean.clone());
-            }
-            Settings { perf_names: names, ..s }
-        })?;
-        Ok(perf_view(&state))
-    })
-    .await
-    .map_err(|e| e.to_string())?
+pub async fn save_tweaked(app: tauri::AppHandle) -> Result<crate::library::Entry, String> {
+    off_main(app, save_tweaked_blocking).await
+}
+
+fn save_tweaked_blocking(state: &AppState) -> Result<crate::library::Entry, String> {
+    let s = state.snapshot();
+    let ov = state.overview(&s);
+    let (Some(applied), Some(name)) = (s.applied.clone(), ov.tweak_name.clone()) else {
+        return Err("There are no changes on top of the applied config to save.".into());
+    };
+    let gi_path = ov.gameinfo_path.clone().filter(|_| ov.gameinfo_found).ok_or("gameinfo.gi wasn't found.")?;
+    let gameinfo = fs::read_to_string(&gi_path).map_err(|e| format!("Cannot read gameinfo.gi: {e}"))?;
+    let video = match &ov.video_path {
+        Some(p) => read_optional(Path::new(p), "video.txt")?,
+        None => None,
+    };
+    let source = format!("Saved from {} with your changes", applied.pack_name);
+    let files = PackFiles { gameinfo, video };
+    let entry = crate::library::save(&library_dir(state), &name, "", &files, &source)?;
+    // The files on disk are now this saved config: point the applied record and its source copy at it.
+    let autoexec = fs::read_to_string(state.dir.join(APPLIED_DIR).join("autoexec.cfg")).ok();
+    save_applied_source(&state.dir, &files, autoexec.as_deref()).map_err(|e| format!("Couldn't save the config's files: {e}"))?;
+    let record = AppliedRecord {
+        repo: None,
+        pack_id: format!("{LIBRARY_PREFIX}{}", entry.id),
+        pack_name: entry.name.clone(),
+        revision: None,
+        applied_at: chrono::Local::now().to_rfc3339(),
+        gameinfo_sha256: gameinfo::sha256_hex(files.gameinfo.as_bytes()),
+        gameinfo_normalized_sha256: gameinfo::normalized_hash(&files.gameinfo),
+        video_sha256: files.video.as_ref().map(|v| gameinfo::sha256_hex(v.as_bytes())),
+        ..applied.clone()
+    };
+    let from = crate::perf::label_for(&s.perf_tweaks, &perf_key(&applied), &applied.pack_name, &ov.tweak_fingerprint).1;
+    let to = perf_key(&record);
+    state.update(|x| Settings { applied: Some(record), ..x })?;
+    if let Err(e) = crate::perf::rekey(&state.dir, &from, &to, &entry.name) {
+        diag::error(&e);
+    }
+    diag::info(&format!("saved tweaked {} as {}", applied.pack_name, entry.id));
+    Ok(entry)
 }
 
 #[tauri::command]
 pub fn clear_perf(state: State<AppState>) -> Result<(), String> {
     crate::perf::clear(&state.dir)?;
     // A fresh history numbers tweak sets from 1 again.
-    state.update(|s| Settings { perf_tweaks: Vec::new(), perf_names: Default::default(), ..s }).map(|_| ())
+    state.update(|s| Settings { perf_tweaks: Vec::new(), ..s }).map(|_| ())
 }
 
 #[cfg(test)]

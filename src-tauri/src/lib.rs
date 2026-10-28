@@ -18,6 +18,7 @@ pub mod overrides;
 pub mod packs;
 pub mod paths;
 pub mod perf;
+pub mod tweaks;
 pub mod ranked;
 pub mod repos;
 pub mod report;
@@ -153,7 +154,7 @@ pub fn run() {
             commands::dismiss_launch_issue,
             commands::get_perf,
             commands::clear_perf,
-            commands::rename_perf,
+            commands::save_tweaked,
             overview::toggle_pin,
             overview::finish_guide,
         ])

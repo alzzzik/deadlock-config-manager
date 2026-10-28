@@ -39,6 +39,10 @@ export type Overview = {
   rankedChanges: number | null;
   /** console.log shows Deadlock refused ranked matchmaking because of gameinfo.gi. */
   rankedBlocked: boolean;
+  /** ConVars lines changed on top of the applied config (from Settings or by hand); 0 when none. */
+  tweaks: number;
+  /** Suggested name for saving those changes, e.g. "alz + tweaks #1". */
+  tweakName: string | null;
   showGuide: boolean;
   changedBy: "game" | "dmm" | "grimoire" | "other" | null;
   gameBuild: string | null;
@@ -228,7 +232,7 @@ export const api = {
   })),
   getPerf: () => invoke<PerfView>("get_perf"),
   clearPerf: () => invoke<void>("clear_perf"),
-  renamePerf: (key: string, name: string) => invoke<PerfView>("rename_perf", { key, name }),
+  saveTweaked: () => invoke<LibraryEntry>("save_tweaked"),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
   setAutomation: (a: Automation) => invoke<Automation>("set_automation", a),

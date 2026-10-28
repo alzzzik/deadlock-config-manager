@@ -535,13 +535,6 @@ input::placeholder { color: var(--text-faint); }
 .perf-table td { padding: 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .perf-table tr.is-few td:not(:first-child) { color: var(--text-faint); }
 .perf-recent { margin-top: 12px; }
-.link-btn { margin-left: 8px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; cursor: pointer; }
-.link-btn:hover { text-decoration: underline; }
-.perf-rename {
-  width: 100%; max-width: 220px; padding: 3px 6px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
-  background: var(--surface-2); color: var(--text); font: inherit;
-}
-.perf-rename:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .perf-recent ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }
 
 /* ---------- quick settings ---------- */

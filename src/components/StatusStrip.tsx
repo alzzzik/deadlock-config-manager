@@ -12,6 +12,8 @@ interface StatusStripProps {
   canReapply: boolean;
   onReapply: () => void;
   onMakeRankedSafe: () => void;
+  /** Saves the applied config with the changes on top in My configs. */
+  onSaveTweaked: () => void;
   onAccount: (id: string) => void;
   onLocate: (kind: PathKind) => void;
   onAuto: (kind: PathKind) => void;
@@ -39,9 +41,16 @@ function writePathsOpen(open: boolean) {
   }
 }
 
+/** Changes on top of the applied config, from Settings or edited by hand. */
+const isTweaked = (o: Overview) => o.tweaks > 0 && !!o.tweakName;
+
 function headline(s: Status, o: Overview, update: boolean): { tone: Tone; title: string; detail: string } {
   const a = o.applied;
   const source = a ? [a.repo, a.appliedAt && `applied ${timeAgo(a.appliedAt)}`].filter(Boolean).join(" · ") : "";
+  if ((s.kind === "applied" || s.kind === "appliedDmm" || s.kind === "changed") && isTweaked(o)) {
+    const lines = `${o.tweaks} ${o.tweaks === 1 ? "line" : "lines"} changed from the config`;
+    return { tone: update ? "warn" : "good", title: s.pack, detail: [lines, source].filter(Boolean).join(" · ") };
+  }
   switch (s.kind) {
     case "applied":
     case "appliedDmm":
@@ -124,7 +133,7 @@ function PathRow({ name, path, state, note, onLocate, onAuto, onOpen }: PathRowP
 }
 
 export function StatusStrip(props: StatusStripProps) {
-  const { overview: o, busy, updateAvailable, updateNote, canReapply, onReapply, onMakeRankedSafe, onAccount, onLocate, onAuto, onOpen } = props;
+  const { overview: o, busy, updateAvailable, updateNote, canReapply, onReapply, onMakeRankedSafe, onSaveTweaked, onAccount, onLocate, onAuto, onOpen } = props;
   const h = headline(o.status, o, updateAvailable);
   const gameState: FileState = o.gameinfoFound ? "ok" : o.gameinfoCreatable ? "new" : "bad";
   const videoState: FileState = o.videoFound ? "ok" : o.videoPath ? "new" : "bad";
@@ -145,6 +154,7 @@ export function StatusStrip(props: StatusStripProps) {
 
   const showReapply = canReapply && (o.status.kind === "changed" || updateAvailable);
   const isApplied = o.status.kind === "applied" || o.status.kind === "appliedDmm";
+  const tweaked = isTweaked(o);
 
   return (
     <section className={`status tone-${h.tone}`} aria-labelledby="status-title">
@@ -152,7 +162,7 @@ export function StatusStrip(props: StatusStripProps) {
         <span className="status-dot" aria-hidden />
         <div className="status-text">
           <h1 id="status-title">
-            {isApplied && <span className="status-prefix">Applied</span>}
+            {tweaked ? <span className="status-prefix">Tweaked</span> : isApplied && <span className="status-prefix">Applied</span>}
             {h.title}
           </h1>
           <p>
@@ -166,6 +176,11 @@ export function StatusStrip(props: StatusStripProps) {
             )}
           </p>
         </div>
+        {tweaked && (
+          <button className="btn btn-secondary" disabled={busy} onClick={onSaveTweaked}>
+            Save as “{o.tweakName}”
+          </button>
+        )}
         {showReapply && (
           <button className="btn btn-primary" disabled={busy || o.deadlockRunning} onClick={onReapply}>
             {updateAvailable ? "Update" : "Re-apply"}

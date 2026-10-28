@@ -41,6 +41,13 @@ pub struct Overview {
     pub game_build: Option<String>,
     /// console.log shows Deadlock refused ranked matchmaking because of gameinfo.gi.
     pub ranked_blocked: bool,
+    /// ConVars lines changed on top of the applied config (from Settings or by hand); 0 when none.
+    pub tweaks: usize,
+    /// Suggested name when saving those changes, e.g. "alz + tweaks #1".
+    pub tweak_name: Option<String>,
+    /// The changed lines joined, for grouping Performance sessions; empty when none.
+    #[serde(skip)]
+    pub tweak_fingerprint: String,
 }
 
 pub fn to_string(p: &Path) -> String {
@@ -88,6 +95,9 @@ pub fn resolve(s: &Settings) -> Overview {
         changed_by: None,
         game_build: None,
         ranked_blocked: false,
+        tweaks: 0,
+        tweak_name: None,
+        tweak_fingerprint: String::new(),
     }
 }
 
@@ -148,7 +158,19 @@ pub fn resolve_with_checks(s: &Settings, cache_dir: &Path, ranked_refused: bool)
     };
     // Only the installed file's engine changes can cause the refusal.
     let ranked_blocked = ranked_changes.is_some_and(|n| n > 0) && ranked_refused;
-    Overview { ranked_changes, changed_by, game_build, ranked_blocked, ..ov }
+    // Changes on top of the config: the app's own write, or an edit by hand (not a game update or mod manager).
+    let tweakable = matches!(ov.status, apply::Status::Applied { .. } | apply::Status::AppliedDmm { .. })
+        || (matches!(ov.status, apply::Status::Changed { .. }) && changed_by.as_deref() == Some("other"));
+    let config = cache_dir.parent().and_then(crate::commands::applied_source).map(|f| f.gameinfo);
+    let changes = match (tweakable, installed.as_deref(), config.as_deref()) {
+        (true, Some(now), Some(own)) => crate::tweaks::changes(now, own, &stock),
+        _ => Vec::new(),
+    };
+    let tweak_fingerprint = changes.join(";");
+    let tweak_name = s.applied.as_ref().filter(|_| !changes.is_empty()).map(|a| {
+        crate::perf::label_for(&s.perf_tweaks, &crate::commands::perf_key(a), &a.pack_name, &tweak_fingerprint).2
+    });
+    Overview { ranked_changes, changed_by, game_build, ranked_blocked, tweaks: changes.len(), tweak_name, tweak_fingerprint, ..ov }
 }
 
 #[tauri::command]
@@ -347,4 +369,5 @@ mod tests {
         assert!(resolve_pick("video", &deadlock).is_err());
     }
 }
+
 

@@ -234,6 +234,14 @@ export default function App() {
     if (typeof folder === "string") void runApply((c, r) => api.applyLocal(folder, c, r), false, rankedSafe);
   };
 
+  /** Saves the applied config with the changes on top as a new entry in My configs. */
+  const saveTweaked = () =>
+    api.saveTweaked().then((e) => {
+      setLibrary((cur) => [e, ...cur.filter((x) => x.id !== e.id)]);
+      push("ok", `Saved as "${e.name}" in My configs. Rename it there if you like.`);
+      refreshOverview();
+    }, fail);
+
   const makeRankedSafe = () => runApply((c) => api.makeRankedSafe(c));
 
   const applyLibrary = (e: LibraryEntry, rankedSafe = false) =>
@@ -502,6 +510,7 @@ export default function App() {
             canReapply={!!appliedPack || overview.applied?.packId === "local" || isLibraryApplied}
             onReapply={reapply}
             onMakeRankedSafe={makeRankedSafe}
+            onSaveTweaked={saveTweaked}
             onAccount={(id) => api.setAccount(id).then(setOverview, fail)}
             onLocate={locate}
             onAuto={auto}

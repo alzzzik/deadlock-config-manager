@@ -288,6 +288,22 @@ pub fn record(app_dir: &Path, reports: &[Report], label: impl Fn(&Report) -> Ses
     Ok(count)
 }
 
+/// Moves sessions recorded under `from` to `to` (a tweaked config saved under its own name).
+pub fn rekey(app_dir: &Path, from: &str, to: &str, name: &str) -> Result<usize, String> {
+    let stored = load(app_dir);
+    let moved = stored.iter().filter(|s| s.config_key == from).count();
+    if moved == 0 {
+        return Ok(0);
+    }
+    let all: Vec<Session> = stored
+        .into_iter()
+        .map(|s| if s.config_key == from { Session { config_key: to.into(), config_name: name.into(), ..s } } else { s })
+        .collect();
+    let json = serde_json::to_vec_pretty(&all).map_err(|e| e.to_string())?;
+    crate::fsops::atomic_write(&store_file(app_dir), &json).map_err(|e| format!("Couldn't save performance data: {e}"))?;
+    Ok(moved)
+}
+
 pub fn clear(app_dir: &Path) -> Result<(), String> {
     match fs::remove_file(store_file(app_dir)) {
         Ok(()) => Ok(()),
@@ -322,8 +338,8 @@ pub struct ConfigStats {
     pub last_played: String,
 }
 
-/// A set of personal changes (switches, view width, FPS caps) on top of a config. Sessions played with it are
-/// grouped as "<config> + tweaks #N", numbered per config, so the same changes always get the same number.
+/// A set of personal changes on top of a config (see `tweaks::changes`). Sessions played with it are grouped
+/// as "<config> + tweaks #N", numbered per config, so the same changes always get the same number.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TweakSet {
@@ -332,16 +348,8 @@ pub struct TweakSet {
     pub number: u32,
 }
 
-/// The changes as one comparable string: "name=value" (or "name=off" for a commented-out line), sorted.
-pub fn fingerprint(entries: &[crate::overrides::Entry]) -> String {
-    let mut parts: Vec<String> = entries.iter().map(|e| format!("{}={}", e.name, e.value.as_deref().unwrap_or("off"))).collect();
-    parts.sort();
-    parts.dedup();
-    parts.join(";")
-}
-
-/// The key and name sessions are recorded under, and the tweak sets with any new one added. No changes
-/// (`fingerprint` empty) keeps the config's own key and name.
+/// The key and name sessions are recorded under, and the tweak sets with any new one added. `fingerprint` is
+/// the changed lines joined; empty keeps the config's own key and name.
 pub fn label_for(sets: &[TweakSet], key: &str, name: &str, fingerprint: &str) -> (Vec<TweakSet>, String, String) {
     if fingerprint.is_empty() {
         return (sets.to_vec(), key.to_string(), name.to_string());
@@ -529,20 +537,28 @@ mod tests {
 
     #[test]
     fn tweaks_get_one_number_per_set_of_changes() {
-        use crate::overrides::Entry;
-        let doorman = fingerprint(&[Entry { name: "cl_ragdoll_limit".into(), value: Some("-1".into()) }]);
-        let fps = fingerprint(&[Entry { name: "fps_max".into(), value: Some("300".into()) }]);
+        let (doorman, fps) = ("cl_ragdoll_limit=-1", "fps_max=300");
         let (sets, key, name) = label_for(&[], "r#alz", "alz", "");
         assert_eq!((sets.len(), key.as_str(), name.as_str()), (0, "r#alz", "alz"));
-        let (sets, key, name) = label_for(&sets, "r#alz", "alz", &doorman);
+        let (sets, key, name) = label_for(&sets, "r#alz", "alz", doorman);
         assert_eq!((key.as_str(), name.as_str()), ("r#alz~tweaks1", "alz + tweaks #1"));
-        let (sets, _, name) = label_for(&sets, "r#alz", "alz", &fps);
+        let (sets, _, name) = label_for(&sets, "r#alz", "alz", fps);
         assert_eq!(name, "alz + tweaks #2");
         // The same changes again keep their number; another config counts from 1.
-        let (again, _, name) = label_for(&sets, "r#alz", "alz", &doorman);
+        let (again, _, name) = label_for(&sets, "r#alz", "alz", doorman);
         assert_eq!((again.len(), name.as_str()), (2, "alz + tweaks #1"));
-        let (_, _, name) = label_for(&sets, "r#opti", "OptiLock", &doorman);
+        let (_, _, name) = label_for(&sets, "r#opti", "OptiLock", doorman);
         assert_eq!(name, "OptiLock + tweaks #1");
+    }
+
+    #[test]
+    fn moves_sessions_to_a_saved_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let sessions = vec![session("r#alz~tweaks1", 300.0, 900, "1"), session("r#alz", 310.0, 900, "2")];
+        fs::write(store_file(dir.path()), serde_json::to_vec(&sessions).unwrap()).unwrap();
+        assert_eq!(rekey(dir.path(), "r#alz~tweaks1", "local#lib:x", "alz doorman").unwrap(), 1);
+        let keys: Vec<(String, String)> = load(dir.path()).into_iter().map(|s| (s.config_key, s.config_name)).collect();
+        assert_eq!(keys, vec![("local#lib:x".into(), "alz doorman".into()), ("r#alz".into(), "r#alz".into())]);
     }
 
     #[test]

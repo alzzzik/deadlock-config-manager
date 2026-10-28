@@ -169,7 +169,7 @@ pub fn normalized_for_compare(src: &str) -> String {
         .join("\n")
 }
 
-fn strip_dmm_region(src: &str) -> String {
+pub fn strip_dmm_region(src: &str) -> String {
     let mut inside = false;
     src.split_inclusive('\n')
         .filter(|line| {
