@@ -138,11 +138,12 @@ fn read_optional(path: &Path, what: &str) -> Result<Option<String>, String> {
     fs::read_to_string(path).map(Some).map_err(|e| format!("Cannot read {what}: {e}"))
 }
 
-/// Switches ("What you see in game") belong to the config they were set on: applying another config starts
-/// it as it comes. Re-applying the same one (an update, a game update, a settings change) keeps them.
+/// Switches ("What you see in game") are changes on top of the applied config: an Apply or Re-apply the
+/// player clicks gives the config as it comes. A settings change, or the background re-apply after a game
+/// update of the same config, keeps them.
 fn overrides_for(applied: Option<&AppliedRecord>, src: &Source, current: &Overrides) -> Overrides {
-    let same = src.settings_change || applied.is_some_and(|a| a.pack_id == src.id && a.repo == src.repo);
-    if same {
+    let same_config = applied.is_some_and(|a| a.pack_id == src.id && a.repo == src.repo);
+    if src.settings_change || (src.quiet && same_config) {
         current.clone()
     } else {
         Overrides { fixes: Vec::new(), hidden: Vec::new(), ..current.clone() }
@@ -1233,8 +1234,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn switches_reset_only_when_another_config_is_applied() {
-        let src = |id: &str, settings_change: bool| Source {
+    fn switches_reset_when_the_player_applies_a_config() {
+        let src = |id: &str, settings_change: bool, quiet: bool| Source {
             repo: Some("r".into()),
             id: id.into(),
             name: id.into(),
@@ -1242,7 +1243,7 @@ mod tests {
             files: PackFiles { gameinfo: String::new(), video: None },
             notes: vec![],
             ranked_safe: false,
-            quiet: false,
+            quiet,
             autoexec: None,
             settings_change,
         };
@@ -1259,10 +1260,14 @@ mod tests {
             game_build: None,
         };
         let on = Overrides { fixes: vec!["doorman_ult".into()], fps_max: Some(240), ..Default::default() };
-        assert_eq!(overrides_for(Some(&applied), &src("alz", false), &on), on);
-        assert_eq!(overrides_for(Some(&applied), &src("stable", true), &on), on);
-        let other = overrides_for(Some(&applied), &src("stable", false), &on);
-        assert!(other.fixes.is_empty() && other.fps_max == Some(240));
+        // Kept: a settings change, and the background re-apply of the same config after a game update.
+        assert_eq!(overrides_for(Some(&applied), &src("alz", true, false), &on), on);
+        assert_eq!(overrides_for(Some(&applied), &src("alz", false, true), &on), on);
+        // Reset (FPS caps stay): Re-apply or Apply clicked by the player, same config or another.
+        for s in [src("alz", false, false), src("stable", false, false)] {
+            let reset = overrides_for(Some(&applied), &s, &on);
+            assert!(reset.fixes.is_empty() && reset.fps_max == Some(240));
+        }
     }
 
     #[test]
