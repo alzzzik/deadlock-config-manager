@@ -134,7 +134,9 @@ export type ConfigStats = {
   medianFrameMsP99: number;
   lastPlayed: string;
 };
-export type PerfView = { stats: ConfigStats[]; recent: PerfSession[]; logging: boolean; minSeconds: number; minSessions: number };
+/** A recent session with its number (the oldest counted session is #1). */
+export type NumberedSession = PerfSession & { number: number };
+export type PerfView = { stats: ConfigStats[]; recent: NumberedSession[]; logging: boolean; minSeconds: number; minSessions: number };
 
 
 export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean; exitOnClose: boolean };
@@ -226,6 +228,7 @@ export const api = {
   })),
   getPerf: () => invoke<PerfView>("get_perf"),
   clearPerf: () => invoke<void>("clear_perf"),
+  renamePerf: (key: string, name: string) => invoke<PerfView>("rename_perf", { key, name }),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),
   setAutomation: (a: Automation) => invoke<Automation>("set_automation", a),

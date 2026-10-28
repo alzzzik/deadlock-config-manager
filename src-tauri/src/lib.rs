@@ -153,6 +153,7 @@ pub fn run() {
             commands::dismiss_launch_issue,
             commands::get_perf,
             commands::clear_perf,
+            commands::rename_perf,
             overview::toggle_pin,
             overview::finish_guide,
         ])

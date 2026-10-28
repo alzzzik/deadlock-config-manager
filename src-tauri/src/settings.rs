@@ -65,6 +65,10 @@ pub struct Settings {
     pub start_with_windows: bool,
     /// Closing the window quits the app instead of keeping it in the tray.
     pub exit_on_close: bool,
+    /// Sets of personal changes seen in Performance, so each keeps its "+ tweaks #N".
+    pub perf_tweaks: Vec<crate::perf::TweakSet>,
+    /// Names the player gave Performance entries, by config key.
+    pub perf_names: std::collections::BTreeMap<String, String>,
 }
 
 impl Default for Settings {
@@ -85,6 +89,8 @@ impl Default for Settings {
             auto_reapply: false,
             start_with_windows: false,
             exit_on_close: true,
+            perf_tweaks: Vec::new(),
+            perf_names: Default::default(),
         }
     }
 }

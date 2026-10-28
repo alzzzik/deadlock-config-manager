@@ -15,8 +15,8 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Shorter sessions (menus, quick hideout visits) say little about a config.
-pub const MIN_SECONDS: u64 = 60;
+/// Shorter sessions say little about a config: quick hideout visits run about twice as fast as a match.
+pub const MIN_SECONDS: u64 = 300;
 /// Comparisons need at least this many sessions on each side.
 pub const MIN_SESSIONS: usize = 3;
 const MAX_STORED: usize = 2000;
@@ -322,6 +322,53 @@ pub struct ConfigStats {
     pub last_played: String,
 }
 
+/// A set of personal changes (switches, view width, FPS caps) on top of a config. Sessions played with it are
+/// grouped as "<config> + tweaks #N", numbered per config, so the same changes always get the same number.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TweakSet {
+    pub config_key: String,
+    pub fingerprint: String,
+    pub number: u32,
+}
+
+/// The changes as one comparable string: "name=value" (or "name=off" for a commented-out line), sorted.
+pub fn fingerprint(entries: &[crate::overrides::Entry]) -> String {
+    let mut parts: Vec<String> = entries.iter().map(|e| format!("{}={}", e.name, e.value.as_deref().unwrap_or("off"))).collect();
+    parts.sort();
+    parts.dedup();
+    parts.join(";")
+}
+
+/// The key and name sessions are recorded under, and the tweak sets with any new one added. No changes
+/// (`fingerprint` empty) keeps the config's own key and name.
+pub fn label_for(sets: &[TweakSet], key: &str, name: &str, fingerprint: &str) -> (Vec<TweakSet>, String, String) {
+    if fingerprint.is_empty() {
+        return (sets.to_vec(), key.to_string(), name.to_string());
+    }
+    let known = sets.iter().find(|t| t.config_key == key && t.fingerprint == fingerprint).map(|t| t.number);
+    let number = known.unwrap_or_else(|| sets.iter().filter(|t| t.config_key == key).map(|t| t.number).max().unwrap_or(0) + 1);
+    let added = known.is_none().then(|| TweakSet { config_key: key.to_string(), fingerprint: fingerprint.to_string(), number });
+    let all = sets.iter().cloned().chain(added).collect();
+    (all, format!("{key}~tweaks{number}"), format!("{name} + tweaks #{number}"))
+}
+
+/// A session in the recent list with its number (oldest counted session is #1).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Numbered {
+    #[serde(flatten)]
+    pub session: Session,
+    pub number: usize,
+}
+
+/// The latest `count` sessions long enough to count, newest first, numbered from the oldest.
+pub fn recent(sessions: &[Session], count: usize) -> Vec<Numbered> {
+    let counted: Vec<&Session> = sessions.iter().filter(|s| s.report.seconds >= MIN_SECONDS).collect();
+    let total = counted.len();
+    counted.into_iter().rev().take(count).enumerate().map(|(i, s)| Numbered { session: s.clone(), number: total - i }).collect()
+}
+
 /// Per-config medians over sessions of at least [`MIN_SECONDS`], most recently played first.
 pub fn summarize(sessions: &[Session]) -> Vec<ConfigStats> {
     let mut groups: BTreeMap<&str, Vec<&Session>> = BTreeMap::new();
@@ -478,6 +525,31 @@ mod tests {
         assert_eq!(a.sessions, 2);
         assert_eq!(a.median_avg_fps, 310.0);
         assert_eq!(a.minutes, 30);
+    }
+
+    #[test]
+    fn tweaks_get_one_number_per_set_of_changes() {
+        use crate::overrides::Entry;
+        let doorman = fingerprint(&[Entry { name: "cl_ragdoll_limit".into(), value: Some("-1".into()) }]);
+        let fps = fingerprint(&[Entry { name: "fps_max".into(), value: Some("300".into()) }]);
+        let (sets, key, name) = label_for(&[], "r#alz", "alz", "");
+        assert_eq!((sets.len(), key.as_str(), name.as_str()), (0, "r#alz", "alz"));
+        let (sets, key, name) = label_for(&sets, "r#alz", "alz", &doorman);
+        assert_eq!((key.as_str(), name.as_str()), ("r#alz~tweaks1", "alz + tweaks #1"));
+        let (sets, _, name) = label_for(&sets, "r#alz", "alz", &fps);
+        assert_eq!(name, "alz + tweaks #2");
+        // The same changes again keep their number; another config counts from 1.
+        let (again, _, name) = label_for(&sets, "r#alz", "alz", &doorman);
+        assert_eq!((again.len(), name.as_str()), (2, "alz + tweaks #1"));
+        let (_, _, name) = label_for(&sets, "r#opti", "OptiLock", &doorman);
+        assert_eq!(name, "OptiLock + tweaks #1");
+    }
+
+    #[test]
+    fn numbers_recent_sessions_from_the_oldest() {
+        let s = vec![session("a", 300.0, 900, "1"), session("a", 900.0, 10, "2"), session("a", 320.0, 900, "3"), session("b", 400.0, 600, "4")];
+        let r = recent(&s, 2);
+        assert_eq!(r.iter().map(|n| (n.number, n.session.recorded_at.as_str())).collect::<Vec<_>>(), vec![(3, "4"), (2, "3")]);
     }
 
     #[test]

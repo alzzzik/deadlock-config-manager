@@ -17,6 +17,14 @@ const pct = (a: number, b: number) => {
 /** Real-game FPS per config, from Deadlock's own performance reports in console.log. */
 export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
   const [view, setView] = useState<PerfView | null>(null);
+  /** The entry being renamed and its new name. */
+  const [renaming, setRenaming] = useState<{ key: string; name: string } | null>(null);
+
+  const saveName = () => {
+    if (!renaming) return;
+    api.renamePerf(renaming.key, renaming.name).then(setView, (e) => onNotify("error", errorText(e)));
+    setRenaming(null);
+  };
   const [automation, setAutomation] = useState<Automation | null>(null);
 
   useEffect(() => {
@@ -117,7 +125,38 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
             {view.stats.map((s, i) => (
               <tr key={s.configKey} className={enough(s) ? "" : "is-few"}>
                 <td>
-                  {s.configName}
+                  {renaming?.key === s.configKey ? (
+                    <input
+                      className="perf-rename"
+                      value={renaming.name}
+                      maxLength={40}
+                      autoFocus
+                      aria-label="Name"
+                      onChange={(e) => setRenaming({ key: s.configKey, name: e.target.value })}
+                      onBlur={(e) => {
+                        // Escape removes the field, which also blurs it: don't save then.
+                        if (e.currentTarget.dataset.cancel !== "1") saveName();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") {
+                          e.stopPropagation();
+                          e.currentTarget.dataset.cancel = "1";
+                          setRenaming(null);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <>
+                      {s.configName}
+                      {/* Only entries with personal changes ("+ tweaks #N") can be renamed. */}
+                      {s.configKey.includes("~tweaks") && (
+                        <button className="link-btn small" onClick={() => setRenaming({ key: s.configKey, name: s.configName })}>
+                          Rename
+                        </button>
+                      )}
+                    </>
+                  )}
                   <small className="muted"> · {timeAgo(s.lastPlayed)}</small>
                 </td>
                 <td>
@@ -138,14 +177,20 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
           </tbody>
         </table>
       )}
+      {view && view.stats.length > 0 && (
+        <p className="muted small">
+          Sessions shorter than {Math.round(view.minSeconds / 60)} minutes are left out. Changes from Settings on top of a
+          config count as "+ tweaks".
+        </p>
+      )}
       {view && view.recent.length > 0 && (
         <details className="perf-recent">
           <summary className="small">Recent sessions</summary>
           <ul>
             {view.recent.map((r) => (
               <li key={r.time + r.frames} className="small">
-                <code>{r.time}</code> {r.online ? `Match on ${r.map}` : r.map} · {Math.round(r.seconds / 60)} min · {fps(r.avgFps)} avg / {fps(r.p1Fps)} 1% low ·{" "}
-                <span className="muted">{r.configName}</span>
+                Session #{r.number} · <code>{r.time}</code> · {Math.round(r.seconds / 60)} min · {fps(r.avgFps)} avg /{" "}
+                {fps(r.p1Fps)} 1% low · <span className="muted">{r.configName}</span>
               </li>
             ))}
           </ul>

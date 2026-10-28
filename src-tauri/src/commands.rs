@@ -1072,7 +1072,18 @@ pub fn collect_perf(state: &AppState) -> Option<usize> {
     let ov = state.overview(&s);
     let managed = matches!(ov.status, crate::apply::Status::Applied { .. } | crate::apply::Status::AppliedDmm { .. });
     let (key, name, safe) = match (&s.applied, managed) {
-        (Some(a), true) => (format!("{}#{}", a.repo.as_deref().unwrap_or("local"), a.pack_id), a.pack_name.clone(), a.ranked_safe),
+        (Some(a), true) => {
+            // Sessions with personal changes on top go under "<config> + tweaks #N".
+            let fingerprint = crate::perf::fingerprint(&s.overrides.effective());
+            let base = format!("{}#{}", a.repo.as_deref().unwrap_or("local"), a.pack_id);
+            let (sets, key, name) = crate::perf::label_for(&s.perf_tweaks, &base, &a.pack_name, &fingerprint);
+            if sets != s.perf_tweaks {
+                if let Err(e) = state.update(|x| Settings { perf_tweaks: sets.clone(), ..x }) {
+                    diag::error(&e);
+                }
+            }
+            (key, name, a.ranked_safe)
+        }
         _ => ("unmanaged".to_string(), "Not applied by this app".to_string(), false),
     };
     let now = chrono::Local::now().to_rfc3339();
@@ -1104,7 +1115,7 @@ pub fn collect_perf(state: &AppState) -> Option<usize> {
 pub struct PerfView {
     pub stats: Vec<crate::perf::ConfigStats>,
     /// Latest sessions long enough to count, newest first.
-    pub recent: Vec<crate::perf::Session>,
+    pub recent: Vec<crate::perf::Numbered>,
     /// console.log exists and its last launch used -condebug.
     pub logging: bool,
     pub min_seconds: u64,
@@ -1120,14 +1131,52 @@ pub async fn get_perf(app: tauri::AppHandle) -> Result<PerfView, String> {
 fn perf_view(state: &AppState) -> PerfView {
     let _ = collect_perf(state);
     let logging = state.perf_log.lock().unwrap_or_else(|e| e.into_inner()).condebug();
+    let names = state.snapshot().perf_names;
+    // Names the player gave an entry replace the recorded ones.
+    let named = |key: &str, name: &str| names.get(key).cloned().unwrap_or_else(|| name.to_string());
     let sessions = crate::perf::load(&state.dir);
-    let recent = sessions.iter().rev().filter(|s| s.report.seconds >= crate::perf::MIN_SECONDS).take(20).cloned().collect();
-    PerfView { stats: crate::perf::summarize(&sessions), recent, logging, min_seconds: crate::perf::MIN_SECONDS, min_sessions: crate::perf::MIN_SESSIONS }
+    let stats = crate::perf::summarize(&sessions)
+        .into_iter()
+        .map(|c| crate::perf::ConfigStats { config_name: named(&c.config_key, &c.config_name), ..c })
+        .collect();
+    let recent = crate::perf::recent(&sessions, 20)
+        .into_iter()
+        .map(|n| {
+            let config_name = named(&n.session.config_key, &n.session.config_name);
+            crate::perf::Numbered { session: crate::perf::Session { config_name, ..n.session }, ..n }
+        })
+        .collect();
+    PerfView { stats, recent, logging, min_seconds: crate::perf::MIN_SECONDS, min_sessions: crate::perf::MIN_SESSIONS }
+}
+
+const MAX_PERF_NAME: usize = 40;
+
+/// Names a Performance entry (e.g. "alz + tweaks #1"); an empty name goes back to the recorded one.
+#[tauri::command]
+pub async fn rename_perf(app: tauri::AppHandle, key: String, name: String) -> Result<PerfView, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let clean: String = name.trim().chars().filter(|c| !c.is_control()).take(MAX_PERF_NAME).collect();
+        state.update(|s| {
+            let mut names = s.perf_names.clone();
+            if clean.is_empty() {
+                names.remove(&key);
+            } else {
+                names.insert(key.clone(), clean.clone());
+            }
+            Settings { perf_names: names, ..s }
+        })?;
+        Ok(perf_view(&state))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub fn clear_perf(state: State<AppState>) -> Result<(), String> {
-    crate::perf::clear(&state.dir)
+    crate::perf::clear(&state.dir)?;
+    // A fresh history numbers tweak sets from 1 again.
+    state.update(|s| Settings { perf_tweaks: Vec::new(), perf_names: Default::default(), ..s }).map(|_| ())
 }
 
 #[cfg(test)]
