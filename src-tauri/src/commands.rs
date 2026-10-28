@@ -1259,14 +1259,14 @@ mod tests {
             ranked_safe: false,
             game_build: None,
         };
-        let on = Overrides { fixes: vec!["doorman_ult".into()], fps_max: Some(240), ..Default::default() };
+        let on = Overrides { fixes: vec!["doorman_ult".into()], hidden: vec!["portraits_missing".into()], fps_max: Some(240), ..Default::default() };
         // Kept: a settings change, and the background re-apply of the same config after a game update.
         assert_eq!(overrides_for(Some(&applied), &src("alz", true, false), &on), on);
         assert_eq!(overrides_for(Some(&applied), &src("alz", false, true), &on), on);
         // Reset (FPS caps stay): Re-apply or Apply clicked by the player, same config or another.
         for s in [src("alz", false, false), src("stable", false, false)] {
             let reset = overrides_for(Some(&applied), &s, &on);
-            assert!(reset.fixes.is_empty() && reset.fps_max == Some(240));
+            assert!(reset.fixes.is_empty() && reset.hidden.is_empty() && reset.fps_max == Some(240));
         }
     }
 
