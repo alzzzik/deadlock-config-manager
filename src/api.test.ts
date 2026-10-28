@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, matchesSearch, pinKey, sortStore, updateNotes, PackInfo, AppliedRecord, StoreEntry } from "./api";
+import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, latestOnly, matchesSearch, pinKey, sortStore, stopWhenReady, updateNotes, PackInfo, AppliedRecord, StoreEntry } from "./api";
 
 const pack = (over: Partial<PackInfo> = {}): PackInfo => ({
   repo: "alzzzik/alz-deadlock-cfg",
@@ -104,5 +104,38 @@ describe("updateNotes", () => {
     expect(updateNotes(body)).toEqual(["Performance opens right away", "Records matches again"]);
     expect(updateNotes(undefined)).toEqual([]);
     expect(updateNotes("- a\n- b\n- c", 2)).toEqual(["a", "b"]);
+  });
+});
+
+describe("stopWhenReady", () => {
+  it("removes a listener that registers after cleanup already ran", async () => {
+    let removed = 0;
+    let register!: (u: () => void) => void;
+    const stop = stopWhenReady(new Promise((r) => (register = r)));
+    stop();
+    register(() => removed++);
+    await Promise.resolve();
+    expect(removed).toBe(1);
+  });
+
+  it("removes a registered listener on cleanup", async () => {
+    let removed = 0;
+    const stop = stopWhenReady(Promise.resolve(() => removed++));
+    await Promise.resolve();
+    stop();
+    expect(removed).toBe(1);
+  });
+});
+
+describe("latestOnly", () => {
+  it("drops a slow older response that arrives after a newer one", async () => {
+    const latest = latestOnly();
+    let finishOld!: (v: string) => void;
+    const seen: string[] = [];
+    latest(new Promise<string>((r) => (finishOld = r))).then((v) => seen.push(v));
+    await latest(Promise.resolve("new")).then((v) => seen.push(v));
+    finishOld("old");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(seen).toEqual(["new"]);
   });
 });

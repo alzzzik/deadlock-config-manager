@@ -175,7 +175,7 @@ fn read_quoted(src: &str, start: usize, line: usize) -> Result<(String, usize, u
 pub fn parse(src: &str) -> Result<Vec<Node>, ParseError> {
     let tokens = tokenize(src)?;
     let mut pos = 0;
-    let nodes = parse_list(&tokens, &mut pos, None)?;
+    let nodes = parse_list(&tokens, &mut pos, None, 0)?;
     Ok(nodes)
 }
 
@@ -189,7 +189,14 @@ pub fn parse_document(src: &str) -> Result<Vec<Node>, ParseError> {
     }
 }
 
-fn parse_list(tokens: &[Token], pos: &mut usize, opened_at: Option<usize>) -> Result<Vec<Node>, ParseError> {
+/// Deepest block nesting accepted. Real files nest about 5 levels; a downloaded file nesting thousands
+/// deep would otherwise overflow the stack and crash the app.
+const MAX_DEPTH: usize = 64;
+
+fn parse_list(tokens: &[Token], pos: &mut usize, opened_at: Option<usize>, depth: usize) -> Result<Vec<Node>, ParseError> {
+    if depth > MAX_DEPTH {
+        return Err(ParseError { line: opened_at.unwrap_or(1), message: format!("blocks are nested more than {MAX_DEPTH} levels deep") });
+    }
     let mut nodes = Vec::new();
     loop {
         let Some(t) = tokens.get(*pos) else {
@@ -218,7 +225,7 @@ fn parse_list(tokens: &[Token], pos: &mut usize, opened_at: Option<usize>) -> Re
             Some(Token { tok: Tok::Open, start: open, line: open_line }) => {
                 let open = *open;
                 *pos += 1;
-                let children = parse_list(tokens, pos, Some(*open_line))?;
+                let children = parse_list(tokens, pos, Some(*open_line), depth + 1)?;
                 let close = tokens[*pos].start;
                 *pos += 1;
                 Value::Block { children, open, close }
@@ -260,6 +267,15 @@ mod tests {
         assert_eq!(err.line, 2);
         let err = parse("a \"1\"\n}\n").unwrap_err();
         assert_eq!(err.line, 2);
+    }
+
+    #[test]
+    fn refuses_absurdly_deep_nesting_instead_of_crashing() {
+        let deep = format!("{}{}", "a {".repeat(100_000), "}".repeat(100_000));
+        let err = parse(&deep).unwrap_err();
+        assert!(err.message.contains("nested"), "{}", err.message);
+        let ok = format!("{}b \"1\"{}", "a {".repeat(MAX_DEPTH), "}".repeat(MAX_DEPTH));
+        assert!(parse(&ok).is_ok());
     }
 
     #[test]

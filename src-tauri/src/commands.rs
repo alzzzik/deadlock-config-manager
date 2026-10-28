@@ -100,6 +100,19 @@ struct Source {
     settings_change: bool,
 }
 
+/// Error from a background re-apply that was dropped because the applied config changed meanwhile.
+pub const SUPERSEDED: &str = "The applied config changed while re-applying, so nothing was written.";
+
+fn still_applied(rec: Option<&AppliedRecord>, src: &Source) -> bool {
+    rec.is_some_and(|r| r.repo == src.repo && r.pack_id == src.id && r.ranked_safe == src.ranked_safe)
+}
+
+/// Runs a command that writes game files off the window's thread, so a UAC prompt or a slow disk
+/// doesn't freeze the window.
+async fn off_main<T: Send + 'static>(app: tauri::AppHandle, work: impl FnOnce(&AppState) -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(move || work(&app.state::<AppState>())).await.map_err(|e| e.to_string())?
+}
+
 /// `quiet` writes never show a UAC prompt (background re-apply); access denied is an error instead.
 fn real_writer(jobs: PathBuf, quiet: bool) -> impl Fn(&[FileWrite]) -> Result<WriteOutcome, String> {
     move |files| {
@@ -129,6 +142,11 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
     let _guard = if confirmed { Some(state.apply_lock.lock().map_err(|_| "Another apply failed; restart the app.")?) } else { None };
     ensure_closed()?;
     let s = state.snapshot();
+    // A background re-apply was prepared (often after a download) before taking the lock; if the player
+    // restored or applied something else meanwhile, it must not put the old config back.
+    if src.quiet && !still_applied(s.applied.as_ref(), &src) {
+        return Err(SUPERSEDED.into());
+    }
     let ov = resolve(&s);
     let gi_path = ov
         .gameinfo_path
@@ -220,7 +238,13 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
         // The old autoexec.cfg is kept next to the backups; Restore… doesn't touch autoexec.cfg.
         if let Some(old) = old {
             let dir = backups.join("autoexec");
-            let _ = fs::create_dir_all(&dir).and_then(|_| fs::write(dir.join(format!("{}.cfg", meta.id)), old));
+            let copy = dir.join(format!("{}.cfg", meta.id));
+            // A shared settings backup keeps the copy from before the first change.
+            if !copy.exists() {
+                fs::create_dir_all(&dir)
+                    .and_then(|_| fs::write(&copy, old))
+                    .map_err(|e| format!("Could not back up autoexec.cfg, so nothing was changed: {e}"))?;
+            }
         }
         if let Some(parent) = path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -307,7 +331,11 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
 }
 
 #[tauri::command]
-pub fn apply_local(state: State<AppState>, folder: String, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
+pub async fn apply_local(app: tauri::AppHandle, folder: String, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
+    off_main(app, move |state| apply_local_blocking(state, folder, confirmed, ranked_safe)).await
+}
+
+fn apply_local_blocking(state: &AppState, folder: String, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
     let dir = PathBuf::from(&folder);
     let files = diag::logged("read local folder", packs::read_local(&dir))?;
     let name = dir.file_name().map(|n| format!("Local: {}", n.to_string_lossy())).unwrap_or_else(|| "Local folder".into());
@@ -329,7 +357,11 @@ pub fn list_backups(state: State<AppState>) -> Vec<BackupMeta> {
 }
 
 #[tauri::command]
-pub fn restore_backup(state: State<AppState>, id: String) -> Result<String, String> {
+pub async fn restore_backup(app: tauri::AppHandle, id: String) -> Result<String, String> {
+    off_main(app, move |state| restore_backup_blocking(state, id)).await
+}
+
+fn restore_backup_blocking(state: &AppState, id: String) -> Result<String, String> {
     let result = restore_inner(&state, &id);
     if let Ok(msg) = &result {
         diag::info(&format!("restore {id}: {msg}"));
@@ -526,7 +558,11 @@ pub fn install_kind() -> &'static str {
 /// Puts the engine sections of the installed gameinfo.gi back to Valve's defaults and keeps the rest
 /// (ConVars and so on). Same preview/confirm flow and backup as applying a pack; video.txt is untouched.
 #[tauri::command]
-pub fn make_ranked_safe(state: State<AppState>, confirmed: bool) -> Result<ApplyResponse, String> {
+pub async fn make_ranked_safe(app: tauri::AppHandle, confirmed: bool) -> Result<ApplyResponse, String> {
+    off_main(app, move |state| make_ranked_safe_blocking(state, confirmed)).await
+}
+
+fn make_ranked_safe_blocking(state: &AppState, confirmed: bool) -> Result<ApplyResponse, String> {
     let ov = resolve(&state.snapshot());
     let path = ov.gameinfo_path.filter(|_| ov.gameinfo_found).ok_or("gameinfo.gi wasn't found.")?;
     let installed = fs::read_to_string(&path).map_err(|e| format!("Cannot read gameinfo.gi: {e}"))?;
@@ -669,7 +705,11 @@ fn apply_tweaks_now(state: &AppState) -> Result<String, String> {
 
 /// Sets one value (None = use the config's value) and applies it.
 #[tauri::command]
-pub fn set_tweak(state: State<AppState>, id: String, value: Option<String>) -> Result<TweaksView, String> {
+pub async fn set_tweak(app: tauri::AppHandle, id: String, value: Option<String>) -> Result<TweaksView, String> {
+    off_main(app, move |state| set_tweak_blocking(state, id, value)).await
+}
+
+fn set_tweak_blocking(state: &AppState, id: String, value: Option<String>) -> Result<TweaksView, String> {
     let value = value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
     let fps = |v: &Option<String>| -> Result<Option<u32>, String> {
         v.as_deref().map(|t| t.parse::<u32>().map_err(|_| "FPS caps are whole numbers, 0 for no limit.".to_string())).transpose()
@@ -692,7 +732,11 @@ pub fn set_tweak(state: State<AppState>, id: String, value: Option<String>) -> R
 
 /// Turns a fix on or off and applies it.
 #[tauri::command]
-pub fn set_fix(state: State<AppState>, id: String, on: bool) -> Result<TweaksView, String> {
+pub async fn set_fix(app: tauri::AppHandle, id: String, on: bool) -> Result<TweaksView, String> {
+    off_main(app, move |state| set_fix_blocking(state, id, on)).await
+}
+
+fn set_fix_blocking(state: &AppState, id: String, on: bool) -> Result<TweaksView, String> {
     let fix = overrides::FIXES.iter().find(|f| f.id == id).ok_or("Unknown fix.")?;
     let previous = state.snapshot().overrides;
     let config_shows = (fix.shown)(config_source(&state).as_deref().unwrap_or_default());
@@ -764,7 +808,11 @@ pub fn rename_config(state: State<AppState>, id: String, name: String, notes: St
 
 /// Applies a saved config, with the same preview, tweaks, ranked-safe option and backup as packs.
 #[tauri::command]
-pub fn apply_library(state: State<AppState>, id: String, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
+pub async fn apply_library(app: tauri::AppHandle, id: String, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
+    off_main(app, move |state| apply_library_blocking(state, id, confirmed, ranked_safe)).await
+}
+
+fn apply_library_blocking(state: &AppState, id: String, confirmed: bool, ranked_safe: bool) -> Result<ApplyResponse, String> {
     let root = library_dir(&state);
     let entry = crate::library::find(&root, &id)?;
     let files = crate::library::read(&root, &id)?;
@@ -1000,6 +1048,8 @@ pub fn collect_perf(state: &AppState) -> Option<usize> {
     let path = console_log_path(state)?;
     // Held until the reports are stored, so the watcher and the Performance view don't record at once.
     let mut tail = state.perf_log.lock().unwrap_or_else(|e| e.into_inner());
+    // Put back if the reports can't be stored, so they're read again next time instead of lost.
+    let before = tail.clone();
     let read = tail.read_new(&path);
     state.ranked_refused.store(tail.ranked_refused(), Ordering::Relaxed);
     let reports = match read {
@@ -1043,6 +1093,7 @@ pub fn collect_perf(state: &AppState) -> Option<usize> {
         }
         Err(e) => {
             diag::error(&e);
+            *tail = before;
             None
         }
     }
@@ -1100,6 +1151,37 @@ mod tests {
         assert!(!repo_behind_update(Some("2026-10-21T09:00:00Z"), update));
         assert!(!repo_behind_update(None, update));
         assert!(!repo_behind_update(Some("not a date"), update));
+    }
+
+    #[test]
+    fn background_reapply_only_runs_for_the_config_still_applied() {
+        let src = |id: &str| Source {
+            repo: Some("o/r".into()),
+            id: id.into(),
+            name: "P".into(),
+            revision: None,
+            files: PackFiles { gameinfo: String::new(), video: None },
+            notes: vec![],
+            ranked_safe: false,
+            quiet: true,
+            autoexec: None,
+            settings_change: false,
+        };
+        let rec = AppliedRecord {
+            repo: Some("o/r".into()),
+            pack_id: "stable".into(),
+            pack_name: "P".into(),
+            revision: None,
+            applied_at: String::new(),
+            gameinfo_sha256: String::new(),
+            gameinfo_normalized_sha256: String::new(),
+            video_sha256: None,
+            ranked_safe: false,
+            game_build: None,
+        };
+        assert!(still_applied(Some(&rec), &src("stable")));
+        assert!(!still_applied(Some(&rec), &src("other")), "another config was applied meanwhile");
+        assert!(!still_applied(None, &src("stable")), "the player restored their files meanwhile");
     }
 
     #[test]

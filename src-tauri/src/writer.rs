@@ -157,6 +157,7 @@ pub fn run_job_file(job_path: &Path) -> i32 {
 fn execute_job(job_path: &Path) -> Result<(), String> {
     let text = fs::read_to_string(job_path).map_err(|e| format!("Cannot read job: {e}"))?;
     let job: Job = serde_json::from_str(&text).map_err(|e| format!("Bad job file: {e}"))?;
+    let job_dir = job_path.parent().ok_or("Bad job path.")?;
     let files: Vec<FileWrite> = job
         .files
         .iter()
@@ -166,7 +167,13 @@ fn execute_job(job_path: &Path) -> Result<(), String> {
             if !target.is_absolute() || !ALLOWED_NAMES.iter().any(|a| a.eq_ignore_ascii_case(name)) {
                 return Err(format!("Refusing to write {}", target.display()));
             }
-            fs::read(&f.staged).map(|b| (target, b)).map_err(|e| e.to_string())
+            // Content only comes from files staged next to the job, so an edited job can't make the
+            // admin process copy some other file.
+            let staged = PathBuf::from(&f.staged);
+            if staged.parent() != Some(job_dir) {
+                return Err(format!("Refusing to read {}", staged.display()));
+            }
+            fs::read(&staged).map(|b| (target, b)).map_err(|e| e.to_string())
         })
         .collect::<Result<_, _>>()?;
     write_without_elevation(&files).map(|_| ())
@@ -205,6 +212,21 @@ mod tests {
         assert!(!dir.path().join("evil.dll").exists());
         let res: JobResult = serde_json::from_str(&fs::read_to_string(dir.path().join("result.json")).unwrap()).unwrap();
         assert!(res.error.unwrap().contains("Refusing"));
+    }
+
+    #[test]
+    fn job_file_refuses_content_staged_elsewhere() {
+        let dir = tempfile::tempdir().unwrap();
+        let job_dir = dir.path().join("job-1");
+        fs::create_dir(&job_dir).unwrap();
+        let secret = dir.path().join("secret.txt");
+        fs::write(&secret, "x").unwrap();
+        let target = dir.path().join("video.txt");
+        let job = Job { files: vec![JobFile { target: target.to_string_lossy().into_owned(), staged: secret.to_string_lossy().into_owned() }] };
+        let job_path = job_dir.join("job.json");
+        fs::write(&job_path, serde_json::to_vec(&job).unwrap()).unwrap();
+        assert_eq!(run_job_file(&job_path), 1);
+        assert!(!target.exists());
     }
 
     #[test]

@@ -53,7 +53,7 @@ fn round2(x: f64) -> f64 {
 }
 
 /// Reads a console.log line by line, so a log can be fed in pieces as the game writes it.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct Parser {
     last_map: String,
     /// The last map was joined from a server: matches only log "[Client] Created physics for <map>",
@@ -155,7 +155,7 @@ const HEAD_LEN: usize = 64;
 
 /// Where the app got to in console.log. A long match with -condebug can write hundreds of MB, so only
 /// bytes added since the last read are parsed.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct LogTail {
     offset: u64,
     head: Vec<u8>,
@@ -243,9 +243,28 @@ fn same(a: &Report, b: &Report) -> bool {
     a.time == b.time && a.frames == b.frames
 }
 
+/// The stored sessions before adding to them. A file that can't be read is an error rather than an empty
+/// list, so a passing lock (antivirus, backup tool) never makes the next save drop the history; a file that
+/// isn't valid JSON is moved aside to perf.json.bad and the history starts over.
+fn load_for_update(app_dir: &Path) -> Result<Vec<Session>, String> {
+    let file = store_file(app_dir);
+    let bytes = match fs::read(&file) {
+        Ok(b) => b,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("Couldn't read performance data: {e}")),
+    };
+    match serde_json::from_slice(&bytes) {
+        Ok(sessions) => Ok(sessions),
+        Err(e) => {
+            fs::rename(&file, file.with_extension("json.bad")).map_err(|re| format!("perf.json is damaged ({e}) and couldn't be moved aside: {re}"))?;
+            Ok(Vec::new())
+        }
+    }
+}
+
 /// Adds reports that aren't stored yet. Returns how many were new.
 pub fn record(app_dir: &Path, reports: &[Report], label: impl Fn(&Report) -> Session) -> Result<usize, String> {
-    let stored = load(app_dir);
+    let stored = load_for_update(app_dir)?;
     // A report read again corrects the stored map (matches used to be stored under the hideout's name).
     let fixed: Vec<Session> = stored
         .iter()
@@ -484,6 +503,26 @@ mod tests {
         assert!(stored.iter().all(|s| s.report.map == "dl_midtown" && s.report.online && s.config_key == "k"));
         clear(dir.path()).unwrap();
         assert!(load(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn a_damaged_history_is_kept_aside_not_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let label = |r: &Report| Session {
+            report: r.clone(),
+            config_key: "k".into(),
+            config_name: "K".into(),
+            ranked_safe: false,
+            game_build: None,
+            recorded_at: "now".into(),
+        };
+        fs::write(dir.path().join("perf.json"), "[{\"cut off").unwrap();
+        assert_eq!(record(dir.path(), &parse(LOG), label).unwrap(), 2);
+        assert_eq!(fs::read_to_string(dir.path().join("perf.json.bad")).unwrap(), "[{\"cut off");
+        // A history that can't be read at all is left alone.
+        fs::remove_file(dir.path().join("perf.json")).unwrap();
+        fs::create_dir(dir.path().join("perf.json")).unwrap();
+        assert!(record(dir.path(), &parse(LOG), label).is_err());
     }
 
     #[test]

@@ -96,11 +96,24 @@ pub fn list(root: &Path) -> Vec<BackupMeta> {
     };
     let mut metas: Vec<BackupMeta> = entries
         .filter_map(Result::ok)
-        .filter_map(|e| fs::read_to_string(e.path().join(META)).ok())
-        .filter_map(|text| serde_json::from_str(&text).ok())
+        .filter_map(|e| {
+            let meta: BackupMeta = serde_json::from_str(&fs::read_to_string(e.path().join(META)).ok()?).ok()?;
+            (e.file_name() == meta.id.as_str() && is_sane(&meta)).then_some(meta)
+        })
         .collect();
     metas.sort_by(|a, b| b.id.cmp(&a.id));
     metas
+}
+
+fn named(path: &str, names: &[&str]) -> bool {
+    Path::new(path).file_name().and_then(|n| n.to_str()).is_some_and(|n| names.iter().any(|w| w.eq_ignore_ascii_case(n)))
+}
+
+/// Restore writes and deletes the paths in meta.json, so only the files the app backs up are accepted.
+fn is_sane(meta: &BackupMeta) -> bool {
+    meta.gameinfo_path.as_deref().is_none_or(|p| named(p, &[GAMEINFO]))
+        && meta.video_path.as_deref().is_none_or(|p| named(p, &[VIDEO]))
+        && meta.absent.iter().all(|p| named(p, &[GAMEINFO, VIDEO]))
 }
 
 pub fn prune(root: &Path, keep: usize) {
@@ -175,6 +188,23 @@ mod tests {
 
         let files = files_to_restore(&root, &find(&root, &first.id).unwrap()).unwrap();
         assert_eq!(files, vec![(gi.clone(), b"v0".to_vec())]);
+    }
+
+    #[test]
+    fn ignores_backups_whose_info_was_tampered_with() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("backups");
+        let gi = tmp.path().join("gameinfo.gi");
+        fs::write(&gi, "v0").unwrap();
+        let meta = create(&root, &Sources { gameinfo: &gi, video: None }, None, "apply").unwrap();
+        let write_meta = |m: &BackupMeta| fs::write(root.join(&meta.id).join(META), serde_json::to_string(m).unwrap()).unwrap();
+
+        write_meta(&BackupMeta { absent: vec![tmp.path().join("notes.docx").to_string_lossy().into_owned()], ..meta.clone() });
+        assert!(list(&root).is_empty());
+        write_meta(&BackupMeta { id: "..".into(), ..meta.clone() });
+        assert!(list(&root).is_empty());
+        write_meta(&meta);
+        assert_eq!(list(&root), vec![meta]);
     }
 
     #[test]
