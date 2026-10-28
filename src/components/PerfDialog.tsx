@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { Automation, ConfigStats, PerfView, api, errorText, timeAgo } from "../api";
+import { Automation, ConfigStats, PerfView, api, errorText, stopWhenReady, timeAgo } from "../api";
 import { Modal } from "./Modal";
 
 interface PerfDialogProps {
@@ -35,9 +35,7 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
 
   useEffect(() => {
     void load();
-    let unlisten: (() => void) | undefined;
-    listen("perf-changed", () => void load()).then((u) => (unlisten = u), () => undefined);
-    return () => unlisten?.();
+    return stopWhenReady(listen("perf-changed", () => void load()));
     // Loads once and on new reports.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

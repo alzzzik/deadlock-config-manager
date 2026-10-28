@@ -19,6 +19,8 @@ import {
   isSamePack,
   matchesSearch,
   pinKey,
+  latestOnly,
+  stopWhenReady,
 } from "./api";
 import { StatusStrip } from "./components/StatusStrip";
 import { PinnedSection, RepoSection } from "./components/RepoSection";
@@ -83,14 +85,17 @@ export default function App() {
   const appUpdate = useAppUpdate();
   const fail = useCallback((e: unknown) => push("error", errorText(e)), [push]);
 
+  // Focus, the watcher and every apply refresh these; only the newest answer is shown.
+  const latestOverview = useRef(latestOnly()).current;
+  const latestPacks = useRef(latestOnly()).current;
+
   const refreshOverview = useCallback(() => {
-    api.overview().then(setOverview, fail);
-  }, [fail]);
+    latestOverview(api.overview()).then(setOverview, fail);
+  }, [fail, latestOverview]);
 
   const refreshPacks = useCallback((silent = false) => {
     if (!silent) setLoading(true);
-    api
-      .listPacks()
+    latestPacks(api.listPacks())
       // Offline repos are flagged in their own header, so no toast here.
       .then((list) => {
         setGroups(list);
@@ -98,7 +103,7 @@ export default function App() {
       })
       .catch((e) => !silent && fail(e))
       .finally(() => setLoading(false));
-  }, [fail]);
+  }, [fail, latestPacks]);
 
   useEffect(() => {
     api.listLibrary().then(setLibrary, () => undefined);
@@ -115,18 +120,16 @@ export default function App() {
     // Re-check gameinfo.gi whenever the window regains focus (e.g. after a Steam update),
     // and when the background watcher re-applies after a game update.
     window.addEventListener("focus", refreshOverview);
-    let unlistenFiles: (() => void) | undefined;
-    listen("files-changed", refreshOverview).then((u) => (unlistenFiles = u), () => undefined);
+    const unlistenFiles = stopWhenReady(listen("files-changed", refreshOverview));
     const loadLaunchIssue = () => api.launchIssue().then(setLaunchIssue, () => undefined);
     loadLaunchIssue();
-    let unlistenLaunch: (() => void) | undefined;
-    listen("launch-failed", loadLaunchIssue).then((u) => (unlistenLaunch = u), () => undefined);
+    const unlistenLaunch = stopWhenReady(listen("launch-failed", loadLaunchIssue));
     // Background check for pack updates while the app stays open.
     const timer = window.setInterval(() => refreshPacks(true), UPDATE_CHECK_MS);
     return () => {
       window.removeEventListener("focus", refreshOverview);
-      unlistenFiles?.();
-      unlistenLaunch?.();
+      unlistenFiles();
+      unlistenLaunch();
       window.clearInterval(timer);
     };
   }, [refreshOverview, refreshPacks]);
@@ -324,9 +327,7 @@ export default function App() {
           }
         });
     getDeepLinks().then(handle, () => undefined);
-    let unlisten: (() => void) | undefined;
-    onOpenUrl(handle).then((u) => (unlisten = u), () => undefined);
-    return () => unlisten?.();
+    return stopWhenReady(onOpenUrl(handle));
   }, []);
 
   const skipGuide = () => {

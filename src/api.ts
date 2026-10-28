@@ -343,3 +343,33 @@ export function updateNotes(body: string | undefined, max = 4): string[] {
     .filter(Boolean)
     .slice(0, max);
 }
+
+/** Cleanup for a listener that registers asynchronously (Tauri `listen`, `onOpenUrl`). Calling it before
+ * registration finishes still removes the listener once it arrives, so a quick unmount can't leave one behind. */
+export function stopWhenReady(start: Promise<() => void>): () => void {
+  let stop: (() => void) | undefined;
+  let stopped = false;
+  start.then(
+    (u) => (stopped ? u() : (stop = u)),
+    () => undefined,
+  );
+  return () => {
+    stopped = true;
+    stop?.();
+  };
+}
+
+/** Wraps requests so only the newest one's result (or error) comes through; older ones never settle. Stops a
+ * slow earlier response from overwriting a newer one. */
+export function latestOnly(): <T>(request: Promise<T>) => Promise<T> {
+  let newest = 0;
+  return <T,>(request: Promise<T>) => {
+    const id = ++newest;
+    return new Promise<T>((resolve, reject) => {
+      request.then(
+        (v) => id === newest && resolve(v),
+        (e) => id === newest && reject(e),
+      );
+    });
+  };
+}
