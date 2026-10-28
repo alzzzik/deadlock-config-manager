@@ -138,6 +138,17 @@ fn read_optional(path: &Path, what: &str) -> Result<Option<String>, String> {
     fs::read_to_string(path).map(Some).map_err(|e| format!("Cannot read {what}: {e}"))
 }
 
+/// Switches ("What you see in game") belong to the config they were set on: applying another config starts
+/// it as it comes. Re-applying the same one (an update, a game update, a settings change) keeps them.
+fn overrides_for(applied: Option<&AppliedRecord>, src: &Source, current: &Overrides) -> Overrides {
+    let same = src.settings_change || applied.is_some_and(|a| a.pack_id == src.id && a.repo == src.repo);
+    if same {
+        current.clone()
+    } else {
+        Overrides { fixes: Vec::new(), hidden: Vec::new(), ..current.clone() }
+    }
+}
+
 fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyResponse, String> {
     let _guard = if confirmed { Some(state.apply_lock.lock().map_err(|_| "Another apply failed; restart the app.")?) } else { None };
     ensure_closed()?;
@@ -173,7 +184,8 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
     } else {
         (safe_gameinfo, None)
     };
-    let tweaks = s.overrides.effective();
+    let overrides = overrides_for(s.applied.as_ref(), &src, &s.overrides);
+    let tweaks = overrides.effective();
     let files = PackFiles {
         gameinfo: overrides::apply(&merged, &tweaks).map_err(|e| format!("Your tweaks couldn't be applied: {e}"))?,
         video: src.files.video.clone(),
@@ -283,7 +295,7 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
     if let Err(e) = save_applied_source(&state.dir, &src.files, src.autoexec.as_deref()) {
         diag::error(&format!("saving the applied config's files: {e}"));
     }
-    state.update(|s| Settings { applied: Some(record), onboarded: true, ..s })?;
+    state.update(|s| Settings { applied: Some(record), onboarded: true, overrides: overrides.clone(), ..s })?;
 
     let notes = src
         .notes
@@ -1200,7 +1212,8 @@ fn save_tweaked_blocking(state: &AppState) -> Result<crate::library::Entry, Stri
     };
     let from = crate::perf::label_for(&s.perf_tweaks, &perf_key(&applied), &applied.pack_name, &ov.tweak_fingerprint).1;
     let to = perf_key(&record);
-    state.update(|x| Settings { applied: Some(record), ..x })?;
+    // The switches are part of the saved file now, so they no longer go on top of other configs.
+    state.update(|x| Settings { applied: Some(record), overrides: Overrides { fixes: Vec::new(), hidden: Vec::new(), ..x.overrides.clone() }, ..x })?;
     if let Err(e) = crate::perf::rekey(&state.dir, &from, &to, &entry.name) {
         diag::error(&e);
     }
@@ -1218,6 +1231,39 @@ pub fn clear_perf(state: State<AppState>) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn switches_reset_only_when_another_config_is_applied() {
+        let src = |id: &str, settings_change: bool| Source {
+            repo: Some("r".into()),
+            id: id.into(),
+            name: id.into(),
+            revision: None,
+            files: PackFiles { gameinfo: String::new(), video: None },
+            notes: vec![],
+            ranked_safe: false,
+            quiet: false,
+            autoexec: None,
+            settings_change,
+        };
+        let applied = AppliedRecord {
+            repo: Some("r".into()),
+            pack_id: "alz".into(),
+            pack_name: "alz".into(),
+            revision: None,
+            applied_at: String::new(),
+            gameinfo_sha256: String::new(),
+            gameinfo_normalized_sha256: String::new(),
+            video_sha256: None,
+            ranked_safe: false,
+            game_build: None,
+        };
+        let on = Overrides { fixes: vec!["doorman_ult".into()], fps_max: Some(240), ..Default::default() };
+        assert_eq!(overrides_for(Some(&applied), &src("alz", false), &on), on);
+        assert_eq!(overrides_for(Some(&applied), &src("stable", true), &on), on);
+        let other = overrides_for(Some(&applied), &src("stable", false), &on);
+        assert!(other.fixes.is_empty() && other.fps_max == Some(240));
+    }
 
     #[test]
     fn accepts_encoded_pack_folder_links_only_on_github() {
