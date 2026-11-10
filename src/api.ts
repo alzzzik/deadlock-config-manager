@@ -140,7 +140,17 @@ export type ConfigStats = {
 };
 /** A recent session with its number (the oldest counted session is #1). */
 export type NumberedSession = PerfSession & { number: number };
-export type PerfView = { stats: ConfigStats[]; recent: NumberedSession[]; logging: boolean; minSeconds: number; minSessions: number };
+export type PerfView = {
+  stats: ConfigStats[];
+  recent: NumberedSession[];
+  logging: boolean;
+  minSeconds: number;
+  minSessions: number;
+  /** All stored sessions, short ones included. */
+  stored: number;
+  /** The history was cleared and Undo can bring it back. */
+  canUndo: boolean;
+};
 
 
 export type Automation = { overlay: boolean; autoReapply: boolean; startWithWindows: boolean; exitOnClose: boolean };
@@ -233,6 +243,7 @@ export const api = {
   })),
   getPerf: () => invoke<PerfView>("get_perf"),
   clearPerf: () => invoke<void>("clear_perf"),
+  undoClearPerf: () => invoke<void>("undo_clear_perf"),
   saveTweaked: () => invoke<LibraryEntry>("save_tweaked"),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),

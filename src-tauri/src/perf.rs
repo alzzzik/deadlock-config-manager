@@ -304,12 +304,45 @@ pub fn rekey(app_dir: &Path, from: &str, to: &str, name: &str) -> Result<usize, 
     Ok(moved)
 }
 
-pub fn clear(app_dir: &Path) -> Result<(), String> {
-    match fs::remove_file(store_file(app_dir)) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(e.to_string()),
+/// Where a cleared history is kept, and its tweak sets, until the next clear replaces them.
+fn cleared_file(app_dir: &Path) -> PathBuf {
+    app_dir.join("perf.cleared.json")
+}
+
+fn cleared_tweaks_file(app_dir: &Path) -> PathBuf {
+    app_dir.join("perf.cleared-tweaks.json")
+}
+
+/// Moves the history to perf.cleared.json (replacing an older one) with its tweak sets, so it can be undone.
+pub fn clear(app_dir: &Path, tweaks: &[TweakSet]) -> Result<(), String> {
+    let file = store_file(app_dir);
+    if !file.exists() {
+        return Ok(());
     }
+    let json = serde_json::to_vec_pretty(tweaks).map_err(|e| e.to_string())?;
+    crate::fsops::atomic_write(&cleared_tweaks_file(app_dir), &json).map_err(|e| format!("Couldn't clear performance data: {e}"))?;
+    fs::rename(&file, cleared_file(app_dir)).map_err(|e| format!("Couldn't clear performance data: {e}"))
+}
+
+/// A cleared history can be brought back: there is a copy and nothing was recorded since.
+pub fn can_undo_clear(app_dir: &Path) -> bool {
+    cleared_file(app_dir).exists() && !store_file(app_dir).exists()
+}
+
+/// Puts the cleared history back and returns its tweak sets. Refused once new sessions were recorded, since
+/// their tweak numbers started over and would clash with the old ones; the copy is kept.
+pub fn undo_clear(app_dir: &Path) -> Result<Vec<TweakSet>, String> {
+    let cleared = cleared_file(app_dir);
+    if !cleared.exists() {
+        return Err("There's no cleared history to bring back.".into());
+    }
+    if store_file(app_dir).exists() {
+        return Err("New sessions were recorded after clearing, so the old history can't be brought back.".into());
+    }
+    let tweaks = fs::read(cleared_tweaks_file(app_dir)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    fs::rename(&cleared, store_file(app_dir)).map_err(|e| format!("Couldn't bring back performance data: {e}"))?;
+    let _ = fs::remove_file(cleared_tweaks_file(app_dir));
+    Ok(tweaks)
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -589,8 +622,66 @@ mod tests {
         let stored = load(dir.path());
         assert_eq!(stored.len(), 2);
         assert!(stored.iter().all(|s| s.report.map == "dl_midtown" && s.report.online && s.config_key == "k"));
-        clear(dir.path()).unwrap();
+        clear(dir.path(), &[]).unwrap();
         assert!(load(dir.path()).is_empty());
+    }
+
+    fn stored(dir: &Path, key: &str) {
+        let r = &parse(LOG)[0];
+        record(dir, std::slice::from_ref(r), |r| Session {
+            report: r.clone(),
+            config_key: key.into(),
+            config_name: key.into(),
+            ranked_safe: false,
+            game_build: None,
+            recorded_at: "now".into(),
+        })
+        .unwrap();
+    }
+
+    fn tweak(number: u32) -> TweakSet {
+        TweakSet { config_key: "k".into(), fingerprint: format!("fps_max {number}"), number }
+    }
+
+    #[test]
+    fn clearing_keeps_a_copy_that_undo_brings_back() {
+        let dir = tempfile::tempdir().unwrap();
+        stored(dir.path(), "old");
+        clear(dir.path(), &[tweak(1)]).unwrap();
+        stored(dir.path(), "newer");
+        // A second clear replaces the older copy.
+        clear(dir.path(), &[tweak(2)]).unwrap();
+        assert!(load(dir.path()).is_empty());
+        assert!(can_undo_clear(dir.path()));
+        assert_eq!(undo_clear(dir.path()).unwrap(), vec![tweak(2)]);
+        let back = load(dir.path());
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].config_key, "newer");
+        assert!(!can_undo_clear(dir.path()));
+        assert!(!dir.path().join("perf.cleared.json").exists() && !dir.path().join("perf.cleared-tweaks.json").exists());
+    }
+
+    #[test]
+    fn undo_without_a_copy_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!can_undo_clear(dir.path()));
+        assert!(undo_clear(dir.path()).unwrap_err().contains("no cleared history"));
+        // Clearing an empty history keeps nothing to undo.
+        clear(dir.path(), &[tweak(1)]).unwrap();
+        assert!(undo_clear(dir.path()).is_err());
+    }
+
+    #[test]
+    fn undo_is_refused_once_new_sessions_were_recorded() {
+        let dir = tempfile::tempdir().unwrap();
+        stored(dir.path(), "old");
+        clear(dir.path(), &[]).unwrap();
+        stored(dir.path(), "after");
+        assert!(!can_undo_clear(dir.path()));
+        assert!(undo_clear(dir.path()).unwrap_err().contains("New sessions"));
+        // Nothing lost: the new session stays and the copy is kept.
+        assert_eq!(load(dir.path())[0].config_key, "after");
+        assert!(dir.path().join("perf.cleared.json").exists());
     }
 
     #[test]

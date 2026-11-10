@@ -1137,6 +1137,10 @@ pub struct PerfView {
     pub logging: bool,
     pub min_seconds: u64,
     pub min_sessions: usize,
+    /// All stored sessions, short ones included (what Clear history removes).
+    pub stored: usize,
+    /// The history was cleared and can be brought back.
+    pub can_undo: bool,
 }
 
 /// Runs off the window's thread: the first read of a long match's console.log takes a moment.
@@ -1167,7 +1171,15 @@ fn perf_view(state: &AppState) -> PerfView {
             crate::perf::Numbered { session: crate::perf::Session { config_name, ..n.session }, ..n }
         })
         .collect();
-    PerfView { stats, recent, logging, min_seconds: crate::perf::MIN_SECONDS, min_sessions: crate::perf::MIN_SESSIONS }
+    PerfView {
+        stats,
+        recent,
+        logging,
+        min_seconds: crate::perf::MIN_SECONDS,
+        min_sessions: crate::perf::MIN_SESSIONS,
+        stored: sessions.len(),
+        can_undo: crate::perf::can_undo_clear(&state.dir),
+    }
 }
 
 /// The key Performance groups a config's sessions under.
@@ -1222,11 +1234,31 @@ fn save_tweaked_blocking(state: &AppState) -> Result<crate::library::Entry, Stri
     Ok(entry)
 }
 
+/// Moves the history aside (undo brings it back). Off the window's thread: it waits for a log read in progress.
 #[tauri::command]
-pub fn clear_perf(state: State<AppState>) -> Result<(), String> {
-    crate::perf::clear(&state.dir)?;
-    // A fresh history numbers tweak sets from 1 again.
-    state.update(|s| Settings { perf_tweaks: Vec::new(), ..s }).map(|_| ())
+pub async fn clear_perf(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        // Held so the watcher doesn't record while the history moves.
+        let _log = state.perf_log.lock().unwrap_or_else(|e| e.into_inner());
+        crate::perf::clear(&state.dir, &state.snapshot().perf_tweaks)?;
+        // A fresh history numbers tweak sets from 1 again.
+        state.update(|s| Settings { perf_tweaks: Vec::new(), ..s }).map(|_| ())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn undo_clear_perf(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let _log = state.perf_log.lock().unwrap_or_else(|e| e.into_inner());
+        let tweaks = crate::perf::undo_clear(&state.dir)?;
+        state.update(|s| Settings { perf_tweaks: tweaks.clone(), ..s }).map(|_| ())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]

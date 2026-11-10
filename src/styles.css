@@ -118,6 +118,10 @@ code, input, select { user-select: text; }
 .btn-secondary { border-color: var(--line-strong); background: var(--surface-2); }
 .btn-secondary:hover:not(:disabled) { border-color: var(--accent-line); color: var(--accent-text); }
 
+/* danger: the confirm step of something that removes data */
+.btn-danger { border-color: var(--bad); background: var(--bad-wash); color: var(--bad); }
+.btn-danger:hover:not(:disabled) { background: var(--bad); color: var(--bg); }
+
 /* quiet: text only */
 .btn-quiet { color: var(--text-dim); }
 .btn-quiet:hover:not(:disabled) { color: var(--text); background: var(--surface-2); }

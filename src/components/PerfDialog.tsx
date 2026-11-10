@@ -18,6 +18,7 @@ const pct = (a: number, b: number) => {
 export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
   const [view, setView] = useState<PerfView | null>(null);
   const [automation, setAutomation] = useState<Automation | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     api.getAutomation().then(setAutomation, () => setAutomation(null));
@@ -40,11 +41,13 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const clear = () =>
-    api.clearPerf().then(() => {
-      void load();
-      onNotify("info", "Performance history cleared.");
-    }, (e) => onNotify("error", errorText(e)));
+  /** The history moves to perf.cleared.json, so Undo can bring it back until a new session is recorded. */
+  const clear = () => {
+    setConfirming(false);
+    api.clearPerf().then(() => void load(), (e) => onNotify("error", errorText(e)));
+  };
+  const undo = () => api.undoClearPerf().then(() => void load(), (e) => onNotify("error", errorText(e)));
+  const sessions = (n: number) => `${n} session${n === 1 ? "" : "s"}`;
 
   const enough = (s: ConfigStats) => !!view && s.sessions >= view.minSessions;
   const baseline = view?.stats.find((s) => s !== view.stats[0] && enough(s));
@@ -56,9 +59,28 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
       wide
       footer={
         <>
-          <button className="btn btn-quiet" onClick={() => void clear()} disabled={!view || view.stats.length === 0}>
-            Clear history
-          </button>
+          {confirming && view ? (
+            <>
+              <span className="small">Clear all {sessions(view.stored)}?</span>
+              <button className="btn btn-danger btn-sm" onClick={clear}>
+                Clear
+              </button>
+              <button className="btn btn-quiet btn-sm" onClick={() => setConfirming(false)} autoFocus>
+                Cancel
+              </button>
+            </>
+          ) : view?.canUndo ? (
+            <>
+              <span className="muted small">History cleared.</span>
+              <button className="btn btn-quiet btn-sm" onClick={() => void undo()}>
+                Undo
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-quiet" onClick={() => setConfirming(true)} disabled={!view || view.stored === 0}>
+              Clear history
+            </button>
+          )}
           <span className="spacer" />
           <button className="btn btn-secondary" onClick={onClose}>
             Close
