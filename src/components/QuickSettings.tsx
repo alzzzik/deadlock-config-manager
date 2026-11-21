@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TweakRow, TweaksView, api, errorText, fovFor } from "../api";
+import { FixRow, TweakRow, TweaksView, api, errorText, fovFor } from "../api";
 
 interface QuickSettingsProps {
   /** Bumped after an apply/restore so the config's values are re-read. */
@@ -49,7 +49,27 @@ function Row({ row, disabled, onSave }: { row: TweakRow; disabled: boolean; onSa
   );
 }
 
-/** View width and FPS caps, editable in place; a change is written to gameinfo.gi right away. */
+/** A switch for something configs often hide. Distance and detail settings can't be turned off past the
+ * config's own value, so those are locked on. */
+function FixSwitch({ fix: f, disabled, onToggle }: { fix: FixRow; disabled: boolean; onToggle: (on: boolean) => void }) {
+  const locked = f.on && f.configShows && !f.canHide;
+  return (
+    <label className={`fix-row ${locked ? "is-locked" : ""}`} title={locked ? "Your config already shows this." : undefined}>
+      <span>{f.label}</span>
+      <input
+        type="checkbox"
+        role="switch"
+        className="switch"
+        checked={f.on}
+        disabled={disabled || locked}
+        onChange={(e) => onToggle(e.target.checked)}
+      />
+    </label>
+  );
+}
+
+/** View width, FPS caps and the "what you see in game" switches, edited in place; each change is written to
+ * gameinfo.gi right away. */
 export function QuickSettings({ refreshKey, disabled, onApplied, onError }: QuickSettingsProps) {
   const [view, setView] = useState<TweaksView | null>(null);
   const [saving, setSaving] = useState(false);
@@ -58,10 +78,10 @@ export function QuickSettings({ refreshKey, disabled, onApplied, onError }: Quic
     api.getTweaks().then(setView, () => setView(null));
   }, [refreshKey]);
 
-  const save = async (id: string, value: string | null) => {
+  const run = async (change: Promise<TweaksView>) => {
     setSaving(true);
     try {
-      setView(await api.setTweak(id, value));
+      setView(await change);
       onApplied("Saved to gameinfo.gi.");
     } catch (e) {
       onError(errorText(e));
@@ -72,11 +92,31 @@ export function QuickSettings({ refreshKey, disabled, onApplied, onError }: Quic
   };
 
   if (!view) return null;
+  const off = disabled || saving;
   return (
-    <section className="quick-settings" aria-label="Your settings">
-      {view.rows.map((r) => (
-        <Row key={r.id} row={r} disabled={disabled || saving} onSave={(v) => void save(r.id, v)} />
-      ))}
+    <section className="your-settings" aria-labelledby="your-settings-title">
+      <div className="section-head">
+        <h2 id="your-settings-title">Your settings</h2>
+        <span className="hint">Written to gameinfo.gi as soon as you change them</span>
+      </div>
+      <div className="quick-settings">
+        {view.rows.map((r) => (
+          <Row key={r.id} row={r} disabled={off} onSave={(v) => void run(api.setTweak(r.id, v))} />
+        ))}
+        {view.fixes.length > 0 && (
+          <div className="fixes">
+            <div className="fixes-head">
+              <h3>What you see in game</h3>
+              <span className="hint">Each switch starts as your config has it</span>
+            </div>
+            <div className="fix-grid">
+              {view.fixes.map((f) => (
+                <FixSwitch key={f.id} fix={f} disabled={off} onToggle={(on) => void run(api.setFix(f.id, on))} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

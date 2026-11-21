@@ -202,10 +202,10 @@ fn apply_source(state: &AppState, src: Source, confirmed: bool) -> Result<ApplyR
             let (lines, dropped) = crate::autoexec::filter(pack_exec);
             if dropped > 0 {
                 plan.warnings.push(format!(
-                    "{dropped} line(s) in the pack's autoexec.cfg were skipped (key binds, connect, exec and similar commands aren't copied)."
+                    "{dropped} line(s) in the config's autoexec.cfg were skipped (key binds, connect, exec and similar commands aren't copied)."
                 ));
             }
-            plan.warnings.push("This pack has an autoexec.cfg. Deadlock only runs it with the +exec autoexec launch option (Tweaks › Launch options).".into());
+            plan.warnings.push("This config has an autoexec.cfg. Deadlock only runs it with the +exec autoexec launch option (Settings › Launch options).".into());
             let new = crate::autoexec::merge(old.as_deref(), &lines);
             Some((path, old, new))
         }
@@ -325,7 +325,7 @@ pub async fn apply_pack(state: State<'_, AppState>, pack: PackInfo, confirmed: b
     .map_err(|e| e.to_string())?;
     let (fetched, pack_autoexec) = diag::logged(&format!("download {}#{}", pack.repo, pack.id), fetched)?;
     let notes = if fetched.from_cache && pack.revision != fetched.revision {
-        vec!["GitHub was unreachable, so the cached copy of this pack was used.".to_string()]
+        vec!["GitHub was unreachable, so the cached copy of this config was used.".to_string()]
     } else {
         vec![]
     };

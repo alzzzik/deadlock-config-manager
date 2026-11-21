@@ -390,7 +390,7 @@ fn fetch_index(repo: &Repo, cache_root: &Path) -> Result<Vec<PackInfo>, String> 
         }
     };
     if base.is_empty() {
-        return Err("No config packs found in this repo.".into());
+        return Err("No configs found in this repo.".into());
     }
     // Each folder's latest commit, fetched in parallel; variants of one folder share a lookup.
     let folders: Vec<String> = base.iter().map(|p| p.folder.clone()).fold(Vec::new(), |mut acc, f| {
@@ -599,7 +599,7 @@ pub fn fetch_pack(repo_input: &str, pack: &PackInfo, cache_root: &Path) -> Resul
         || bad_file(&pack.video_file)
         || bad_file(&pack.gameinfo_file)
     {
-        return Err("Invalid pack.".into());
+        return Err("Invalid config.".into());
     }
     let pack_dir = repo_cache(cache_root, &repo).join(&pack.id);
     if let Some(rev) = &pack.revision {
@@ -611,7 +611,7 @@ pub fn fetch_pack(repo_input: &str, pack: &PackInfo, cache_root: &Path) -> Resul
     let download = || -> Result<PackFiles, String> {
         let gi_name = pack.gameinfo_file.as_deref().filter(|g| is_gameinfo_name(g)).unwrap_or("gameinfo.gi");
         let gi = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, gi_name)))?
-            .ok_or("The pack has no gameinfo.gi.")?;
+            .ok_or("The config has no gameinfo.gi.")?;
         let video_name = pack.video_file.as_deref().unwrap_or("video.txt");
         let video = get_text(&raw_url(&repo, &rev, &in_folder(&pack.folder, video_name)))?;
         Ok(PackFiles { gameinfo: gi, video })
@@ -630,7 +630,7 @@ pub fn fetch_pack(repo_input: &str, pack: &PackInfo, cache_root: &Path) -> Resul
         }
         Err(e) => match newest_cached(&pack_dir).and_then(|(dir, key)| read_cached(&dir).map(|f| (f, key))) {
             Some((files, key)) => Ok(FetchedPack { files, revision: Some(key), from_cache: true }),
-            None => Err(format!("{e} No cached copy of this pack is available.")),
+            None => Err(format!("{e} No cached copy of this config is available.")),
         },
     }
 }
@@ -704,7 +704,7 @@ mod tests {
             last_commit_date: None, revision: Some("../../../x/y/z".into()), commit_message: None, html_url: String::new(),
             video_file: None, gameinfo_file: None,
         };
-        assert_eq!(fetch_pack("a/b", &base, tmp.path()).err().as_deref(), Some("Invalid pack."));
+        assert_eq!(fetch_pack("a/b", &base, tmp.path()).err().as_deref(), Some("Invalid config."));
         let bad_video = PackInfo { revision: None, video_file: Some("..".into()), ..base.clone() };
         assert!(fetch_pack("a/b", &bad_video, tmp.path()).is_err());
         assert!(is_revision("0123abc") && is_revision("HEAD") && !is_revision("main") && !is_revision(".."));

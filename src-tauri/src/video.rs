@@ -107,7 +107,7 @@ pub fn validate_pack(pack: &str) -> Result<(), String> {
     if is_fragment(pack) {
         return Ok(());
     }
-    kv::parse_document(pack).map(|_| ()).map_err(|e| format!("pack video.txt {e}"))
+    kv::parse_document(pack).map(|_| ()).map_err(|e| format!("config video.txt {e}"))
 }
 
 /// Fragment pairs, deduplicated (last value wins), in first-seen order.
@@ -153,7 +153,7 @@ pub fn merge(pack: &str, user: &str, extra_preserved: &[String]) -> Result<Strin
     if is_fragment(pack) {
         return merge_fragment(pack, user, extra_preserved);
     }
-    kv::parse_document(pack).map_err(|e| format!("pack video.txt {e}"))?;
+    kv::parse_document(pack).map_err(|e| format!("config video.txt {e}"))?;
     let user_values = read_values(user).map_err(|e| format!("your video.txt {e}"))?;
     let preserved = preserved_set(extra_preserved);
     let is_preserved = |k: &str| preserved.iter().any(|p| p.eq_ignore_ascii_case(k));
@@ -175,7 +175,7 @@ pub fn merge(pack: &str, user: &str, extra_preserved: &[String]) -> Result<Strin
             Some(v) => format_line(kvl.indent, kvl.key, v, kvl.rest),
             None if is_placeholder(kvl.value) => {
                 return Err(format!(
-                    "The pack's video.txt has a placeholder for \"{}\" and your video.txt has no \"{}\" to fill it with. \
+                    "The config's video.txt has a placeholder for \"{}\" and your video.txt has no \"{}\" to fill it with. \
                      Launch Deadlock once so the game writes a complete video.txt, then try again.",
                     kvl.key, kvl.key
                 ));
@@ -226,7 +226,7 @@ pub fn new_from_pack(pack: &str) -> Result<String, String> {
         kv::parse_document(&text).map_err(|e| format!("new video.txt {e}"))?;
         return Ok(text);
     }
-    kv::parse_document(pack).map_err(|e| format!("pack video.txt {e}"))?;
+    kv::parse_document(pack).map_err(|e| format!("config video.txt {e}"))?;
     let kept: Vec<&str> = pack
         .lines()
         .filter(|line| match split_kv_line(line) {

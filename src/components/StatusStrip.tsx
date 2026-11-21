@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Location, Overview, PathKind, Status, UpdateReport, api, timeAgo } from "../api";
 import { AccountHelp } from "./AccountHelp";
 import { CheckIcon, ChevronIcon, CloseIcon, FolderIcon, PlusIcon } from "./icons";
@@ -26,6 +26,22 @@ type Tone = "good" | "warn" | "bad" | "idle";
 type FileState = "ok" | "new" | "bad";
 
 const PATHS_OPEN_KEY = "dcm.pathsOpen";
+/** How long the strip stays marked after the installed state changes; matches the CSS animation. */
+const FRESH_MS = 1400;
+
+/** True for a moment whenever `key` changes after the first render, e.g. right after an apply or restore. */
+function useFlash(key: string): boolean {
+  const first = useRef(key);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (key === first.current) return;
+    first.current = key;
+    setOn(true);
+    const t = window.setTimeout(() => setOn(false), FRESH_MS);
+    return () => window.clearTimeout(t);
+  }, [key]);
+  return on;
+}
 
 function readPathsOpen(): boolean {
   try {
@@ -65,10 +81,10 @@ function headline(s: Status, o: Overview, update: boolean): { tone: Tone; title:
       return { tone: "warn", ...changedText(o.changedBy, s.pack) };
     case "missing":
       return o.gameinfoCreatable
-        ? { tone: "idle", title: "Ready", detail: "gameinfo.gi is missing; applying a pack puts one in place." }
+        ? { tone: "idle", title: "Ready", detail: "gameinfo.gi is missing; applying a config puts one in place." }
         : { tone: "bad", title: "Deadlock not found", detail: "Locate your install under Paths." };
     case "notApplied":
-      return { tone: "idle", title: "No pack applied", detail: "Pick a pack below to apply it." };
+      return { tone: "idle", title: "No config applied", detail: "Pick a config below to apply it." };
   }
 }
 
@@ -157,9 +173,11 @@ export function StatusStrip(props: StatusStripProps) {
   const showReapply = canReapply && (o.status.kind === "changed" || updateAvailable);
   const isApplied = o.status.kind === "applied" || o.status.kind === "appliedDmm";
   const tweaked = isTweaked(o);
+  const currentAccount = o.accounts.find((a) => a.id === o.accountId);
+  const fresh = useFlash(`${o.status.kind}|${o.applied?.appliedAt ?? ""}|${o.applied?.packId ?? ""}`);
 
   return (
-    <section className={`status tone-${h.tone}`} aria-labelledby="status-title">
+    <section className={`status tone-${h.tone}${fresh ? " is-fresh" : ""}`} aria-labelledby="status-title">
       <div className="status-main">
         <span className="status-dot" aria-hidden />
         <div className="status-text">
@@ -211,20 +229,12 @@ export function StatusStrip(props: StatusStripProps) {
         <FileChip name="video.txt" state={videoState} />
         <span className="files-sep" aria-hidden />
         {o.accounts.length > 0 ? (
-          <label className="account">
-            <span>Account</span>
-            <select value={o.accountId ?? ""} onChange={(e) => onAccount(e.target.value)}>
-              {o.accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {(a.persona ?? a.id) + (a.hasVideo ? "" : " (no video.txt yet)")}
-                </option>
-              ))}
-            </select>
-          </label>
+          <span className="account" title="Change the Steam account under Paths">
+            Account <span className="account-name">{currentAccount?.persona ?? currentAccount?.id ?? "none"}</span>
+          </span>
         ) : (
           <span className="muted">No Steam account found</span>
         )}
-        <AccountHelp onOpenUserdata={() => onOpen("userdata")} />
         <button className="paths-toggle" onClick={togglePaths} aria-expanded={pathsOpen} aria-controls="paths-panel">
           Paths
           <ChevronIcon size={12} className="chev" />
@@ -233,11 +243,27 @@ export function StatusStrip(props: StatusStripProps) {
 
       {pathsOpen && (
         <div className="paths" id="paths-panel">
+          {o.accounts.length > 0 && (
+            <div className="path-row">
+              <span className="path-name">Account</span>
+              <div className="account-pick">
+                <select value={o.accountId ?? ""} onChange={(e) => onAccount(e.target.value)} aria-label="Steam account">
+                  {o.accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {(a.persona ?? a.id) + (a.hasVideo ? "" : " (no video.txt yet)")}
+                    </option>
+                  ))}
+                </select>
+                <AccountHelp onOpenUserdata={() => onOpen("userdata")} />
+              </div>
+              <span />
+            </div>
+          )}
           <PathRow
             name="gameinfo.gi"
             path={o.gameinfoPath}
             state={gameState}
-            note={gameState === "new" ? "Missing. Applying a pack creates it." : gameState === "bad" ? "Deadlock install not found" : undefined}
+            note={gameState === "new" ? "Missing. Applying a config creates it." : gameState === "bad" ? "Deadlock install not found" : undefined}
             onLocate={() => onLocate("gameinfo")}
             onAuto={() => onAuto("gameinfo")}
             onOpen={() => onOpen("game")}
@@ -246,7 +272,7 @@ export function StatusStrip(props: StatusStripProps) {
             name="video.txt"
             path={o.videoPath}
             state={videoState}
-            note={videoState === "new" ? "Not created yet. Applying a pack creates it." : videoState === "bad" ? "No Steam account found" : undefined}
+            note={videoState === "new" ? "Not created yet. Applying a config creates it." : videoState === "bad" ? "No Steam account found" : undefined}
             onLocate={() => onLocate("video")}
             onAuto={() => onAuto("video")}
             onOpen={() => onOpen("video")}

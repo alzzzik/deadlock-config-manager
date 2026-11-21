@@ -130,10 +130,10 @@ export function PreviewDialog({ preview, onCancel, onConfirm, onConfirmSafe }: P
           Includes your {preview.tweaks} setting{preview.tweaks === 1 ? "" : "s"} on top of the config.
         </p>
       )}
-      {nothing && <p className="muted">Nothing would change: your files already match this pack.</p>}
+      {nothing && <p className="muted">Nothing would change: your files already match this config.</p>}
       {ignored > 0 && (
         <p className="muted small">
-          {ignored} setting{ignored === 1 ? "" : "s"} in this pack {ignored === 1 ? "is" : "are"} ignored by the game: Valve
+          {ignored} setting{ignored === 1 ? "" : "s"} in this config {ignored === 1 ? "is" : "are"} ignored by the game: Valve
           locked {ignored === 1 ? "it" : "them"} so gameinfo.gi can't change {ignored === 1 ? "it" : "them"}. They're
           marked below. Descriptions are from game build {preview.convarBuild}.
         </p>

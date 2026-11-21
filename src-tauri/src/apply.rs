@@ -37,18 +37,18 @@ settings; if it does, launch once and Re-apply.";
 
 /// Validates the pack and builds both output files. Nothing is written here.
 pub fn build_plan(pack: &PackFiles, installed_gameinfo: Option<&str>, video_in: VideoInput, preserved: &[String]) -> Result<Plan, String> {
-    let gameinfo_out = gameinfo::enforce(&pack.gameinfo).map_err(|e| format!("Pack {e}"))?;
+    let gameinfo_out = gameinfo::enforce(&pack.gameinfo).map_err(|e| format!("Config {e}"))?;
     let mut warnings = Vec::new();
 
     let pack_pgi = gameinfo::pgi_version(&pack.gameinfo);
     let installed_pgi = installed_gameinfo.and_then(gameinfo::pgi_version);
     if let (Some(p), Some(i)) = (&pack_pgi, &installed_pgi) {
         if !p.eq_ignore_ascii_case(i) {
-            warnings.push("This pack was made for a different game version (PGIVersion differs from your installed gameinfo.gi).".into());
+            warnings.push("This config was made for a different game version (PGIVersion differs from your installed gameinfo.gi).".into());
         }
     }
     if installed_gameinfo.is_none() {
-        warnings.push("gameinfo.gi is missing, so the pack's file will be created in the game folder.".into());
+        warnings.push("gameinfo.gi is missing, so the config's file will be created in the game folder.".into());
     }
 
     let (video_out, expected_preserved) = match (pack.video.as_deref(), video_in) {
@@ -63,7 +63,7 @@ pub fn build_plan(pack: &PackFiles, installed_gameinfo: Option<&str>, video_in: 
             (None, Vec::new())
         }
         (None, _) => {
-            warnings.push("This pack has no video.txt; only gameinfo.gi will be written.".into());
+            warnings.push("This config has no video.txt; only gameinfo.gi will be written.".into());
             (None, Vec::new())
         }
     };

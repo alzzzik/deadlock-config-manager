@@ -286,7 +286,7 @@ pub async fn add_repo(state: State<'_, AppState>, input: String) -> Result<Added
         .await
         .map_err(|e| e.to_string())?;
     if group.packs.is_empty() {
-        return Err(group.error.unwrap_or_else(|| format!("{} has no config packs.", group.repo)));
+        return Err(group.error.unwrap_or_else(|| format!("{} has no configs.", group.repo)));
     }
     let s = state.update(|s| Settings { repos: repos::add(&s.effective_repos(), &input).unwrap_or(next), ..s })?;
     Ok(AddedRepo { overview: state.overview(&s), group })
@@ -309,7 +309,7 @@ pub fn move_repo(state: State<AppState>, repo: String, delta: i32) -> Result<Ove
 pub fn toggle_pin(state: State<AppState>, key: String) -> Result<Overview, String> {
     let valid = key.split_once('#').is_some_and(|(repo, id)| repos::canonical(repo).is_ok() && !id.is_empty());
     if !valid {
-        return Err("That pack can't be pinned.".into());
+        return Err("That config can't be pinned.".into());
     }
     let s = state.update(|s| Settings { pinned: repos::toggle(&s.pinned, &key), ..s })?;
     Ok(state.overview(&s))

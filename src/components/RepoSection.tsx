@@ -101,7 +101,7 @@ export function GroupHead({ icon, title, meta, children }: { icon: ReactNode; ti
 
 export function PinnedSection(props: Omit<PackListProps, "showRepo">) {
   return (
-    <section className="group" aria-label="Pinned packs">
+    <section className="group" aria-label="Pinned configs">
       <GroupHead icon={<PinIcon size={14} filled />} title="Pinned" />
       <PackList {...props} showRepo />
     </section>
@@ -121,7 +121,7 @@ interface RepoSectionProps extends Omit<PackListProps, "packs" | "showRepo"> {
 }
 
 export function RepoSection({ group: g, index, count, loading, onRefresh, onMove, onRemove, ...list }: RepoSectionProps) {
-  const packCount = `${g.packs.length} pack${g.packs.length === 1 ? "" : "s"}`;
+  const packCount = `${g.packs.length} config${g.packs.length === 1 ? "" : "s"}`;
   return (
     <section className="group" aria-label={g.repo}>
       <GroupHead

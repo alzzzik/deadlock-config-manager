@@ -38,6 +38,7 @@ import { ImportDialog } from "./components/ImportDialog";
 import { StoreDialog } from "./components/StoreDialog";
 import { LaunchIssue } from "./components/LaunchIssue";
 import { PerfDialog } from "./components/PerfDialog";
+import { Modal } from "./components/Modal";
 
 type Dialog =
   | { kind: "none" }
@@ -50,6 +51,7 @@ type Dialog =
   | { kind: "import" }
   | { kind: "store" }
   | { kind: "perf" }
+  | { kind: "link"; url: string }
   | { kind: "preview"; preview: Preview; proceed: () => void; proceedSafe: () => void };
 
 type ApplyCall = (confirmed: boolean, rankedSafe: boolean) => Promise<ApplyResponse>;
@@ -335,19 +337,13 @@ export default function App() {
     }, fail);
 
   // deadlockcfg://import/<code> links: on launch and while running.
-  const importCodeRef = useRef(importCode);
-  importCodeRef.current = importCode;
   useEffect(() => {
     // Links can come from any web page, so ask before adding anything.
     const handle = (urls: string[] | null) =>
       urls
         ?.filter((u) => u.toUpperCase().includes("DCM-"))
         .slice(0, 1)
-        .forEach((u) => {
-          if (window.confirm("A deadlockcfg:// link wants to add a shared config to My configs. Nothing is applied until you choose to. Add it?")) {
-            void importCodeRef.current(u);
-          }
-        });
+        .forEach((u) => setDialog({ kind: "link", url: u }));
     getDeepLinks().then(handle, () => undefined);
     return stopWhenReady(onOpenUrl(handle));
   }, []);
@@ -373,7 +369,7 @@ export default function App() {
         .filter((g) => g.repo.toLowerCase() === choice.repo.toLowerCase())
         .flatMap((g) => g.packs)
         .find((p) => p.folder.toLowerCase() === choice.folder.toLowerCase());
-      if (!pack) throw new Error(`${choice.title} wasn't found in ${choice.repo}. Pick a pack from the list instead.`);
+      if (!pack) throw new Error(`${choice.title} wasn't found in ${choice.repo}. Pick a config from the list instead.`);
       setDialog({ kind: "none" });
       setBusy(false);
       await applyPack(pack);
@@ -391,7 +387,7 @@ export default function App() {
     if (saved) return applyLibrary(saved, safe);
     if (appliedPack) return applyPack(appliedPack, safe);
     if (overview?.applied?.packId === "local") return applyLocal(safe);
-    push("error", "That pack isn't in your linked repos anymore. Refresh, or pick a pack below.");
+    push("error", "That config isn't in your linked repos anymore. Refresh, or pick one below.");
   };
 
   const locate = async (kind: PathKind) => {
@@ -417,7 +413,7 @@ export default function App() {
       const { overview: o, group } = await api.addRepo(input);
       setOverview(o);
       setGroups((cur) => [...(cur ?? []).filter((g) => g.repo.toLowerCase() !== group.repo.toLowerCase()), group]);
-      push("ok", `Linked ${group.repo} (${group.packs.length} pack${group.packs.length === 1 ? "" : "s"}).`);
+      push("ok", `Linked ${group.repo} (${group.packs.length} config${group.packs.length === 1 ? "" : "s"}).`);
       return null;
     } catch (e) {
       return errorText(e);
@@ -479,6 +475,8 @@ export default function App() {
   const blocked = busy || !overview || overview.deadlockRunning || !canWrite;
 
   const packCount = allPacks.length;
+  /** Everything listed: repo configs and saved ones. */
+  const configCount = packCount + library.length;
 
   return (
     <div className="app">
@@ -563,22 +561,22 @@ export default function App() {
         <section className="packs" aria-labelledby="packs-title">
           <div className="toolbar">
             <h2 id="packs-title">
-              Packs {packCount > 0 && <span className="count">{packCount}</span>}
+              Configs {configCount > 0 && <span className="count">{configCount}</span>}
             </h2>
             <span className="spacer" />
             {packCount > SEARCH_MIN_PACKS && (
               <label className="search">
                 <SearchIcon size={14} />
-                <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search packs" aria-label="Search packs" />
+                <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search configs" aria-label="Search configs" />
               </label>
             )}
             <button className="icon-btn" onClick={() => refreshPacks()} disabled={loading} aria-label="Refresh all repos" title="Refresh all repos">
               <RefreshIcon className={loading ? "spin" : ""} />
             </button>
-            <button className="btn btn-quiet btn-sm" onClick={() => setDialog({ kind: "store" })} title="Browse community configs">
+            <button className="btn btn-secondary btn-sm" onClick={() => setDialog({ kind: "store" })} title="Browse community configs">
               Browse…
             </button>
-            <button className="btn btn-quiet btn-sm" onClick={() => void applyLocal()} disabled={blocked} title="Apply a pack from a folder on this PC">
+            <button className="btn btn-quiet btn-sm" onClick={() => void applyLocal()} disabled={blocked} title="Apply a config from a folder on this PC">
               <FolderIcon size={14} />
               From folder…
             </button>
@@ -611,7 +609,7 @@ export default function App() {
             />
           )}
 
-          {query.trim() && filtered.length === 0 && pinnedPacks.length === 0 && <p className="empty">No packs match “{query.trim()}”.</p>}
+          {query.trim() && filtered.length === 0 && pinnedPacks.length === 0 && <p className="empty">No configs match “{query.trim()}”.</p>}
 
           {!groups && loading && (
             <ul className="pack-list" aria-busy="true">
@@ -712,6 +710,27 @@ export default function App() {
       )}
       {dialog.kind === "perf" && (
         <PerfDialog onClose={() => setDialog({ kind: "none" })} onNotify={push} />
+      )}
+      {dialog.kind === "link" && (
+        <Modal
+          title="Add a shared config?"
+          onClose={() => setDialog({ kind: "none" })}
+          footer={
+            <>
+              <span className="spacer" />
+              <button className="btn btn-secondary" onClick={() => setDialog({ kind: "none" })}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" disabled={busy} onClick={() => void importCode(dialog.url)}>
+                Add to My configs
+              </button>
+            </>
+          }
+        >
+          <p className="muted">
+            A deadlockcfg:// link wants to add a shared config to My configs. Nothing is applied until you choose to.
+          </p>
+        </Modal>
       )}
       {dialog.kind === "guide" && <FirstRunGuide busy={busy} onPick={(c) => void pickFromGuide(c)} onSkip={skipGuide} onNotify={push} />}
       {dialog.kind === "preview" && (

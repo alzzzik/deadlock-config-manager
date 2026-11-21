@@ -5,7 +5,6 @@ import { AddRepo } from "./AddRepo";
 import { ChevronIcon, CloseIcon } from "./icons";
 import { Modal } from "./Modal";
 import { UpdateCheck } from "./AppUpdate";
-import { FixesSection } from "./FixesSection";
 import { LaunchOptions } from "./LaunchOptions";
 
 interface SettingsDialogProps {
@@ -78,7 +77,7 @@ export function SettingsDialog({
       }
     >
       <section className="field">
-        <h3 className="field-title">Pack repositories</h3>
+        <h3 className="field-title">Config repositories</h3>
         <p className="muted small">Shown on the main screen in this order. Changes here apply right away.</p>
         <ul className="repo-list">
           {repos.map((r, i) => (
@@ -103,7 +102,7 @@ export function SettingsDialog({
       <fieldset className="field">
         <legend className="field-title">Keep from my video.txt</legend>
         <p className="muted small">
-          Always kept: {overview.alwaysPreserved.join(", ")}. Ticked settings also keep your value instead of the pack's.
+          Always kept: {overview.alwaysPreserved.join(", ")}. Ticked settings also keep your value instead of the config's.
         </p>
         <div className="checks">
           {overview.optionalPreserved.map((k) => (
@@ -115,8 +114,6 @@ export function SettingsDialog({
           ))}
         </div>
       </fieldset>
-
-      <FixesSection onNotify={onNotify} />
 
       <fieldset className="field">
         <legend className="field-title">Launch options</legend>
@@ -216,48 +213,43 @@ function GameUpdatesSection({ onNotify }: { onNotify: (kind: "ok" | "error" | "i
   return (
     <fieldset className="field">
       <legend className="field-title">Background and game updates</legend>
-      <label className="tweak-row">
-        <input type="checkbox" checked={a.exitOnClose} onChange={(e) => change({ ...a, exitOnClose: e.target.checked })} />
-        <span className="tweak-text">
-          <span>Closing the window exits the app</span>
-          <small className="muted">
-            Turn off to keep the app in the tray instead (right-click its icon › Quit to exit), so it keeps collecting
-            performance reports.
-          </small>
-        </span>
-      </label>
-      <label className="tweak-row">
-        <input type="checkbox" checked={a.autoReapply} onChange={(e) => change({ ...a, autoReapply: e.target.checked })} />
-        <span className="tweak-text">
-          <span>Re-apply my config after game updates</span>
-          <small className="muted">
-            When an update replaces gameinfo.gi, the app applies your config again by itself (while Deadlock is closed and
-            the app is running, in the window or the tray) and shows a notification.
-          </small>
-        </span>
-      </label>
-      <label className="tweak-row">
-        <input
-          type="checkbox"
-          checked={a.startWithWindows}
-          onChange={(e) => change({ ...a, startWithWindows: e.target.checked })}
-        />
-        <span className="tweak-text">
-          <span>Start with Windows in the tray</span>
-          <small className="muted">Starts hidden in the tray, so performance reports are collected even if you never open the app.</small>
-        </span>
-      </label>
-      <label className="tweak-row">
-        <input type="checkbox" checked={a.overlay} onChange={(e) => change({ ...a, overlay: e.target.checked })} />
-        <span className="tweak-text">
-          <span>Keep settings Valve adds in updates (overlay)</span>
-          <small className="muted">
-            Applies configs on top of Valve's current gameinfo.gi, so settings a newer game version added aren't removed. The
-            config still wins for everything it sets. Off applies the config's file exactly.
-          </small>
-        </span>
-      </label>
+      <SwitchRow
+        label="Closing the window exits the app"
+        note="Turn off to keep the app in the tray instead (right-click its icon › Quit to exit), so it keeps collecting performance reports."
+        on={a.exitOnClose}
+        onChange={(on) => change({ ...a, exitOnClose: on })}
+      />
+      <SwitchRow
+        label="Re-apply my config after game updates"
+        note="When an update replaces gameinfo.gi, the app applies your config again by itself (while Deadlock is closed and the app is running, in the window or the tray) and shows a notification."
+        on={a.autoReapply}
+        onChange={(on) => change({ ...a, autoReapply: on })}
+      />
+      <SwitchRow
+        label="Start with Windows in the tray"
+        note="Starts hidden in the tray, so performance reports are collected even if you never open the app."
+        on={a.startWithWindows}
+        onChange={(on) => change({ ...a, startWithWindows: on })}
+      />
+      <SwitchRow
+        label="Keep settings Valve adds in updates (overlay)"
+        note="Applies configs on top of Valve's current gameinfo.gi, so settings a newer game version added aren't removed. The config still wins for everything it sets. Off applies the config's file exactly."
+        on={a.overlay}
+        onChange={(on) => change({ ...a, overlay: on })}
+      />
     </fieldset>
   );
 }
 
+/** A setting that takes effect as soon as it's switched (checkboxes are for choices saved with Save). */
+function SwitchRow({ label, note, on, onChange }: { label: string; note: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="setting-row">
+      <span className="tweak-text">
+        <span>{label}</span>
+        <small className="muted">{note}</small>
+      </span>
+      <input type="checkbox" role="switch" className="switch" checked={on} onChange={(e) => onChange(e.target.checked)} />
+    </label>
+  );
+}

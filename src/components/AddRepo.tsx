@@ -69,7 +69,7 @@ export function AddRepo({ linked, onAdd, onOpenGithub, onBrowse }: AddRepoProps)
             setValue(e.target.value);
             setError(null);
           }}
-          placeholder="Link another pack repo: owner/repo or a github.com URL"
+          placeholder="Link another config repo: owner/repo or a github.com URL"
           aria-label="GitHub repo to add"
           aria-invalid={!!error}
           spellCheck={false}
