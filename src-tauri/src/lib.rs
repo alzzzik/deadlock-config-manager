@@ -75,7 +75,11 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
 pub fn run() {
     let dir = settings::app_dir();
     diag::init(&dir);
-    let state = commands::AppState { settings: Mutex::new(settings::load(&dir)), dir, apply_lock: Mutex::new(()), perf_log: Default::default(), ranked_refused: Default::default() };
+    let (loaded, settings_reset) = settings::load_reporting(&dir);
+    if settings_reset {
+        diag::error(&format!("settings.json couldn't be read; started with defaults and kept it as {}", settings::CORRUPT_FILE));
+    }
+    let state = commands::AppState { settings: Mutex::new(loaded), dir, apply_lock: Mutex::new(()), perf_log: Default::default(), ranked_refused: Default::default(), settings_reset };
     tauri::Builder::default()
         // A second launch (e.g. from a deadlockcfg:// link) focuses this window; the deep-link
         // plugin forwards the link to the running app.
@@ -152,6 +156,7 @@ pub fn run() {
             commands::get_store,
             commands::launch_issue,
             commands::dismiss_launch_issue,
+            commands::settings_were_reset,
             commands::get_perf,
             commands::clear_perf,
             commands::undo_clear_perf,

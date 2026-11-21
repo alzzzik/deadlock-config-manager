@@ -46,6 +46,9 @@ pub struct Fix {
     pub hide: Option<fn() -> Vec<Entry>>,
     /// Whether a gameinfo.gi shows it.
     pub shown: fn(&str) -> bool,
+    /// The game no longer reads its lines from gameinfo.gi, so the switch isn't offered and writes nothing.
+    /// The entry stays because share codes store switches by position.
+    pub retired: bool,
 }
 
 fn is_true(v: Option<String>) -> bool {
@@ -60,8 +63,13 @@ fn number(v: Option<String>) -> Option<f64> {
     v.and_then(|v| v.trim().parse().ok())
 }
 
+/// The game's own `r_size_cull_threshold`; boxes and health bars disappear early above it.
+const SIZE_CULL_DEFAULT: f64 = 0.8;
+/// The game's own `citadel_in_world_item_panel_dpi`; in-world text gets hard to read below it.
+const PANEL_DPI_DEFAULT: f64 = 2.0;
+
 /// Things aggressive configs hide (fixes from the OptimizationLock FAQ), as switches. Share codes store
-/// them by position, so new ones go at the end.
+/// them by position, so new ones go at the end and a dead one is marked `retired` instead of removed.
 pub const FIXES: [Fix; 8] = [
     Fix {
         id: "portraits_dark",
@@ -69,6 +77,8 @@ pub const FIXES: [Fix; 8] = [
         entries: || vec![Entry::set("lb_enable_dynamic_lights", "true")],
         hide: Some(|| vec![Entry::set("lb_enable_dynamic_lights", "false")]),
         shown: |src| !is_false(convar_value(src, "lb_enable_dynamic_lights")),
+        // Valve stopped reading the lighting convars from gameinfo.gi (Sqooky/OptimizationLock#88).
+        retired: true,
     },
     Fix {
         id: "portraits_missing",
@@ -76,6 +86,7 @@ pub const FIXES: [Fix; 8] = [
         entries: || vec![Entry::off("citadel_portrait_world_renderer_off")],
         hide: Some(|| vec![Entry::set("citadel_portrait_world_renderer_off", "true")]),
         shown: |src| !is_true(convar_value(src, "citadel_portrait_world_renderer_off")),
+        retired: false,
     },
     Fix {
         id: "doorman_ult",
@@ -83,13 +94,16 @@ pub const FIXES: [Fix; 8] = [
         entries: || vec![Entry::set("cl_ragdoll_limit", "-1")],
         hide: Some(|| vec![Entry::set("cl_ragdoll_limit", "0")]),
         shown: |src| number(convar_value(src, "cl_ragdoll_limit")) != Some(0.0),
+        retired: false,
     },
     Fix {
         id: "far_boxes",
         label: "Boxes and health bars at a distance",
         entries: || vec![Entry::set("r_size_cull_threshold", "0.7")],
         hide: None,
-        shown: |src| number(convar_value(src, "r_size_cull_threshold")).is_none_or(|v| v <= 0.7),
+        // Unset means the game's own 0.8, so a config that writes 0.8 shows the same.
+        shown: |src| number(convar_value(src, "r_size_cull_threshold")).is_none_or(|v| v <= SIZE_CULL_DEFAULT),
+        retired: false,
     },
     Fix {
         id: "buildings_pop",
@@ -99,6 +113,7 @@ pub const FIXES: [Fix; 8] = [
         shown: |src| {
             number(convar_value(src, "r_farz")).is_none_or(|v| v <= 0.0) && number(convar_value(src, "r_mapextents")).is_none_or(|v| v >= 16384.0)
         },
+        retired: false,
     },
     Fix {
         id: "lod_holes",
@@ -106,6 +121,7 @@ pub const FIXES: [Fix; 8] = [
         entries: || vec![Entry::off("sc_screen_size_lod_scale_override")],
         hide: None,
         shown: |src| convar_value(src, "sc_screen_size_lod_scale_override").is_none(),
+        retired: false,
     },
     Fix {
         id: "decals",
@@ -113,13 +129,20 @@ pub const FIXES: [Fix; 8] = [
         entries: || vec![Entry::off("r_drawdecals")],
         hide: Some(|| vec![Entry::set("r_drawdecals", "0")]),
         shown: |src| !is_false(convar_value(src, "r_drawdecals")),
+        retired: false,
     },
     Fix {
         id: "far_effects",
-        label: "Blast vent wind and in-world text at range",
-        entries: || vec![Entry::off("sc_fade_distance_scale_override"), Entry::off("citadel_in_world_item_panel_dpi")],
+        label: "Readable in-world text (soul pickups, bridge and statue buffs)",
+        // Used to cover blast vent wind too, through sc_fade_distance_scale_override, which the game no
+        // longer reads from gameinfo.gi.
+        entries: || vec![Entry::off("citadel_in_world_item_panel_dpi")],
         hide: None,
-        shown: |src| convar_value(src, "sc_fade_distance_scale_override").is_none() && convar_value(src, "citadel_in_world_item_panel_dpi").is_none(),
+        shown: |src| match convar_value(src, "citadel_in_world_item_panel_dpi") {
+            None => true,
+            set => number(set).is_some_and(|v| v >= PANEL_DPI_DEFAULT),
+        },
+        retired: false,
     },
 ];
 
@@ -155,7 +178,7 @@ impl Overrides {
 
     /// All entries in apply order: fixes, then view width and FPS caps.
     pub fn effective(&self) -> Vec<Entry> {
-        let has = |ids: &[String], f: &Fix| ids.iter().any(|id| id == f.id);
+        let has = |ids: &[String], f: &Fix| !f.retired && ids.iter().any(|id| id == f.id);
         let shown = FIXES.iter().filter(|f| has(&self.fixes, f)).flat_map(|f| (f.entries)());
         let hidden = FIXES.iter().filter(|f| has(&self.hidden, f)).filter_map(|f| f.hide).flat_map(|hide| hide());
         let fixes = shown.chain(hidden);
@@ -419,6 +442,42 @@ mod tests {
         assert_eq!(set_switch(&none, portraits, true, false).fixes, vec!["portraits_missing".to_string()]);
         // Distance settings have no "hide" value: off keeps the config's own.
         assert_eq!(set_switch(&none, fix("far_boxes"), false, true), none);
+    }
+
+    fn with_convar(line: &str) -> String {
+        GI.replace("\t\tcl_ragdoll_limit 0\n", &format!("\t\tcl_ragdoll_limit 0\n\t\t{line}\n"))
+    }
+
+    #[test]
+    fn boxes_show_at_the_games_own_threshold_and_below() {
+        let shown = fix("far_boxes").shown;
+        assert!(shown(GI), "unset is the game's 0.8");
+        assert!(shown(&with_convar("r_size_cull_threshold \"0.8\"")), "an explicit 0.8 is the same as unset");
+        assert!(shown(&with_convar("r_size_cull_threshold \"0.7\"")));
+        assert!(!shown(&with_convar("r_size_cull_threshold \"0.9\"")));
+    }
+
+    #[test]
+    fn in_world_text_reads_only_the_panel_dpi_line() {
+        let text = fix("far_effects");
+        // The fade distance line is ignored by the game, so it doesn't count as hiding anything.
+        assert!((text.shown)(&with_convar("sc_fade_distance_scale_override \"100\"")));
+        assert!(!(text.shown)(&with_convar("citadel_in_world_item_panel_dpi \"0.75\"")));
+        assert!((text.shown)(&with_convar("citadel_in_world_item_panel_dpi \"2\"")));
+        assert!(!(text.shown)(&with_convar("citadel_in_world_item_panel_dpi \"low\"")));
+        assert_eq!((text.entries)(), vec![Entry::off("citadel_in_world_item_panel_dpi")]);
+        let fixed = apply(&with_convar("citadel_in_world_item_panel_dpi \"0.75\""), &(text.entries)()).unwrap();
+        assert!((text.shown)(&fixed));
+    }
+
+    #[test]
+    fn a_retired_switch_writes_nothing() {
+        assert!(fix("portraits_dark").retired);
+        let stored = Overrides { fixes: vec!["portraits_dark".into()], hidden: vec!["portraits_dark".into()], ..Default::default() };
+        assert!(stored.is_empty(), "settings saved before it was retired no longer add lines");
+        // Share codes store switches by position: the first slot stays where it was.
+        assert_eq!(FIXES[0].id, "portraits_dark");
+        assert_eq!(FIXES[7].id, "far_effects");
     }
 
     #[test]

@@ -236,6 +236,7 @@ export const api = {
   getStore: () => invoke<StoreView>("get_store"),
   launchIssue: () => invoke<LaunchFailure | null>("launch_issue"),
   dismissLaunchIssue: () => invoke<void>("dismiss_launch_issue"),
+  settingsWereReset: () => invoke<boolean>("settings_were_reset"),
   /** The store list, fetched once per app start (for the suggestions under the add-repo field). */
   getStoreOnce: (): Promise<StoreView> => (storeOnce ??= invoke<StoreView>("get_store").catch((e) => {
     storeOnce = null;

@@ -1,6 +1,7 @@
 //! What the player changed on top of the applied config: ConVars lines in the installed gameinfo.gi that
 //! differ from the config's own file, whether from the "What you see in game" switches or edited by hand.
-//! Lines Valve's file adds (overlay mode) and the personal settings rows don't count.
+//! Lines Valve's file adds (overlay mode), the personal settings rows and lines the game no longer reads
+//! from gameinfo.gi don't count.
 
 use crate::kv;
 use std::collections::BTreeMap;
@@ -16,13 +17,19 @@ fn convars(src: &str) -> BTreeMap<String, String> {
     block.children().iter().filter_map(|n| Some((n.key.to_ascii_lowercase(), n.as_str()?.to_string()))).collect()
 }
 
+/// Whether a change to this convar is a change to the config: not a personal setting, and not a line the
+/// game ignores (changing one does nothing in game).
+fn counts(name: &str) -> bool {
+    !PERSONAL.contains(&name) && !crate::convars::lookup(name).is_some_and(|c| c.ignored)
+}
+
 /// The changed lines as "name=value" ("name=off" when the config's line is gone), sorted. Empty when the
 /// installed file sets the same as the config.
 pub fn changes(installed: &str, config: &str, stock: &str) -> Vec<String> {
     let (now, own, valve) = (convars(&crate::gameinfo::strip_dmm_region(installed)), convars(config), convars(stock));
     let edited = own.iter().filter(|(k, v)| now.get(*k) != Some(*v)).map(|(k, _)| format!("{k}={}", now.get(k).map_or("off", String::as_str)));
     let added = now.iter().filter(|(k, v)| !own.contains_key(*k) && valve.get(*k) != Some(*v)).map(|(k, v)| format!("{k}={v}"));
-    let mut all: Vec<String> = edited.chain(added).filter(|c| !PERSONAL.iter().any(|p| c.split('=').next() == Some(*p))).collect();
+    let mut all: Vec<String> = edited.chain(added).filter(|c| c.split('=').next().is_some_and(counts)).collect();
     all.sort();
     all
 }
@@ -44,5 +51,18 @@ mod tests {
         // A switch, a commented-out line and a hand-added line; the FPS cap is a personal setting.
         let edited = gi("\t\t// r_farz \"4000\"\n\t\tcl_ragdoll_limit \"-1\"\n\t\tfps_max \"240\"\n\t\tr_hand_added \"1\"\n");
         assert_eq!(changes(&edited, &config, &stock), vec!["cl_ragdoll_limit=-1", "r_farz=off", "r_hand_added=1"]);
+    }
+
+    #[test]
+    fn lines_the_game_ignores_are_not_changes() {
+        // Both are blocked by Valve in gameinfo.gi, so commenting one out or adding one changes nothing in game.
+        let config = gi("		sc_fade_distance_scale_override \"100\"
+		r_farz \"4000\"
+");
+        let edited = gi("		// sc_fade_distance_scale_override \"100\"
+		r_farz \"4000\"
+		lb_enable_dynamic_lights \"true\"
+");
+        assert!(changes(&edited, &config, &gi("")).is_empty());
     }
 }

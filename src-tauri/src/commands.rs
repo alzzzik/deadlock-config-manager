@@ -30,6 +30,8 @@ pub struct AppState {
     /// console.log shows matchmaking refused ranked; copied from `perf_log` after each read so status
     /// checks on the window's thread never wait for a read.
     pub ranked_refused: AtomicBool,
+    /// settings.json couldn't be read at this start, so the app began with default settings.
+    pub settings_reset: bool,
 }
 
 impl AppState {
@@ -538,6 +540,12 @@ fn launch_failure_text(f: Option<&crate::launch_guard::Failure>) -> String {
     )
 }
 
+/// True when settings.json couldn't be read at this start and the app began with default settings.
+#[tauri::command]
+pub fn settings_were_reset(state: State<AppState>) -> bool {
+    state.settings_reset
+}
+
 /// The game closed right after starting following the app's last write (None when that didn't happen
 /// or the player already chose Restore or Keep).
 #[tauri::command]
@@ -661,6 +669,7 @@ fn tweaks_view(state: &AppState) -> TweaksView {
         .collect();
     let fixes = overrides::FIXES
         .iter()
+        .filter(|f| !f.retired)
         .map(|f| {
             let config_shows = (f.shown)(src.as_deref().unwrap_or_default());
             let on = if o.fixes.iter().any(|x| x == f.id) {
@@ -750,7 +759,7 @@ pub async fn set_fix(app: tauri::AppHandle, id: String, on: bool) -> Result<Twea
 }
 
 fn set_fix_blocking(state: &AppState, id: String, on: bool) -> Result<TweaksView, String> {
-    let fix = overrides::FIXES.iter().find(|f| f.id == id).ok_or("Unknown fix.")?;
+    let fix = overrides::FIXES.iter().find(|f| f.id == id && !f.retired).ok_or("Unknown fix.")?;
     let previous = state.snapshot().overrides;
     let config_shows = (fix.shown)(config_source(&state).as_deref().unwrap_or_default());
     let next = overrides::set_switch(&previous, fix, on, config_shows);

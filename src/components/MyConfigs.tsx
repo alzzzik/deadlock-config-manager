@@ -120,3 +120,37 @@ export function SaveConfigDialog({ suggestedName, renaming, onCancel, onSave }: 
     </Modal>
   );
 }
+
+interface DeleteConfigDialogProps {
+  entry: LibraryEntry;
+  /** The entry is the config applied now; deleting it leaves the game files as they are. */
+  applied: boolean;
+  onCancel: () => void;
+  onDelete: () => void;
+}
+
+/** Deleting a saved config can't be undone, so it asks first. */
+export function DeleteConfigDialog({ entry, applied, onCancel, onDelete }: DeleteConfigDialogProps) {
+  return (
+    <Modal
+      title="Delete config"
+      onClose={onCancel}
+      footer={
+        <>
+          <span className="spacer" />
+          <button className="btn btn-secondary" onClick={onCancel} autoFocus>
+            Cancel
+          </button>
+          <button className="btn btn-danger" onClick={onDelete}>
+            Delete
+          </button>
+        </>
+      }
+    >
+      <p>
+        Delete “{entry.name}” from My configs? This can't be undone.
+      </p>
+      {applied && <p className="muted small">It is applied now. Your game files stay as they are, but it can't be re-applied afterwards.</p>}
+    </Modal>
+  );
+}

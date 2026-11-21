@@ -1,6 +1,6 @@
 {
- "build": "6812",
- "commit": "0abfe676c6",
+ "build": "6857",
+ "commit": "0a1ddfb8d8",
  "convars": {
   "ai_async_queue_max_jobs": {
    "default": "-1",
@@ -15,6 +15,9 @@
   },
   "ai_lod_auto_enabled": {
    "default": "false"
+  },
+  "ai_motor_max_state_time_active": {
+   "default": "6"
   },
   "ai_strong_optimizations_no_checkstand": {
    "default": "false"
@@ -105,6 +108,14 @@
    "default": "true",
    "valve": "Enables/disabled calculations that determine entity interior vs exterior."
   },
+  "audio_viewing_damage_decay_time": {
+   "default": "3",
+   "valve": "Duration for viewing damage to decays to 0.0."
+  },
+  "audio_viewing_damage_hold_time": {
+   "default": "3",
+   "valve": "Duration before viewing damage begins to decay."
+  },
   "cam_idealdelta": {
    "default": "4",
    "valve": "Controls the speed when matching offset to ideal angles in thirdperson view"
@@ -116,6 +127,12 @@
   "cc_captiontrace": {
    "default": "1",
    "valve": "Show missing closecaptions (0 = no, 1 = devconsole, 2 = show in hud)"
+  },
+  "citadel_action_refresh_interval": {
+   "default": "0.1"
+  },
+  "citadel_ai_path_pathing_time_ms_per_tick": {
+   "default": "0.5"
   },
   "citadel_boss_glow_disabled": {
    "default": "false",
@@ -290,10 +307,6 @@
    "default": "false",
    "valve": "Disable Cockroaches"
   },
-  "citadel_orb_debug_draw_state": {
-   "default": "-1",
-   "valve": "Set to non-zero to draw state of orb. Value will be duration for state to linger after orb expires."
-  },
   "citadel_per_weapon_per_surface_impact_effects": {
    "default": "true"
   },
@@ -431,6 +444,10 @@
   "cl_fasttempentcollision": {
    "default": "5"
   },
+  "cl_generate_postdataupdatepreserved": {
+   "default": "true",
+   "valve": "Do we invoke PostDataUpdatePreserved callbacks for entities that had no changes but are still in the PVS?"
+  },
   "cl_glow_brightness": {
    "default": "1",
    "valve": "Brightness of player halos",
@@ -540,6 +557,9 @@
    "default": "false",
    "valve": "Experimental optimization.  If you are reading this in 2026, please delete this convar."
   },
+  "cl_predictioncopy_runs": {
+   "default": "true"
+  },
   "cl_ragdoll_default_scale": {
    "default": "1"
   },
@@ -635,6 +655,9 @@
   "csm_cascade3_override_dist": {
    "default": "-1"
   },
+  "csm_cascade_viewdir_shadow_bias_scale": {
+   "default": "2"
+  },
   "csm_max_dist_between_caster_and_receiver": {
    "default": "15000",
    "valve": "default pushback"
@@ -666,6 +689,22 @@
   },
   "csm_sst_max_visible_dist": {
    "default": "2000"
+  },
+  "csm_sst_pushback_distance": {
+   "default": "1500",
+   "valve": "default pushback"
+  },
+  "csm_sst_shadow_focus_region_caster_headroom": {
+   "default": "256"
+  },
+  "csm_sst_shadow_focus_region_maxz": {
+   "default": "2000"
+  },
+  "csm_sst_shadow_focus_region_minz": {
+   "default": "-2000"
+  },
+  "csm_sst_vertical_depth_shear_enable": {
+   "default": "true"
   },
   "csm_viewmodel_max_shadow_dist": {
    "default": "21"
@@ -1095,6 +1134,12 @@
   "mat_max_lighting_complexity": {
    "default": "8"
   },
+  "mat_shading_complexity_max_instruction_count": {
+   "default": "1024"
+  },
+  "mat_shading_complexity_max_register_count": {
+   "default": "128"
+  },
   "mat_tonemap_bloom_scale": {
    "default": "-1"
   },
@@ -1200,6 +1245,9 @@
   "panorama_js_minidumps": {
    "default": "false",
    "valve": "Enable sending minidumps on JS Exceptions."
+  },
+  "panorama_min_comp_layer_cache_cost": {
+   "default": "4096"
   },
   "panorama_panel_occlusion": {
    "default": "true"
@@ -1324,6 +1372,9 @@
   "r_aspectratio": {
    "default": "0",
    "note": "Forces an aspect ratio, e.g. for stretched resolutions. 0 uses the screen's."
+  },
+  "r_async_shader_compile_notify_frequency": {
+   "default": "10"
   },
   "r_bloom_tent_filter_radius": {
    "default": "0",
@@ -1911,6 +1962,9 @@
    "default": "false",
    "ignored": true
   },
+  "r_particle_enable_fastpath": {
+   "default": "true"
+  },
   "r_particle_fixedrandomseeds": {
    "default": "false",
    "valve": "Use fixed seeds for easier debugging"
@@ -2110,12 +2164,19 @@
   "r_threaded_particles": {
    "default": "true"
   },
+  "r_threaded_scene_object_update": {
+   "default": "true"
+  },
   "r_translucent": {
    "default": "true",
    "valve": "Enable rendering of translucent geometry"
   },
   "r_update_particles_on_render_only_frames": {
    "default": "false"
+  },
+  "r_use_memory_budget_model": {
+   "default": "false",
+   "valve": "Use a model of GPU memory use to determine budget rather than querying the OS."
   },
   "r_vma_defrag_algorithm": {
    "default": "1",
@@ -2195,6 +2256,16 @@
    "valve": "Toggles GPU culling of aggregate meshes"
   },
   "sc_aggregate_gpu_occlusion_culling": {
+   "default": "true"
+  },
+  "sc_aggregate_render_mesh_shader": {
+   "default": "true",
+   "valve": "Using mesh shaders if available instead of drawcalls"
+  },
+  "sc_aggregate_rtproxy_instanced_geo": {
+   "default": "true"
+  },
+  "sc_aggregate_rtproxy_unique_geo": {
    "default": "true"
   },
   "sc_allow_dithered_lod": {
@@ -2358,7 +2429,7 @@
   },
   "sc_screen_size_lod_scale_override": {
    "default": "-1",
-   "note": "Level-of-detail scale. Higher switches models to simpler versions sooner."
+   "note": "Level-of-detail scale. Lower switches models to simpler versions sooner."
   },
   "sc_shadow_depth_bias": {
    "default": "256"
@@ -2399,6 +2470,10 @@
   "snd_boxverb_simd": {
    "default": "true",
    "valve": "Enable SIMD code path for shoebox reverb processor."
+  },
+  "snd_diffusor_simd": {
+   "default": "false",
+   "valve": "Enable SIMD code path for diffusor processor."
   },
   "snd_disable_mixer_duck": {
    "default": "false"

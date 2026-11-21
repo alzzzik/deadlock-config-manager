@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -6,4 +6,6 @@ export default defineConfig({
   clearScreen: false,
   server: { port: 1420, strictPort: true },
   build: { target: "chrome105", outDir: "dist" },
+  // Only this checkout's tests: worktrees under .claude/ hold older copies of the same files.
+  test: { include: ["src/**/*.test.{ts,tsx}"] },
 });

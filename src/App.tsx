@@ -33,7 +33,7 @@ import { ToastStack, useToasts } from "./components/Toasts";
 import { UpdateBar, useAppUpdate } from "./components/AppUpdate";
 import { FirstRunGuide, GuideChoice } from "./components/FirstRunGuide";
 import { QuickSettings } from "./components/QuickSettings";
-import { MyConfigs, SaveConfigDialog } from "./components/MyConfigs";
+import { DeleteConfigDialog, MyConfigs, SaveConfigDialog } from "./components/MyConfigs";
 import { ImportDialog } from "./components/ImportDialog";
 import { StoreDialog } from "./components/StoreDialog";
 import { LaunchIssue } from "./components/LaunchIssue";
@@ -46,6 +46,7 @@ type Dialog =
   | { kind: "guide" }
   | { kind: "saveConfig" }
   | { kind: "renameConfig"; entry: LibraryEntry }
+  | { kind: "deleteConfig"; entry: LibraryEntry }
   | { kind: "import" }
   | { kind: "store" }
   | { kind: "perf" }
@@ -82,6 +83,8 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [launchIssue, setLaunchIssue] = useState<LaunchFailure | null>(null);
+  /** settings.json couldn't be read at this start; shown until the player dismisses it. */
+  const [settingsReset, setSettingsReset] = useState(false);
   const { toasts, push, dismiss } = useToasts();
   const appUpdate = useAppUpdate();
   const fail = useCallback((e: unknown) => push("error", errorText(e)), [push]);
@@ -108,6 +111,7 @@ export default function App() {
 
   useEffect(() => {
     api.listLibrary().then(setLibrary, () => undefined);
+    api.settingsWereReset().then(setSettingsReset, () => undefined);
   }, []);
 
   useEffect(() => {
@@ -319,6 +323,7 @@ export default function App() {
 
   const deleteConfig = (e: LibraryEntry) =>
     api.deleteConfig(e.id).then((list) => {
+      setDialog({ kind: "none" });
       setLibrary(list);
       push("info", `Deleted ${e.name}.`);
     }, fail);
@@ -504,6 +509,17 @@ export default function App() {
       <UpdateBar state={appUpdate.state} onInstall={(u) => void appUpdate.install(u)} onDismiss={appUpdate.dismiss} />
 
       <main className="content">
+        {settingsReset && (
+          <div className="notice is-warn notice-action launch-issue" role="status">
+            <span>
+              Your settings file couldn't be read, so the app started with default settings. Backups and My configs are
+              untouched. Apply your config again and re-link any repos you had added.
+            </span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSettingsReset(false)}>
+              OK
+            </button>
+          </div>
+        )}
         {launchIssue && (
           <LaunchIssue
             issue={launchIssue}
@@ -578,7 +594,7 @@ export default function App() {
             onImport={() => setDialog({ kind: "import" })}
             onExport={(e) => void exportConfig(e)}
             onRename={(e) => setDialog({ kind: "renameConfig", entry: e })}
-            onDelete={(e) => void deleteConfig(e)}
+            onDelete={(e) => setDialog({ kind: "deleteConfig", entry: e })}
           />
 
           {pinnedPacks.length > 0 && (
@@ -657,6 +673,14 @@ export default function App() {
           renaming={{ notes: dialog.entry.notes }}
           onCancel={() => setDialog({ kind: "none" })}
           onSave={(n, notes) => void renameConfig(dialog.entry, n, notes)}
+        />
+      )}
+      {dialog.kind === "deleteConfig" && (
+        <DeleteConfigDialog
+          entry={dialog.entry}
+          applied={overview?.applied?.packId === `${LIBRARY_PREFIX}${dialog.entry.id}`}
+          onCancel={() => setDialog({ kind: "none" })}
+          onDelete={() => void deleteConfig(dialog.entry)}
         />
       )}
       {dialog.kind === "saveConfig" && (

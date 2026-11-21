@@ -95,7 +95,7 @@ pub fn encode(s: &Shared) -> Result<String, String> {
     b.extend_from_slice(&s.pack_hash);
     let o = &s.settings;
     let aspect = o.aspect.as_deref().and_then(|a| a.parse::<f64>().ok()).map(|a| (a * 100.0).round() as u16);
-    let fixes: u8 = FIXES.iter().enumerate().filter(|(_, f)| o.fixes.iter().any(|x| x == f.id)).map(|(i, _)| 1u8 << i).fold(0, |a, x| a | x);
+    let fixes: u8 = FIXES.iter().enumerate().filter(|(_, f)| !f.retired && o.fixes.iter().any(|x| x == f.id)).map(|(i, _)| 1u8 << i).fold(0, |a, x| a | x);
     let flags = (if s.safe { SAFE } else { 0 })
         | (if aspect.is_some() { HAS_ASPECT } else { 0 })
         | (if o.fps_max.is_some() { HAS_FPS } else { 0 })
@@ -148,7 +148,7 @@ pub fn decode(text: &str) -> Result<Shared, String> {
     let fps_max = if flags & HAS_FPS != 0 { Some(u16v()? as u32) } else { None };
     let fps_max_ui = if flags & HAS_FPS_UI != 0 { Some(u16v()? as u32) } else { None };
     let fix_bits = if flags & HAS_FIXES != 0 { next()? } else { 0 };
-    let fixes = FIXES.iter().enumerate().filter(|(i, _)| fix_bits & (1 << i) != 0).map(|(_, f)| f.id.to_string()).collect();
+    let fixes = FIXES.iter().enumerate().filter(|(i, f)| !f.retired && fix_bits & (1 << i) != 0).map(|(_, f)| f.id.to_string()).collect();
     let aspect = aspect.map(|a| crate::overrides::parse_aspect(&a)).transpose()?;
     Ok(Shared { repo, pack_hash, safe: flags & SAFE != 0, settings: Overrides { fixes, aspect, fps_max, fps_max_ui, ..Default::default() } })
 }

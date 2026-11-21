@@ -17,4 +17,5 @@ docs/superpowers/
 docs/images/social-preview.png
 run-dev.cmd
 build-installer.cmd
+test-all.cmd
 docs/CONFIG_RESEARCH.md

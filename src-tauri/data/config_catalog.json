@@ -138,15 +138,6 @@
       "updated": "2026-07-15"
     },
     {
-      "kind": "repo",
-      "repo": "deaddeaddeaddeaddead/deadlock-cfg",
-      "title": "Lefaawr's FPS config",
-      "description": "gameinfo.gi from Lefaawr's FPS Optimization Mod on GameBanana.",
-      "author": "deaddeaddeaddeaddead",
-      "license": "",
-      "updated": "2026-02-11"
-    },
-    {
       "kind": "gamebanana",
       "id": 730862,
       "title": "best fps cfg ngl",

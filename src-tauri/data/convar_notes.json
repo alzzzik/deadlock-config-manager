@@ -46,7 +46,7 @@
   "lb_enable_shadow_casting": "Shadows from lights other than the sun. Off is much faster.",
   "lb_dynamic_shadow_resolution": "Lets shadow resolution change with distance.",
   "sc_clutter_enable": "Small clutter objects (grass tufts, debris).",
-  "sc_screen_size_lod_scale_override": "Level-of-detail scale. Higher switches models to simpler versions sooner.",
+  "sc_screen_size_lod_scale_override": "Level-of-detail scale. Lower switches models to simpler versions sooner.",
   "cl_disable_ragdolls": "Turns off ragdoll physics for dead units.",
   "cl_ragdoll_limit": "Maximum number of ragdolls at once.",
   "cl_impacteffects": "Effects where bullets hit.",

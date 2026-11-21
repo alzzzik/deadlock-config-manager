@@ -119,16 +119,27 @@ fn settings_file(dir: &Path) -> PathBuf {
 
 /// Loads settings; a missing or corrupt file yields defaults (the corrupt one is kept aside).
 pub fn load(dir: &Path) -> Settings {
+    load_reporting(dir).0
+}
+
+/// [`load`], plus whether a file that couldn't be read was set aside, so the player can be told their
+/// settings started over.
+pub fn load_reporting(dir: &Path) -> (Settings, bool) {
     let path = settings_file(dir);
     let Ok(text) = fs::read_to_string(&path) else {
-        return Settings::default();
+        return (Settings::default(), false);
     };
-    let parsed: Settings = serde_json::from_str(&text).unwrap_or_else(|_| {
-        let _ = fs::rename(&path, dir.join("settings.corrupt.json"));
-        Settings::default()
-    });
-    migrate(keep_tray_for_auto_reapply(&text, parsed))
+    match serde_json::from_str::<Settings>(&text) {
+        Ok(parsed) => (migrate(keep_tray_for_auto_reapply(&text, parsed)), false),
+        Err(_) => {
+            let _ = fs::rename(&path, dir.join(CORRUPT_FILE));
+            (Settings::default(), true)
+        }
+    }
 }
+
+/// Where a settings file that couldn't be read is kept.
+pub const CORRUPT_FILE: &str = "settings.corrupt.json";
 
 /// Before `exit_on_close` existed, auto re-apply kept the app in the tray on close; keep that for those players.
 fn keep_tray_for_auto_reapply(text: &str, s: Settings) -> Settings {
@@ -212,8 +223,12 @@ mod tests {
     fn corrupt_file_falls_back_to_defaults() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(settings_file(dir.path()), "{not json").unwrap();
-        assert_eq!(load(dir.path()), Settings::default());
-        assert!(dir.path().join("settings.corrupt.json").exists());
+        assert_eq!(load_reporting(dir.path()), (Settings::default(), true));
+        assert!(dir.path().join(CORRUPT_FILE).exists());
+        // The next start has no file to read: defaults again, with nothing to report.
+        assert_eq!(load_reporting(dir.path()), (Settings::default(), false));
+        save(dir.path(), &Settings::default()).unwrap();
+        assert!(!load_reporting(dir.path()).1);
     }
 
     #[test]
