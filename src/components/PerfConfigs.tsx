@@ -37,10 +37,16 @@ function writeStored(key: string, value: string) {
 
 const isSort = (v: string): v is PerfSort => SORTS.some((s) => s.id === v);
 
+/** Hidden config keys; anything else in storage (edited or damaged) counts as none hidden. */
+function parseKeys(raw: string): string[] {
+  const v: unknown = JSON.parse(raw);
+  return Array.isArray(v) ? v.filter((k): k is string => typeof k === "string") : [];
+}
+
 /** The per-config list: sorted, with configs the player hid tucked away, each with its own sessions. */
 export function PerfConfigs({ view }: { view: PerfView }) {
   const [sort, setSort] = useState<PerfSort>(() => readStored(SORT_KEY, (r) => (isSort(r) ? r : "played"), "played"));
-  const [hidden, setHidden] = useState<string[]>(() => readStored(HIDDEN_KEY, (r) => JSON.parse(r) as string[], []));
+  const [hidden, setHidden] = useState<string[]>(() => readStored(HIDDEN_KEY, parseKeys, []));
   const [showHidden, setShowHidden] = useState(false);
 
   const pickSort = (s: PerfSort) => {

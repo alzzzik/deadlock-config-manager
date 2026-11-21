@@ -342,14 +342,21 @@ export default function App() {
       addedToLibrary(e, "Saved");
     }, fail);
 
-  // deadlockcfg://import/<code> links: on launch and while running.
+  // deadlockcfg://import/<code> links: on launch and while running. A link waits until no other dialog is open,
+  // so it never replaces a preview the player is reading.
+  const [pendingLink, setPendingLink] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pendingLink || dialog.kind !== "none") return;
+    setDialog({ kind: "link", url: pendingLink });
+    setPendingLink(null);
+  }, [pendingLink, dialog.kind]);
   useEffect(() => {
     // Links can come from any web page, so ask before adding anything.
     const handle = (urls: string[] | null) =>
       urls
         ?.filter((u) => u.toUpperCase().includes("DCM-"))
         .slice(0, 1)
-        .forEach((u) => setDialog({ kind: "link", url: u }));
+        .forEach((u) => setPendingLink(u));
     getDeepLinks().then(handle, () => undefined);
     return stopWhenReady(onOpenUrl(handle));
   }, []);
@@ -482,6 +489,11 @@ export default function App() {
   }, [trayStatus, trayPins]);
   const applyFromTray = useRef<(key: string) => void>(() => undefined);
   applyFromTray.current = (key) => {
+    // Same rule as the Apply buttons, and never on top of a dialog the player has open.
+    if (busy || dialog.kind !== "none") {
+      push("info", "Finish or close what's open first, then pick the config in the tray again.");
+      return;
+    }
     const pack = allPacks.find((p) => pinKey(p) === key);
     if (pack) void applyPack(pack);
     else push("error", "That pinned config isn't in your linked repos anymore.");
