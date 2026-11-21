@@ -142,6 +142,7 @@ export type ConfigStats = {
 export type NumberedSession = PerfSession & { number: number };
 export type PerfView = {
   stats: ConfigStats[];
+  /** Every counted session, newest first. */
   recent: NumberedSession[];
   logging: boolean;
   minSeconds: number;
@@ -243,6 +244,8 @@ export const api = {
     throw e;
   })),
   getPerf: () => invoke<PerfView>("get_perf"),
+  /** Rebuilds the tray menu: a status line and the pinned configs (each opens its preview here). */
+  setTrayConfigs: (status: string | null, pins: { key: string; name: string }[]) => invoke<void>("set_tray_configs", { status, pins }),
   clearPerf: () => invoke<void>("clear_perf"),
   undoClearPerf: () => invoke<void>("undo_clear_perf"),
   saveTweaked: () => invoke<LibraryEntry>("save_tweaked"),
@@ -392,4 +395,22 @@ export function latestOnly(): <T>(request: Promise<T>) => Promise<T> {
       );
     });
   };
+}
+
+export type PerfSort = "played" | "newest" | "oldest";
+
+/** Configs in Performance: most sessions first (ties: last played), or by when they were last played. */
+export function sortPerfStats(stats: ConfigStats[], order: PerfSort): ConfigStats[] {
+  const byLast = (a: ConfigStats, b: ConfigStats) => b.lastPlayed.localeCompare(a.lastPlayed);
+  const sorted = [...stats];
+  if (order === "played") return sorted.sort((a, b) => b.sessions - a.sessions || byLast(a, b));
+  if (order === "newest") return sorted.sort(byLast);
+  return sorted.sort((a, b) => byLast(b, a));
+}
+
+/** The config the others are compared with: the most played one with enough sessions. */
+export function perfReference(stats: ConfigStats[], minSessions: number): ConfigStats | null {
+  const enough = stats.filter((s) => s.sessions >= minSessions);
+  if (enough.length < 2) return null;
+  return sortPerfStats(enough, "played")[0];
 }

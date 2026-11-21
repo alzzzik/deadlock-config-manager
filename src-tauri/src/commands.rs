@@ -1173,7 +1173,8 @@ fn perf_view(state: &AppState) -> PerfView {
         .into_iter()
         .map(|c| crate::perf::ConfigStats { config_name: named(&c.config_key, &c.config_name), ..c })
         .collect();
-    let recent = crate::perf::recent(&sessions, 20)
+    // Every counted session: Performance lists them per config and shows the newest few on their own.
+    let recent = crate::perf::recent(&sessions, usize::MAX)
         .into_iter()
         .map(|n| {
             let config_name = named(&n.session.config_key, &n.session.config_name);

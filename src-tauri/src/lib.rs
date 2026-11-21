@@ -28,6 +28,7 @@ pub mod stock;
 pub mod store;
 pub mod video;
 mod watch;
+mod tray;
 pub mod writer;
 
 use std::sync::Mutex;
@@ -36,7 +37,7 @@ use tauri::Manager;
 /// Command-line flag used by "Start with Windows": start hidden in the tray.
 const BACKGROUND_FLAG: &str = "--background";
 
-fn show_main(app: &tauri::AppHandle) {
+pub(crate) fn show_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
@@ -44,31 +45,25 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
-/// Tray icon with Open and Quit; a left click opens the window.
+/// Tray icon; a left click opens the window. The menu starts with Open and Quit, and the window adds the
+/// applied config and the pinned configs once it has loaded them (`tray::set_tray_configs`).
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
-    use tauri::menu::{Menu, MenuItem};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-    let open = MenuItem::with_id(app, "open", "Open Deadlock Config Manager", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &quit])?;
-    let mut tray = TrayIconBuilder::with_id("main")
+    let menu = tray::menu(app, None, &[])?;
+    let mut icon = TrayIconBuilder::with_id(tray::TRAY_ID)
         .tooltip("Deadlock Config Manager")
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id().as_ref() {
-            "open" => show_main(app),
-            "quit" => app.exit(0),
-            _ => {}
-        })
+        .on_menu_event(|app, event| tray::on_menu_event(app, event.id().as_ref()))
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
                 show_main(tray.app_handle());
             }
         });
-    if let Some(icon) = app.default_window_icon() {
-        tray = tray.icon(icon.clone());
+    if let Some(image) = app.default_window_icon() {
+        icon = icon.icon(image.clone());
     }
-    tray.build(app)?;
+    icon.build(app)?;
     Ok(())
 }
 
@@ -158,6 +153,7 @@ pub fn run() {
             commands::dismiss_launch_issue,
             commands::settings_were_reset,
             commands::get_perf,
+            tray::set_tray_configs,
             commands::clear_perf,
             commands::undo_clear_perf,
             commands::save_tweaked,

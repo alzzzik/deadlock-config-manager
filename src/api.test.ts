@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, latestOnly, matchesSearch, pinKey, sortStore, stopWhenReady, updateNotes, PackInfo, AppliedRecord, StoreEntry } from "./api";
+import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, latestOnly, matchesSearch, perfReference, pinKey, sortPerfStats, sortStore, stopWhenReady, updateNotes, PackInfo, AppliedRecord, StoreEntry, ConfigStats } from "./api";
 
 const pack = (over: Partial<PackInfo> = {}): PackInfo => ({
   repo: "alzzzik/alz-deadlock-cfg",
@@ -137,5 +137,36 @@ describe("latestOnly", () => {
     finishOld("old");
     await new Promise((r) => setTimeout(r, 0));
     expect(seen).toEqual(["new"]);
+  });
+});
+
+describe("Performance ordering", () => {
+  const stat = (configKey: string, sessions: number, lastPlayed: string): ConfigStats => ({
+    configKey,
+    configName: configKey,
+    sessions,
+    minutes: sessions * 30,
+    medianAvgFps: 200,
+    medianP1Fps: 100,
+    medianFrameMsP99: 10,
+    lastPlayed,
+  });
+  const stats = [stat("a", 2, "2026-11-20"), stat("b", 9, "2026-11-01"), stat("c", 9, "2026-11-10"), stat("d", 4, "2026-10-01")];
+  const keys = (list: ConfigStats[]) => list.map((s) => s.configKey).join("");
+
+  it("sorts by most sessions, newest first on ties", () => {
+    expect(keys(sortPerfStats(stats, "played"))).toBe("cbda");
+  });
+
+  it("sorts by last played either way without changing the input", () => {
+    expect(keys(sortPerfStats(stats, "newest"))).toBe("acbd");
+    expect(keys(sortPerfStats(stats, "oldest"))).toBe("dbca");
+    expect(keys(stats)).toBe("abcd");
+  });
+
+  it("compares against the most played config once two have enough sessions", () => {
+    expect(perfReference(stats, 3)?.configKey).toBe("c");
+    expect(perfReference(stats, 5)?.configKey).toBe("c");
+    expect(perfReference([stat("a", 9, "x"), stat("b", 1, "y")], 3)).toBeNull();
   });
 });

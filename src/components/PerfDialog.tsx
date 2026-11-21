@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { Automation, ConfigStats, PerfView, api, errorText, stopWhenReady, timeAgo } from "../api";
+import { Automation, PerfView, api, errorText, stopWhenReady } from "../api";
+import { PerfConfigs, fps } from "./PerfConfigs";
 import { Modal } from "./Modal";
 
 interface PerfDialogProps {
@@ -8,11 +9,8 @@ interface PerfDialogProps {
   onNotify: (kind: "ok" | "error" | "info", text: string) => void;
 }
 
-const fps = (n: number) => Math.round(n).toLocaleString();
-const pct = (a: number, b: number) => {
-  const d = Math.round(((a - b) / b) * 100);
-  return d === 0 ? "same" : `${d > 0 ? "+" : ""}${d}%`;
-};
+/** The "Recent sessions" list shows this many; each config lists all of its own. */
+const RECENT_SHOWN = 20;
 
 /** Real-game FPS per config, from Deadlock's own performance reports in console.log. */
 export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
@@ -49,10 +47,6 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
   const undo = () => api.undoClearPerf().then(() => void load(), (e) => onNotify("error", errorText(e)));
   const sessions = (n: number) => `${n} session${n === 1 ? "" : "s"}`;
 
-  const enough = (s: ConfigStats) => !!view && s.sessions >= view.minSessions;
-  const baseline = view?.stats.find((s) => s !== view.stats[0] && enough(s));
-  /** Bars share one scale so configs compare at a glance. */
-  const scale = Math.max(1, ...(view?.stats.map((s) => s.medianAvgFps) ?? []));
 
   return (
     <Modal
@@ -126,23 +120,7 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
         </div>
       )}
       {view && view.stats.length > 0 && (
-        <ul className="perf-list">
-          {view.stats.map((s, i) => (
-            <PerfRow
-              key={s.configKey}
-              stats={s}
-              scale={scale}
-              few={!enough(s)}
-              note={
-                i === 0 && baseline && enough(s)
-                  ? `${pct(s.medianAvgFps, baseline.medianAvgFps)} avg, ${pct(s.medianP1Fps, baseline.medianP1Fps)} 1% low vs ${baseline.configName}`
-                  : !enough(s)
-                    ? `Needs ${view.minSessions}+ sessions to compare`
-                    : null
-              }
-            />
-          ))}
-        </ul>
+        <PerfConfigs view={view} />
       )}
       {view && view.stats.length > 0 && (
         <p className="muted small">
@@ -154,7 +132,7 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
         <details className="perf-recent">
           <summary className="small">Recent sessions</summary>
           <ul>
-            {view.recent.map((r) => (
+            {view.recent.slice(0, RECENT_SHOWN).map((r) => (
               <li key={r.time + r.frames} className="small">
                 Session #{r.number} · <code>{r.time}</code> · {Math.round(r.seconds / 60)} min · {fps(r.avgFps)} avg /{" "}
                 {fps(r.p1Fps)} 1% low · <span className="muted">{r.configName}</span>
@@ -164,44 +142,5 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
         </details>
       )}
     </Modal>
-  );
-}
-
-interface PerfRowProps {
-  stats: ConfigStats;
-  /** FPS that fills a whole bar. */
-  scale: number;
-  few: boolean;
-  note: string | null;
-}
-
-/** One config: average FPS and 1% lows as bars on the shared scale. */
-function PerfRow({ stats: s, scale, few, note }: PerfRowProps) {
-  const width = (n: number) => `${Math.max(2, Math.min(100, (n / scale) * 100))}%`;
-  return (
-    <li className={`perf-row ${few ? "is-few" : ""}`}>
-      <div className="perf-name">
-        <strong>{s.configName}</strong>
-        <span className="muted small">
-          {s.sessions} session{s.sessions === 1 ? "" : "s"}, {s.minutes} min, last {timeAgo(s.lastPlayed)}
-        </span>
-      </div>
-      <div className="perf-bars">
-        <span className="perf-label">Avg</span>
-        <span className="perf-track">
-          <span className="perf-bar" style={{ width: width(s.medianAvgFps) }} />
-        </span>
-        <span className="perf-num">{fps(s.medianAvgFps)}</span>
-        <span className="perf-label">1% low</span>
-        <span className="perf-track">
-          <span className="perf-bar is-low" style={{ width: width(s.medianP1Fps) }} />
-        </span>
-        <span className="perf-num">{fps(s.medianP1Fps)}</span>
-      </div>
-      <div className="perf-foot small muted">
-        <span>Frame time p99 {s.medianFrameMsP99.toFixed(2)} ms</span>
-        {note && <span>{note}</span>}
-      </div>
-    </li>
   );
 }

@@ -625,3 +625,22 @@ input::placeholder { color: var(--text-faint); }
 .status.is-fresh .status-dot { animation: dot-in 600ms var(--ease) both; }
 @keyframes settle { from { border-color: var(--tone); background: var(--surface-2); } to { border-color: var(--line); background: var(--surface); } }
 @keyframes dot-in { from { transform: scale(1.8); } to { transform: none; } }
+.perf-tools { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.perf-tools .chip { height: 26px; }
+.perf-name .btn-sm { height: 24px; color: var(--text-faint); }
+.perf-name .btn-sm:hover { color: var(--text); }
+.perf-sessions-toggle {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0 6px 0 2px; height: 22px; margin-left: -2px;
+  border: 0; border-radius: var(--r-sm); background: none; color: var(--text-dim); font: 500 var(--fs-sm) var(--font); cursor: pointer;
+}
+.perf-sessions-toggle:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.perf-sessions-toggle:disabled { opacity: 0.45; cursor: default; }
+.perf-sessions-toggle .chev { transition: transform var(--fast) var(--ease); }
+.perf-sessions-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.perf-sessions-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.perf-sessions { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); animation: reveal 140ms var(--ease) both; }
+.perf-sessions th { text-align: left; font-weight: 500; color: var(--text-faint); padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); }
+.perf-sessions td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.perf-sessions tr:last-child td { border-bottom: 0; }
+.perf-hidden-toggle { margin-top: 8px; }
+.perf-list.is-hidden { margin-top: 6px; opacity: 0.75; }
