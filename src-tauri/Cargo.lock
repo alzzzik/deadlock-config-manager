@@ -755,7 +755,7 @@ dependencies = [
 
 [[package]]
 name = "deadlock-config-manager"
-version = "0.9.6"
+version = "0.9.7"
 dependencies = [
  "chrono",
  "hex",
