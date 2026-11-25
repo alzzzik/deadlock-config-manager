@@ -1113,6 +1113,8 @@ pub fn collect_perf(state: &AppState) -> Option<usize> {
         _ => ("unmanaged".to_string(), "Not applied by this app".to_string(), false),
     };
     let now = chrono::Local::now().to_rfc3339();
+    // Mods, video settings and changes on top, for the performance export.
+    let context = crate::perf_export::capture(&state.dir, &s, &ov);
     let label = |r: &crate::perf::Report| crate::perf::Session {
         report: r.clone(),
         config_key: key.clone(),
@@ -1120,6 +1122,7 @@ pub fn collect_perf(state: &AppState) -> Option<usize> {
         ranked_safe: safe,
         game_build: ov.game_build.clone(),
         recorded_at: now.clone(),
+        context: Some(context.clone()),
     };
     match crate::perf::record(&state.dir, &reports, label) {
         Ok(n) => {
@@ -1161,13 +1164,8 @@ pub async fn get_perf(app: tauri::AppHandle) -> Result<PerfView, String> {
 fn perf_view(state: &AppState) -> PerfView {
     let _ = collect_perf(state);
     let logging = state.perf_log.lock().unwrap_or_else(|e| e.into_inner()).condebug();
-    // Saved configs show their current name from My configs (they can be renamed there).
     let library = crate::library::list(&library_dir(state));
-    let named = |key: &str, name: &str| {
-        key.strip_prefix(&format!("local#{LIBRARY_PREFIX}"))
-            .and_then(|id| library.iter().find(|e| e.id == id))
-            .map_or_else(|| name.to_string(), |e| e.name.clone())
-    };
+    let named = |key: &str, name: &str| library_name(&library, key, name);
     let sessions = crate::perf::load(&state.dir);
     let stats = crate::perf::summarize(&sessions)
         .into_iter()
@@ -1178,7 +1176,9 @@ fn perf_view(state: &AppState) -> PerfView {
         .into_iter()
         .map(|n| {
             let config_name = named(&n.session.config_key, &n.session.config_name);
-            crate::perf::Numbered { session: crate::perf::Session { config_name, ..n.session }, ..n }
+            // The window doesn't show the VProf table or the setup; they're for the export.
+            let report = crate::perf::Report { rows: Vec::new(), ..n.session.report };
+            crate::perf::Numbered { session: crate::perf::Session { config_name, report, context: None, ..n.session }, ..n }
         })
         .collect();
     PerfView {
@@ -1190,6 +1190,42 @@ fn perf_view(state: &AppState) -> PerfView {
         stored: sessions.len(),
         can_undo: crate::perf::can_undo_clear(&state.dir),
     }
+}
+
+/// Saved configs show their current name from My configs (they can be renamed there).
+fn library_name(library: &[crate::library::Entry], key: &str, name: &str) -> String {
+    key.strip_prefix(&format!("local#{LIBRARY_PREFIX}"))
+        .and_then(|id| library.iter().find(|e| e.id == id))
+        .map_or_else(|| name.to_string(), |e| e.name.clone())
+}
+
+/// Writes every session with its setup to a JSON file in Downloads and shows it in Explorer. Returns the path.
+#[tauri::command]
+pub async fn export_perf(app: tauri::AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || export_perf_blocking(&app.state::<AppState>())).await.map_err(|e| e.to_string())?
+}
+
+fn export_perf_blocking(state: &AppState) -> Result<String, String> {
+    let _ = collect_perf(state);
+    let s = state.snapshot();
+    let ov = state.overview(&s);
+    let current = crate::perf_export::capture(&state.dir, &s, &ov);
+    let library = crate::library::list(&library_dir(state));
+    let sessions: Vec<crate::perf::Session> = crate::perf::load(&state.dir)
+        .into_iter()
+        .map(|x| crate::perf::Session { config_name: library_name(&library, &x.config_key, &x.config_name), ..x })
+        .collect();
+    if sessions.is_empty() {
+        return Err("There are no sessions to export yet.".into());
+    }
+    let value = crate::perf_export::build(&state.dir, &current, &sessions);
+    let json = serde_json::to_vec_pretty(&value).map_err(|e| e.to_string())?;
+    let path = crate::perf_export::target(&state.dir);
+    crate::fsops::atomic_write(&path, &json).map_err(|e| format!("Couldn't save the export: {e}"))?;
+    diag::info(&format!("exported {} performance sessions to {}", sessions.len(), path.display()));
+    use std::os::windows::process::CommandExt;
+    let _ = std::process::Command::new("explorer.exe").raw_arg(format!("/select,\"{}\"", path.display())).spawn();
+    Ok(path.display().to_string())
 }
 
 /// The key Performance groups a config's sessions under.

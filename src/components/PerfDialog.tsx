@@ -45,6 +45,18 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
     api.clearPerf().then(() => void load(), (e) => onNotify("error", errorText(e)));
   };
   const undo = () => api.undoClearPerf().then(() => void load(), (e) => onNotify("error", errorText(e)));
+  const [exporting, setExporting] = useState(false);
+  /** One file with every session, its frame-time breakdown and the setup it was played with, to hand over for analysis. */
+  const exportAll = () => {
+    setExporting(true);
+    api
+      .exportPerf()
+      .then(
+        (path) => onNotify("ok", `Saved ${path.split(/[\\/]/).pop()} to ${path.includes("Downloads") ? "Downloads" : "the app's folder"}.`),
+        (e) => onNotify("error", errorText(e)),
+      )
+      .finally(() => setExporting(false));
+  };
   const sessions = (n: number) => `${n} session${n === 1 ? "" : "s"}`;
 
 
@@ -78,6 +90,14 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
             </button>
           )}
           <span className="spacer" />
+          <button
+            className="btn btn-quiet"
+            onClick={exportAll}
+            disabled={!view || view.stored === 0 || exporting}
+            title="Saves every session with its config, mods, video settings and frame-time breakdown as one JSON file"
+          >
+            {exporting ? "Exporting…" : "Export data"}
+          </button>
           <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>

@@ -248,6 +248,8 @@ export const api = {
   setTrayConfigs: (status: string | null, pins: { key: string; name: string }[]) => invoke<void>("set_tray_configs", { status, pins }),
   clearPerf: () => invoke<void>("clear_perf"),
   undoClearPerf: () => invoke<void>("undo_clear_perf"),
+  /** Saves every session with its setup as JSON in Downloads and shows it in Explorer; returns the path. */
+  exportPerf: () => invoke<string>("export_perf"),
   saveTweaked: () => invoke<LibraryEntry>("save_tweaked"),
   getAutomation: () => invoke<Automation>("get_automation"),
   updateReport: () => invoke<UpdateReport | null>("update_report"),

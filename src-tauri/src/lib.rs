@@ -12,12 +12,14 @@ pub mod gameinfo;
 pub mod kv;
 pub mod launch_guard;
 pub mod library;
+pub mod mods;
 mod overview;
 pub mod overlay;
 pub mod overrides;
 pub mod packs;
 pub mod paths;
 pub mod perf;
+mod perf_export;
 pub mod tweaks;
 pub mod ranked;
 pub mod repos;
@@ -147,6 +149,7 @@ pub fn run() {
             commands::get_automation,
             commands::set_automation,
             commands::update_report,
+            commands::export_perf,
             commands::import_gamebanana,
             commands::get_store,
             commands::launch_issue,

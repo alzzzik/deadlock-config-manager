@@ -21,7 +21,7 @@ pub const MIN_SECONDS: u64 = 300;
 pub const MIN_SESSIONS: usize = 3;
 const MAX_STORED: usize = 2000;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Report {
     /// Log timestamp, e.g. "10/22 23:01:26" (the log has no year).
@@ -38,6 +38,61 @@ pub struct Report {
     /// Average and 99th percentile frame time in ms (FrameTotal row).
     pub frame_ms: f64,
     pub frame_ms_p99: f64,
+    /// Frames VProf left out of its numbers (loading, alt-tab), from the summary line.
+    #[serde(default)]
+    pub excluded_frames: u64,
+    /// The whole VProf table: FrameTotal and each part of the frame (rendering, UI, simulation, ...).
+    /// Empty for the short report form and for sessions recorded before the export was added.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rows: Vec<ProfRow>,
+    /// The game's launch options, from the log's `[CommandLine]` line.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub command_line: String,
+}
+
+/// One row of the VProf table, times in ms. "All frames" counts every frame; "active" only the frames
+/// where this part ran; "1s max" is the worst frame of each second, as a median (P50) and P95 over the seconds.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfRow {
+    pub name: String,
+    pub avg: f64,
+    pub p99: f64,
+    pub active_frames: u64,
+    pub active_avg: f64,
+    pub active_p99: f64,
+    pub max_p50: f64,
+    pub max_p95: f64,
+    pub max_seconds: u64,
+    pub max_active_p50: f64,
+    pub max_active_p95: f64,
+}
+
+impl ProfRow {
+    /// "   Client Rendering   0.83   2.28    61821   1.67   2.31     2.34   2.61      180   2.34   2.61": the
+    /// name can have spaces, so the ten numbers are read from the end.
+    fn parse(text: &str) -> Option<ProfRow> {
+        let words: Vec<&str> = text.split_whitespace().collect();
+        if words.len() < 11 {
+            return None;
+        }
+        let (name, nums) = words.split_at(words.len() - 10);
+        let f = |i: usize| nums[i].parse::<f64>().ok();
+        let u = |i: usize| nums[i].parse::<u64>().ok();
+        Some(ProfRow {
+            name: name.join(" "),
+            avg: f(0)?,
+            p99: f(1)?,
+            active_frames: u(2)?,
+            active_avg: f(3)?,
+            active_p99: f(4)?,
+            max_p50: f(5)?,
+            max_p95: f(6)?,
+            max_seconds: u(7)?,
+            max_active_p50: f(8)?,
+            max_active_p95: f(9)?,
+        })
+    }
 }
 
 fn after<'a>(line: &'a str, marker: &str) -> Option<&'a str> {
@@ -73,11 +128,30 @@ struct Parser {
     ranked_refused: bool,
     /// "[VProf] Summary" lines seen, read or not, so a bug report can tell "no reports" from "unread reports".
     summaries: usize,
+    /// The current report's FrameTotal row was read; the rows after it are added until the table ends.
+    in_table: bool,
+    /// The last `[CommandLine]` line with the game's options.
+    command_line: String,
 }
 
 impl Parser {
     /// Returns a report when `line` completes one.
     fn line(&mut self, line: &str) -> Option<Report> {
+        // A report's table ends at the first VProf line that isn't a row (a blank one, "stopped" or "started").
+        if self.in_table {
+            if let Some(row) = after(line, "[VProf]").and_then(ProfRow::parse) {
+                if let Some(r) = self.current.as_mut() {
+                    r.rows.push(row);
+                }
+                return None;
+            }
+            if line.contains("[VProf]") || line.contains("Loading map \"") || line.contains("Created physics for ") {
+                let done = self.finish_table();
+                // The line itself can start the next report.
+                let next = self.line(line);
+                return done.or(next);
+            }
+        }
         if line.contains("UnverifiedPGI") {
             self.ranked_refused = true;
             return None;
@@ -97,6 +171,11 @@ impl Parser {
             self.local_map = None;
         } else if line.contains("[CommandLine]") {
             self.condebug |= line.split_whitespace().any(|w| w.eq_ignore_ascii_case("-condebug"));
+            // "[CommandLine] command line arguments:" is followed by the options on their own line.
+            let text = after(line, "[CommandLine]").unwrap_or("").trim();
+            if !text.is_empty() && !text.ends_with(':') {
+                self.command_line = text.to_string();
+            }
         } else if line.contains("[VProf] VProfLite started.") {
             self.session_map = self.last_map.clone();
             self.session_online = self.last_online;
@@ -117,6 +196,9 @@ impl Parser {
                 p1_fps: 0.0,
                 frame_ms: 0.0,
                 frame_ms_p99: 0.0,
+                excluded_frames: after(rest, "(").and_then(|x| x.split_whitespace().next()).and_then(|w| w.parse().ok()).unwrap_or(0),
+                rows: Vec::new(),
+                command_line: self.command_line.clone(),
             });
         } else if let (Some(rest), Some(r)) = (after(line, "[VProf] FPS: Avg="), self.current.as_mut()) {
             // "718.6, P1=276.6"
@@ -137,10 +219,17 @@ impl Parser {
             if cols.first() == Some(&"FrameTotal") && cols.len() >= 3 {
                 r.frame_ms = cols[1].parse().unwrap_or(0.0);
                 r.frame_ms_p99 = cols[2].parse().unwrap_or(0.0);
-                return self.current.take().filter(|r| r.avg_fps > 0.0);
+                r.rows.extend(ProfRow::parse(rest));
+                self.in_table = true;
             }
         }
         None
+    }
+
+    /// Ends the current report's table and returns the report.
+    fn finish_table(&mut self) -> Option<Report> {
+        self.in_table = false;
+        self.current.take().filter(|r| r.avg_fps > 0.0)
     }
 }
 
@@ -228,6 +317,30 @@ pub struct Session {
     pub game_build: Option<String>,
     /// When the app picked it up (RFC 3339), which gives the year the log lacks.
     pub recorded_at: String,
+    /// What else was set up when the session was recorded: mods, video settings, changes on top. Missing for
+    /// sessions recorded before the export was added.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<Context>,
+}
+
+/// The setup a session was played with, as found when the app recorded it (see `perf_export::capture`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Context {
+    pub app_version: String,
+    /// How the installed gameinfo.gi relates to the applied config: "applied", "applied with DMM",
+    /// "changed", "not applied" or "missing".
+    pub status: String,
+    pub applied: Option<crate::settings::AppliedRecord>,
+    /// ConVars changed on top of the applied config ("name=value"), see `tweaks::changes`.
+    pub tweaks: Vec<String>,
+    /// The app's own settings rows and switches (view width, FPS caps, fixes).
+    pub overrides: crate::overrides::Overrides,
+    /// The installed files; their contents are kept once per hash in perf-files.json.
+    pub gameinfo_sha256: Option<String>,
+    pub video_sha256: Option<String>,
+    /// Mods that were enabled.
+    pub mods: Vec<crate::mods::Mod>,
 }
 
 fn store_file(app_dir: &Path) -> PathBuf {
@@ -454,6 +567,34 @@ mod tests {
     }
 
     #[test]
+    fn keeps_the_whole_vprof_table_and_the_launch_options() {
+        let r = parse(LOG);
+        assert_eq!(r[0].excluded_frames, 563);
+        assert_eq!(r[1].excluded_frames, 8930);
+        assert!(r[1].command_line.starts_with("-steam -console -condebug"));
+        let names: Vec<&str> = r[1].rows.iter().map(|x| x.name.as_str()).collect();
+        assert_eq!(names.len(), 13);
+        assert_eq!(&names[..3], ["FrameTotal", "Client Rendering", "PanoramaUI"]);
+        assert_eq!(names[8], "EventFrameBoundary_t");
+        let total = &r[1].rows[0];
+        assert_eq!((total.avg, total.p99, total.active_frames, total.max_p50, total.max_p95, total.max_seconds), (1.39, 3.62, 123650, 4.80, 6.32, 180));
+        // The first report's table ends where the next map's profiling starts.
+        assert_eq!(r[0].rows.len(), 6);
+        // A table that ends with "VProfLite stopped" (current builds) and a header row that isn't a table row.
+        let log = "11/25 17:31:39 [VProf] VProfLite started.\n\
+            11/25 17:35:52 [VProf] Summary of 110303 frames and 177 1-second intervals.  (18973 frames excluded from analysis.)\n\
+            11/25 17:35:52 [VProf] FPS: Avg=701.9, P1=237.3\n\
+            11/25 17:35:52 [VProf]                        Avg    P99        N    Avg    P99      P50    P95        N    P50    P95\n\
+            11/25 17:35:52 [VProf]          FrameTotal   1.42   4.21   110303   1.42   4.21     5.03   9.30      177   5.03   9.30\n\
+            11/25 17:35:52 [VProf]    Client Rendering   0.87   2.19    55137   1.73   2.22     2.58   5.36      177   2.58   5.36\n\
+            11/25 17:35:52 [VProf] VProfLite stopped.\n";
+        let r = parse(log);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].rows.len(), 2);
+        assert_eq!(r[0].rows[1].max_p95, 5.36);
+    }
+
+    #[test]
     fn tells_online_matches_from_local_maps() {
         // Trimmed from real logs: the hideout and Explore NYC load locally; a match is joined from a server.
         let log = "10/27 19:31:41 Loading map \"dl_hideout\"\n\
@@ -548,12 +689,13 @@ mod tests {
 
     fn session(key: &str, avg: f64, secs: u64, time: &str) -> Session {
         Session {
-            report: Report { time: time.into(), map: "street_test".into(), online: true, frames: 1, seconds: secs, avg_fps: avg, p1_fps: avg / 2.0, frame_ms: 1.0, frame_ms_p99: 3.0 },
+            report: Report { time: time.into(), map: "street_test".into(), online: true, frames: 1, seconds: secs, avg_fps: avg, p1_fps: avg / 2.0, frame_ms: 1.0, frame_ms_p99: 3.0, ..Default::default() },
             config_key: key.into(),
             config_name: key.into(),
             ranked_safe: false,
             game_build: None,
             recorded_at: time.into(),
+            context: None,
         }
     }
 
@@ -612,6 +754,7 @@ mod tests {
             ranked_safe: false,
             game_build: None,
             recorded_at: "now".into(),
+            context: None,
         };
         assert_eq!(record(dir.path(), &reports, label).unwrap(), 2);
         assert_eq!(record(dir.path(), &reports, label).unwrap(), 0);
@@ -635,6 +778,7 @@ mod tests {
             ranked_safe: false,
             game_build: None,
             recorded_at: "now".into(),
+            context: None,
         })
         .unwrap();
     }
@@ -694,6 +838,7 @@ mod tests {
             ranked_safe: false,
             game_build: None,
             recorded_at: "now".into(),
+            context: None,
         };
         fs::write(dir.path().join("perf.json"), "[{\"cut off").unwrap();
         assert_eq!(record(dir.path(), &parse(LOG), label).unwrap(), 2);
