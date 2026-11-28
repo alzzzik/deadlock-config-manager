@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
-import { ConfigStats, NumberedSession, PerfSort, PerfView, perfReference, sortPerfStats, timeAgo } from "../api";
+import { ConfigStats, NumberedSession, PERF_OLDER_DAYS, PerfSort, PerfView, isOlderConfig, perfReference, sortPerfStats, timeAgo } from "../api";
 import { ChevronIcon } from "./icons";
 
-const SORT_KEY = "dcm.perfSort";
+/** v2: 0.9.8 made "Best 1% low" the default, so an old remembered default doesn't hide it. */
+const SORT_KEY = "dcm.perfSort2";
 const HIDDEN_KEY = "dcm.perfHidden";
 
 const SORTS: { id: PerfSort; label: string }[] = [
+  { id: "low", label: "Best 1% low" },
   { id: "played", label: "Most played" },
   { id: "newest", label: "Newest" },
   { id: "oldest", label: "Oldest" },
@@ -45,9 +47,10 @@ function parseKeys(raw: string): string[] {
 
 /** The per-config list: sorted, with configs the player hid tucked away, each with its own sessions. */
 export function PerfConfigs({ view }: { view: PerfView }) {
-  const [sort, setSort] = useState<PerfSort>(() => readStored(SORT_KEY, (r) => (isSort(r) ? r : "played"), "played"));
+  const [sort, setSort] = useState<PerfSort>(() => readStored(SORT_KEY, (r) => (isSort(r) ? r : "low"), "low"));
   const [hidden, setHidden] = useState<string[]>(() => readStored(HIDDEN_KEY, parseKeys, []));
   const [showHidden, setShowHidden] = useState(false);
+  const [showOlder, setShowOlder] = useState(false);
 
   const pickSort = (s: PerfSort) => {
     setSort(s);
@@ -59,8 +62,10 @@ export function PerfConfigs({ view }: { view: PerfView }) {
     writeStored(HIDDEN_KEY, JSON.stringify(next));
   };
 
-  const sorted = useMemo(() => sortPerfStats(view.stats, sort), [view.stats, sort]);
-  const shown = sorted.filter((s) => !hidden.includes(s.configKey));
+  const sorted = useMemo(() => sortPerfStats(view.stats, sort, view.minSessions), [view.stats, sort, view.minSessions]);
+  const visible = sorted.filter((s) => !hidden.includes(s.configKey));
+  const shown = visible.filter((s) => !isOlderConfig(s));
+  const older = visible.filter((s) => isOlderConfig(s));
   const tucked = sorted.filter((s) => hidden.includes(s.configKey));
   const reference = perfReference(shown, view.minSessions);
   /** Bars share one scale so configs compare at a glance. */
@@ -91,6 +96,19 @@ export function PerfConfigs({ view }: { view: PerfView }) {
         ))}
       </div>
       {shown.length > 0 && <ul className="perf-list">{shown.map((s) => row(s, false))}</ul>}
+      {older.length > 0 && (
+        <>
+          <button
+            className="btn btn-quiet btn-sm perf-hidden-toggle"
+            onClick={() => setShowOlder((v) => !v)}
+            aria-expanded={showOlder}
+            title={`Not played in the last ${PERF_OLDER_DAYS} days`}
+          >
+            {showOlder ? "Collapse older configs" : `Show ${older.length} older config${older.length === 1 ? "" : "s"}`}
+          </button>
+          {showOlder && <ul className="perf-list is-hidden">{older.map((s) => row(s, false))}</ul>}
+        </>
+      )}
       {tucked.length > 0 && (
         <>
           <button className="btn btn-quiet btn-sm perf-hidden-toggle" onClick={() => setShowHidden((v) => !v)} aria-expanded={showHidden}>
@@ -103,11 +121,25 @@ export function PerfConfigs({ view }: { view: PerfView }) {
   );
 }
 
-function compareNote(s: ConfigStats, reference: ConfigStats | null, minSessions: number): string | null {
-  if (s.sessions < minSessions) return `Needs ${minSessions}+ sessions to compare`;
+interface CompareNote {
+  text: string;
+  title?: string;
+  /** "up" / "down" colour the tag by the 1% low difference. */
+  tone?: "up" | "down";
+}
+
+/** A short tag: the 1% low difference first, since that's what decides between configs. */
+function compareNote(s: ConfigStats, reference: ConfigStats | null, minSessions: number): CompareNote | null {
+  if (s.sessions < minSessions) return { text: `Needs ${minSessions}+ sessions` };
   if (!reference) return null;
-  if (s.configKey === reference.configKey) return "The others are compared with this one";
-  return `${pct(s.medianAvgFps, reference.medianAvgFps)} avg, ${pct(s.medianP1Fps, reference.medianP1Fps)} 1% low vs ${reference.configName}`;
+  if (s.configKey === reference.configKey) return { text: "Baseline", title: "The others are compared with this one" };
+  const low = pct(s.medianP1Fps, reference.medianP1Fps);
+  const tone = s.medianP1Fps > reference.medianP1Fps ? "up" : s.medianP1Fps < reference.medianP1Fps ? "down" : undefined;
+  return {
+    text: `${low} 1% low ·${pct(s.medianAvgFps, reference.medianAvgFps)} avg`,
+    title: `Compared with ${reference.configName}`,
+    tone,
+  };
 }
 
 interface PerfRowProps {
@@ -115,7 +147,7 @@ interface PerfRowProps {
   /** FPS that fills a whole bar. */
   scale: number;
   few: boolean;
-  note: string | null;
+  note: CompareNote | null;
   /** This config's sessions, newest first. */
   sessions: NumberedSession[];
   hidden: boolean;
@@ -130,10 +162,16 @@ function PerfRow({ stats: s, scale, few, note, sessions, hidden, onToggleHidden 
     <li className={`perf-row ${few ? "is-few" : ""}`}>
       <div className="perf-name">
         <strong>{s.configName}</strong>
-        <span className="muted small">
-          {s.sessions} session{s.sessions === 1 ? "" : "s"}, {s.minutes} min, last {timeAgo(s.lastPlayed)}
-        </span>
+        <button className="perf-sessions-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open} disabled={sessions.length === 0}>
+          <ChevronIcon size={12} className="chev" />
+          {s.sessions} session{s.sessions === 1 ? "" : "s"}
+        </button>
         <span className="spacer" />
+        {note && (
+          <span className={`perf-tag ${note.tone ? `is-${note.tone}` : ""}`} title={note.title}>
+            {note.text}
+          </span>
+        )}
         <button className="btn btn-quiet btn-sm" onClick={onToggleHidden}>
           {hidden ? "Unhide" : "Hide"}
         </button>
@@ -150,16 +188,14 @@ function PerfRow({ stats: s, scale, few, note, sessions, hidden, onToggleHidden 
         </span>
         <span className="perf-num">{fps(s.medianP1Fps)}</span>
       </div>
-      <div className="perf-foot small muted">
-        <button className="perf-sessions-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open} disabled={sessions.length === 0}>
-          <ChevronIcon size={12} className="chev" />
-          Sessions
-        </button>
-        <span>Frame time p99 {s.medianFrameMsP99.toFixed(2)} ms</span>
-        <span className="spacer" />
-        {note && <span>{note}</span>}
-      </div>
-      {open && <SessionTable sessions={sessions} />}
+      {open && (
+        <>
+          <p className="perf-detail small muted">
+            {s.minutes} min played, last {timeAgo(s.lastPlayed)} · median frame time p99 {s.medianFrameMsP99.toFixed(2)} ms
+          </p>
+          <SessionTable sessions={sessions} />
+        </>
+      )}
     </li>
   );
 }

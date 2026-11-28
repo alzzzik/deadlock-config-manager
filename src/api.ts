@@ -409,12 +409,28 @@ export function latestOnly(): <T>(request: Promise<T>) => Promise<T> {
   };
 }
 
-export type PerfSort = "played" | "newest" | "oldest";
+export type PerfSort = "low" | "played" | "newest" | "oldest";
 
-/** Configs in Performance: most sessions first (ties: last played), or by when they were last played. */
-export function sortPerfStats(stats: ConfigStats[], order: PerfSort): ConfigStats[] {
+/** Configs not played for this many days are listed under "Older configs". */
+export const PERF_OLDER_DAYS = 30;
+
+/** Last played more than [`PERF_OLDER_DAYS`] ago. */
+export function isOlderConfig(s: ConfigStats, now = Date.now()): boolean {
+  const t = Date.parse(s.lastPlayed);
+  return !Number.isNaN(t) && now - t > PERF_OLDER_DAYS * DAY_MS;
+}
+
+/**
+ * Configs in Performance: best 1% low first (configs with fewer than `minSessions` after them), most sessions
+ * first (ties: last played), or by when they were last played.
+ */
+export function sortPerfStats(stats: ConfigStats[], order: PerfSort, minSessions = 0): ConfigStats[] {
   const byLast = (a: ConfigStats, b: ConfigStats) => b.lastPlayed.localeCompare(a.lastPlayed);
   const sorted = [...stats];
+  if (order === "low") {
+    const enough = (s: ConfigStats) => (s.sessions >= minSessions ? 0 : 1);
+    return sorted.sort((a, b) => enough(a) - enough(b) || b.medianP1Fps - a.medianP1Fps || byLast(a, b));
+  }
   if (order === "played") return sorted.sort((a, b) => b.sessions - a.sessions || byLast(a, b));
   if (order === "newest") return sorted.sort(byLast);
   return sorted.sort((a, b) => byLast(b, a));

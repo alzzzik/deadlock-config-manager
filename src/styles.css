@@ -645,3 +645,8 @@ input::placeholder { color: var(--text-faint); }
 .perf-hidden-toggle { margin-top: 8px; }
 .perf-list.is-hidden { margin-top: 6px; opacity: 0.75; }
 .guide-suggested { margin-left: 8px; vertical-align: 1px; }
+.menu.is-up .menu-list { top: auto; bottom: 34px; left: 0; right: auto; }
+.perf-tag { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--text-dim); background: var(--surface-2); border-radius: 99px; padding: 1px 8px; white-space: nowrap; }
+.perf-tag.is-up { color: var(--good); background: var(--good-wash); }
+.perf-tag.is-down { color: var(--warn); background: var(--warn-wash); }
+.perf-detail { margin: 0; }

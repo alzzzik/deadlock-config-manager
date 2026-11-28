@@ -10,7 +10,8 @@ interface MenuItem {
   disabled?: boolean;
 }
 
-export function RepoMenu({ label, items }: { label: string; items: MenuItem[] }) {
+/** `up` opens the list above the button (for menus at the bottom of a dialog). */
+export function RepoMenu({ label, items, up = false }: { label: string; items: MenuItem[]; up?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -25,7 +26,7 @@ export function RepoMenu({ label, items }: { label: string; items: MenuItem[] })
     };
   }, [open]);
   return (
-    <div className="menu" ref={ref}>
+    <div className={`menu ${up ? "is-up" : ""}`} ref={ref}>
       <button className="icon-btn" aria-label={label} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <MoreIcon />
       </button>

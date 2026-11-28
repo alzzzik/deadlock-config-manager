@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayAgo, daysSince, fovFor, formatBackupId, isRecent, isSamePack, latestOnly, matchesSearch, perfReference, pinKey, sortPerfStats, sortStore, stopWhenReady, updateNotes, PackInfo, AppliedRecord, StoreEntry, ConfigStats } from "./api";
+import { dayAgo, daysSince, fovFor, formatBackupId, isOlderConfig, isRecent, isSamePack, latestOnly, matchesSearch, perfReference, pinKey, sortPerfStats, sortStore, stopWhenReady, updateNotes, PackInfo, AppliedRecord, StoreEntry, ConfigStats } from "./api";
 
 const pack = (over: Partial<PackInfo> = {}): PackInfo => ({
   repo: "alzzzik/alz-deadlock-cfg",
@@ -168,5 +168,19 @@ describe("Performance ordering", () => {
     expect(perfReference(stats, 3)?.configKey).toBe("c");
     expect(perfReference(stats, 5)?.configKey).toBe("c");
     expect(perfReference([stat("a", 9, "x"), stat("b", 1, "y")], 3)).toBeNull();
+  });
+
+  it("sorts by best 1% low, configs with too few sessions last", () => {
+    const low = (s: ConfigStats, p1: number) => ({ ...s, medianP1Fps: p1 });
+    const list = [low(stats[0], 150), low(stats[1], 90), low(stats[2], 110), low(stats[3], 80)];
+    expect(keys(sortPerfStats(list, "low", 3))).toBe("cbda");
+    expect(keys(sortPerfStats(list, "low"))).toBe("acbd");
+  });
+
+  it("counts configs not played for 30 days as older", () => {
+    const now = Date.parse("2026-11-28T00:00:00Z");
+    expect(isOlderConfig(stat("a", 1, "2026-11-20T00:00:00Z"), now)).toBe(false);
+    expect(isOlderConfig(stat("a", 1, "2026-10-01T00:00:00Z"), now)).toBe(true);
+    expect(isOlderConfig(stat("a", 1, "not a date"), now)).toBe(false);
   });
 });

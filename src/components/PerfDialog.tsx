@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Automation, PerfView, api, errorText, stopWhenReady } from "../api";
 import { PerfConfigs, fps } from "./PerfConfigs";
 import { Modal } from "./Modal";
+import { RepoMenu } from "./RepoSection";
 
 interface PerfDialogProps {
   onClose: () => void;
@@ -85,13 +86,15 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
               </button>
             </>
           ) : (
-            <button className="btn btn-quiet" onClick={() => setConfirming(true)} disabled={!view || view.stored === 0}>
-              Clear history
-            </button>
+            <RepoMenu
+              label="More actions"
+              up
+              items={[{ label: "Clear history…", danger: true, disabled: !view || view.stored === 0, onClick: () => setConfirming(true) }]}
+            />
           )}
           <span className="spacer" />
           <button
-            className="btn btn-quiet"
+            className="btn btn-secondary"
             onClick={exportAll}
             disabled={!view || view.stored === 0 || exporting}
             title="Saves every session with its config, mods, video settings and frame-time breakdown as one JSON file"
