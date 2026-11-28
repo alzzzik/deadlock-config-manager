@@ -94,7 +94,8 @@ pub const FIXES: [Fix; 8] = [
         entries: || vec![Entry::set("cl_ragdoll_limit", "-1")],
         hide: Some(|| vec![Entry::set("cl_ragdoll_limit", "0")]),
         shown: |src| number(convar_value(src, "cl_ragdoll_limit")) != Some(0.0),
-        retired: false,
+        // Retired in 0.9.8: unconfirmed whether a ragdoll limit other than 0 hides the indicator.
+        retired: true,
     },
     Fix {
         id: "far_boxes",
@@ -142,7 +143,8 @@ pub const FIXES: [Fix; 8] = [
             None => true,
             set => number(set).is_some_and(|v| v >= PANEL_DPI_DEFAULT),
         },
-        retired: false,
+        // Retired in 0.9.8: with its fade-distance half blocked, the effect of the panel DPI alone is unconfirmed.
+        retired: true,
     },
 ];
 
@@ -401,12 +403,12 @@ mod tests {
 
     #[test]
     fn effective_merges_fixes_view_and_fps() {
-        let o = Overrides { fixes: vec!["doorman_ult".into(), "buildings_pop".into()], hidden: vec!["decals".into()], aspect: Some("2,15".into()), fps_max: Some(5000), fps_max_ui: Some(60) };
+        let o = Overrides { fixes: vec!["lod_holes".into(), "buildings_pop".into()], hidden: vec!["decals".into()], aspect: Some("2,15".into()), fps_max: Some(5000), fps_max_ui: Some(60) };
         let e = o.effective();
         assert!(e.contains(&Entry::set("r_aspectratio", "2.15")));
         assert!(e.contains(&Entry::set("fps_max", "1000")));
         assert!(e.contains(&Entry::set("fps_max_ui", "60")));
-        assert!(e.contains(&Entry::set("cl_ragdoll_limit", "-1")));
+        assert!(e.contains(&Entry::off("sc_screen_size_lod_scale_override")));
         assert!(e.contains(&Entry::off("r_mapextents")));
         assert!(e.contains(&Entry::set("r_drawdecals", "0")));
         assert!(Overrides::default().is_empty());

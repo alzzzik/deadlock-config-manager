@@ -191,7 +191,7 @@ mod tests {
             safe: true,
             ..shared(
                 "dacooderr/OptiLock",
-                Overrides { fixes: vec!["doorman_ult".into(), "decals".into()], aspect: Some("2.15".into()), fps_max: Some(400), fps_max_ui: Some(120), ..Default::default() },
+                Overrides { fixes: vec!["far_boxes".into(), "decals".into()], aspect: Some("2.15".into()), fps_max: Some(400), fps_max_ui: Some(120), ..Default::default() },
             )
         };
         let code = encode(&full).unwrap();
