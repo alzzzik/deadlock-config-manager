@@ -83,6 +83,8 @@ App updates are signed with a [Tauri updater key](https://v2.tauri.app/plugin/up
 | `watch.rs` | Background re-apply after game updates (latest repo version), launch checks and performance collection |
 | `launch_guard.rs` | Times the first Deadlock launch after a write; a run under a minute offers the backup from before it |
 | `perf.rs` | Parses Deadlock's VProf reports from `console.log`, per-config FPS stats |
+| `perf_export.rs` | Performance "Export data": every session with its setup, as one JSON file |
+| `mods.rs` | Enabled mods (DMM, CompLock's Pack Builder, hand-copied VPKs) and the first-run guide's hints |
 | `diag.rs` | Local log, panic hook and the diagnostics report |
 | `overview.rs`, `commands.rs` | Tauri commands used by the UI |
 
