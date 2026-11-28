@@ -71,13 +71,13 @@
       "kind": "repo",
       "repo": "alzzzik/alz-deadlock-cfg",
       "title": "alz",
-      "description": "More FPS while staying mod compatible. Stable for any GPU, alz variant with DLSS.",
+      "description": "More FPS while staying mod compatible. Stable for any GPU, apex-complock for NVIDIA RTX with CompLock's mod paks.",
       "author": "alzzzik",
       "license": "GPL-3.0",
-      "updated": "2026-10-21",
+      "updated": "2026-11-28",
       "configs": [
         "stable",
-        "alz"
+        "apex-complock"
       ]
     },
     {

@@ -215,19 +215,19 @@ function GameUpdatesSection({ onNotify }: { onNotify: (kind: "ok" | "error" | "i
       <legend className="field-title">Background and game updates</legend>
       <SwitchRow
         label="Closing the window exits the app"
-        note="Turn off to keep the app in the tray instead (right-click its icon › Quit to exit), so it keeps collecting performance reports."
+        note="Turn off to minimize it to the taskbar instead, so it keeps collecting performance reports."
         on={a.exitOnClose}
         onChange={(on) => change({ ...a, exitOnClose: on })}
       />
       <SwitchRow
         label="Re-apply my config after game updates"
-        note="When an update replaces gameinfo.gi, the app applies your config again by itself (while Deadlock is closed and the app is running, in the window or the tray) and shows a notification."
+        note="When an update replaces gameinfo.gi, the app applies your config again by itself (while Deadlock is closed and the app is running) and shows a notification."
         on={a.autoReapply}
         onChange={(on) => change({ ...a, autoReapply: on })}
       />
       <SwitchRow
-        label="Start with Windows in the tray"
-        note="Starts hidden in the tray, so performance reports are collected even if you never open the app."
+        label="Start with Windows"
+        note="Starts minimized to the taskbar, so performance reports are collected even if you never open the app."
         on={a.startWithWindows}
         onChange={(on) => change({ ...a, startWithWindows: on })}
       />

@@ -644,3 +644,4 @@ input::placeholder { color: var(--text-faint); }
 .perf-sessions tr:last-child td { border-bottom: 0; }
 .perf-hidden-toggle { margin-top: 8px; }
 .perf-list.is-hidden { margin-top: 6px; opacity: 0.75; }
+.guide-suggested { margin-left: 8px; vertical-align: 1px; }

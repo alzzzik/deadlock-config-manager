@@ -1,4 +1,4 @@
-//! Hands-off mode: while the app runs (window open or in the tray), check every few seconds whether a
+//! Hands-off mode: while the app runs (window open or minimized), check every few seconds whether a
 //! game update replaced the applied gameinfo.gi, and re-apply the config when Deadlock is closed.
 
 use crate::commands::{self, AppState};

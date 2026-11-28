@@ -30,13 +30,12 @@ pub mod stock;
 pub mod store;
 pub mod video;
 mod watch;
-mod tray;
 pub mod writer;
 
 use std::sync::Mutex;
 use tauri::Manager;
 
-/// Command-line flag used by "Start with Windows": start hidden in the tray.
+/// Command-line flag used by "Start with Windows": start minimized to the taskbar.
 const BACKGROUND_FLAG: &str = "--background";
 
 pub(crate) fn show_main(app: &tauri::AppHandle) {
@@ -45,28 +44,6 @@ pub(crate) fn show_main(app: &tauri::AppHandle) {
         let _ = w.unminimize();
         let _ = w.set_focus();
     }
-}
-
-/// Tray icon; a left click opens the window. The menu starts with Open and Quit, and the window adds the
-/// applied config and the pinned configs once it has loaded them (`tray::set_tray_configs`).
-fn build_tray(app: &tauri::App) -> tauri::Result<()> {
-    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-    let menu = tray::menu(app, None, &[])?;
-    let mut icon = TrayIconBuilder::with_id(tray::TRAY_ID)
-        .tooltip("Deadlock Config Manager")
-        .menu(&menu)
-        .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| tray::on_menu_event(app, event.id().as_ref()))
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                show_main(tray.app_handle());
-            }
-        });
-    if let Some(image) = app.default_window_icon() {
-        icon = icon.icon(image.clone());
-    }
-    icon.build(app)?;
-    Ok(())
 }
 
 pub fn run() {
@@ -94,24 +71,26 @@ pub fn run() {
             if let Err(e) = app.deep_link().register_all() {
                 diag::error(&format!("deep link registration: {e}"));
             }
-            if let Err(e) = build_tray(app) {
-                diag::error(&format!("tray icon: {e}"));
-            }
-            // The window starts hidden (tauri.conf.json) so a Windows-start launch can stay in the tray.
+            // The window starts hidden (tauri.conf.json) so a Windows-start launch can open minimized.
             let background = std::env::args().any(|a| a == BACKGROUND_FLAG);
-            if !background {
+            if background {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.minimize();
+                }
+            } else {
                 show_main(app.handle());
             }
             watch::start(app.handle().clone());
             Ok(())
         })
-        // Closing the window exits, unless the player turned that off to keep the app in the tray (to collect
-        // performance reports and watch for game updates).
+        // Closing the window exits, unless the player turned that off: then it minimizes to the taskbar, so the
+        // app keeps collecting performance reports and watching for game updates. There is no tray icon.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.app_handle().state::<commands::AppState>().snapshot().keeps_running() {
                     api.prevent_close();
-                    let _ = window.hide();
+                    let _ = window.minimize();
                 }
             }
         })
@@ -156,12 +135,12 @@ pub fn run() {
             commands::dismiss_launch_issue,
             commands::settings_were_reset,
             commands::get_perf,
-            tray::set_tray_configs,
             commands::clear_perf,
             commands::undo_clear_perf,
             commands::save_tweaked,
             overview::toggle_pin,
             overview::finish_guide,
+            overview::setup_hints,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Deadlock Config Manager");

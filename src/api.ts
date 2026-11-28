@@ -18,6 +18,16 @@ export type AppliedRecord = {
   rankedSafe?: boolean;
 };
 
+/** Found on this PC, for the first-run guide's suggestion. */
+export type SetupHints = {
+  /** CompLock's Pack Builder paks are installed. */
+  complock: boolean;
+  /** Any mod VPK is enabled. */
+  mods: boolean;
+  /** video.txt names an NVIDIA GPU. */
+  nvidia: boolean;
+};
+
 export type Overview = {
   steamRoot: string | null;
   gameinfoPath: string | null;
@@ -220,6 +230,8 @@ export const api = {
   togglePin: (key: string) => invoke<Overview>("toggle_pin", { key }),
   diagnostics: () => invoke<string>("get_diagnostics"),
   finishGuide: () => invoke<Overview>("finish_guide"),
+  /** What the first-run guide uses to suggest a starting config. */
+  setupHints: () => invoke<SetupHints>("setup_hints"),
   getTweaks: () => invoke<TweaksView>("get_tweaks"),
   setTweak: (id: string, value: string | null) => invoke<TweaksView>("set_tweak", { id, value }),
   setFix: (id: string, on: boolean) => invoke<TweaksView>("set_fix", { id, on }),
@@ -244,8 +256,6 @@ export const api = {
     throw e;
   })),
   getPerf: () => invoke<PerfView>("get_perf"),
-  /** Rebuilds the tray menu: a status line and the pinned configs (each opens its preview here). */
-  setTrayConfigs: (status: string | null, pins: { key: string; name: string }[]) => invoke<void>("set_tray_configs", { status, pins }),
   clearPerf: () => invoke<void>("clear_perf"),
   undoClearPerf: () => invoke<void>("undo_clear_perf"),
   /** Saves every session with its setup as JSON in Downloads and shows it in Explorer; returns the path. */

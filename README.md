@@ -31,7 +31,7 @@ is previewed and backed up, and the config is put back after game updates.
 - Shows every setting a config changes before anything is written, and marks the ones the game ignores.
 - Keeps your GPU IDs and display settings from your own `video.txt`.
 - Backs up your files before every change. The first backup is kept as "Original".
-- Re-applies your config after game updates, in one click or automatically in tray mode, using the latest version from its repo.
+- Re-applies your config after game updates, in one click or automatically while the app is running, using the latest version from its repo.
 - Installs configs from GitHub repos, GameBanana links and share codes. Your own configs are kept in "My configs".
 - Shows real-game FPS per config from Deadlock's own reports. Needs the `-condebug` launch option.
 - Offers to restore your previous files if Deadlock closes right after a change.

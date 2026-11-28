@@ -190,12 +190,6 @@ export default function App() {
 
   const allPacks = useMemo(() => groups?.flatMap((g) => g.packs) ?? [], [groups]);
 
-  /** Pinned configs in pin order, ignoring the search box (the tray menu lists all of them). */
-  const allPinned = useMemo(
-    () => (overview?.pinned ?? []).map((k) => allPacks.find((p) => pinKey(p) === k)).filter((p): p is PackInfo => !!p),
-    [overview, allPacks],
-  );
-
   const pinnedPacks = useMemo(
     () =>
       (overview?.pinned ?? [])
@@ -480,25 +474,6 @@ export default function App() {
       setDialog({ kind: "none" });
       push("ok", "Settings saved");
     }, fail);
-
-  // Tray menu: what's applied and the pinned configs. Picking one opens its preview here.
-  const trayStatus = overview?.applied ? `${overview.tweaks > 0 ? "Tweaked" : "Applied"}: ${overview.applied.packName}` : overview ? "No config applied" : null;
-  const trayPins = useMemo(() => allPinned.map((p) => ({ key: pinKey(p), name: p.name })), [allPinned]);
-  useEffect(() => {
-    api.setTrayConfigs(trayStatus, trayPins).catch(() => undefined);
-  }, [trayStatus, trayPins]);
-  const applyFromTray = useRef<(key: string) => void>(() => undefined);
-  applyFromTray.current = (key) => {
-    // Same rule as the Apply buttons, and never on top of a dialog the player has open.
-    if (busy || dialog.kind !== "none") {
-      push("info", "Finish or close what's open first, then pick the config in the tray again.");
-      return;
-    }
-    const pack = allPacks.find((p) => pinKey(p) === key);
-    if (pack) void applyPack(pack);
-    else push("error", "That pinned config isn't in your linked repos anymore.");
-  };
-  useEffect(() => stopWhenReady(listen<string>("tray-apply", (e) => applyFromTray.current(e.payload))), []);
 
   const canWrite = !!overview && (overview.gameinfoFound || overview.gameinfoCreatable);
   const isLibraryApplied = library.some((e) => `${LIBRARY_PREFIX}${e.id}` === overview?.applied?.packId);

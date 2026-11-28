@@ -61,9 +61,9 @@ pub struct Settings {
     pub overlay: bool,
     /// Re-apply the last config by itself after a game update replaces gameinfo.gi.
     pub auto_reapply: bool,
-    /// Start hidden in the tray when Windows starts.
+    /// Start minimized to the taskbar when Windows starts.
     pub start_with_windows: bool,
-    /// Closing the window quits the app instead of keeping it in the tray.
+    /// Closing the window quits the app instead of minimizing it to the taskbar.
     pub exit_on_close: bool,
     /// Sets of personal changes seen in Performance, so each keeps its "+ tweaks #N".
     pub perf_tweaks: Vec<crate::perf::TweakSet>,
@@ -130,7 +130,7 @@ pub fn load_reporting(dir: &Path) -> (Settings, bool) {
         return (Settings::default(), false);
     };
     match serde_json::from_str::<Settings>(&text) {
-        Ok(parsed) => (migrate(keep_tray_for_auto_reapply(&text, parsed)), false),
+        Ok(parsed) => (migrate(keep_running_for_auto_reapply(&text, parsed)), false),
         Err(_) => {
             let _ = fs::rename(&path, dir.join(CORRUPT_FILE));
             (Settings::default(), true)
@@ -141,8 +141,8 @@ pub fn load_reporting(dir: &Path) -> (Settings, bool) {
 /// Where a settings file that couldn't be read is kept.
 pub const CORRUPT_FILE: &str = "settings.corrupt.json";
 
-/// Before `exit_on_close` existed, auto re-apply kept the app in the tray on close; keep that for those players.
-fn keep_tray_for_auto_reapply(text: &str, s: Settings) -> Settings {
+/// Before `exit_on_close` existed, auto re-apply kept the app running on close; keep that for those players.
+fn keep_running_for_auto_reapply(text: &str, s: Settings) -> Settings {
     let saved_before = serde_json::from_str::<serde_json::Value>(text).is_ok_and(|v| v.get("exitOnClose").is_none());
     if saved_before && s.auto_reapply {
         Settings { exit_on_close: false, ..s }
@@ -163,7 +163,7 @@ fn migrate(s: Settings) -> Settings {
 }
 
 impl Settings {
-    /// Closing the window keeps the app in the tray, so it keeps collecting performance reports and, with
+    /// Closing the window minimizes it to the taskbar, so it keeps collecting performance reports and, with
     /// `auto_reapply`, watching for game updates.
     pub fn keeps_running(&self) -> bool {
         !self.exit_on_close
@@ -191,11 +191,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn closing_exits_by_default_and_auto_reapply_players_keep_the_tray() {
+    fn closing_exits_by_default_and_auto_reapply_players_keep_running() {
         assert!(!Settings::default().keeps_running());
         assert!(Settings { exit_on_close: false, ..Settings::default() }.keeps_running());
         let dir = tempfile::tempdir().unwrap();
-        // Saved before the option existed: auto re-apply kept the app in the tray, so it still does.
+        // Saved before the option existed: auto re-apply kept the app running, so it still does.
         fs::write(dir.path().join("settings.json"), r#"{"autoReapply": true}"#).unwrap();
         assert!(load(dir.path()).keeps_running());
         fs::write(dir.path().join("settings.json"), r#"{"autoReapply": false}"#).unwrap();

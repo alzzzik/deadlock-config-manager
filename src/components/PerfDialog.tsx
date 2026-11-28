@@ -106,7 +106,7 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
     >
       <p className="muted small">
         Deadlock measures its own frame rate and writes a report when a map unloads. The app collects those reports while
-        it's open (or in the tray) and groups them by the config you had applied. Numbers come from real games, so they
+        it's running and groups them by the config you had applied. Numbers come from real games, so they
         vary with fights and heroes: compare configs over several matches.
       </p>
       {automation && (
@@ -120,7 +120,7 @@ export function PerfDialog({ onClose, onNotify }: PerfDialogProps) {
           />
           <span className="tweak-text">
             <span>Run in the background</span>
-            <small className="muted">Closing the window keeps the app in the tray, so no matches are missed.</small>
+            <small className="muted">Closing the window minimizes it to the taskbar, so no matches are missed.</small>
           </span>
         </label>
       )}

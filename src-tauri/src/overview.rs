@@ -322,6 +322,22 @@ pub fn finish_guide(state: State<AppState>) -> Result<Overview, String> {
     Ok(state.overview(&s))
 }
 
+/// What the first-run guide needs to suggest a starting config (mods, CompLock paks, GPU vendor).
+#[tauri::command]
+pub async fn setup_hints(app: tauri::AppHandle) -> Result<crate::mods::SetupHints, String> {
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let s = state.snapshot();
+        let ov = state.overview(&s);
+        let gi = ov.gameinfo_path.as_deref().filter(|_| ov.gameinfo_found).map(std::path::Path::new);
+        let video = ov.video_path.as_deref().filter(|_| ov.video_found).map(std::path::Path::new);
+        crate::mods::setup_hints(gi, video)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
 

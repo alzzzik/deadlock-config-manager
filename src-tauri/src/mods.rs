@@ -103,7 +103,16 @@ pub fn enabled_in(addons: &Path, dmm_state: Option<&str>) -> Vec<Mod> {
             })
             .collect();
         manual.sort();
-        out.extend(manual.into_iter().map(|n| Mod { id: n.clone(), name: n.clone(), source: "manual".into(), bytes: size(&n), vpks: vec![n], ..Default::default() }));
+        let complock = complock_files(addons);
+        out.extend(manual.into_iter().map(|n| {
+            let bytes = size(&n);
+            // CompLock's Pack Builder paks, found by size since mod managers can renumber them.
+            let (name, source) = match complock.iter().find(|(s, _)| *s == bytes) {
+                Some((_, src)) => (format!("CompLock: {src}"), "complock"),
+                None => (n.clone(), "manual"),
+            };
+            Mod { id: n.clone(), name, source: source.into(), bytes, vpks: vec![n], ..Default::default() }
+        }));
     }
     out.sort_by(|a, b| a.vpks.first().cmp(&b.vpks.first()));
     out
@@ -116,9 +125,105 @@ pub fn enabled(gameinfo: &Path) -> Vec<Mod> {
     enabled_in(&addons, state.as_deref())
 }
 
+/// What the first-run guide uses to pick a starting config.
+#[derive(Debug, Clone, Default, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SetupHints {
+    /// CompLock's Pack Builder paks are installed (its `complock.json` and at least one of its VPKs).
+    pub complock: bool,
+    /// Any mod VPK is enabled.
+    pub mods: bool,
+    /// video.txt names an NVIDIA GPU (VendorID 0x10DE).
+    pub nvidia: bool,
+}
+
+const NVIDIA_VENDOR_ID: u64 = 0x10DE;
+
+/// The (size, source file) of each pak listed in CompLock's `complock.json`, e.g. (5900605, "hud.vpk").
+fn complock_files(addons: &Path) -> Vec<(u64, String)> {
+    let Some(manifest) = fs::read(addons.join("complock.json")).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()) else {
+        return Vec::new();
+    };
+    manifest
+        .get("files")
+        .and_then(Value::as_object)
+        .map(|f| {
+            f.iter()
+                .filter_map(|(name, v)| Some((v.get("size")?.as_u64()?, str_of(v, "src").unwrap_or_else(|| name.clone()))))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// CompLock's Pack Builder writes `complock.json` with the size of each pak it installed. Mod managers can
+/// renumber paks afterwards, so a pak counts when any VPK in `addons` has one of those sizes.
+fn complock_installed(addons: &Path) -> bool {
+    let sizes: Vec<u64> = complock_files(addons).into_iter().map(|(s, _)| s).collect();
+    if sizes.is_empty() {
+        return false;
+    }
+    let Ok(entries) = fs::read_dir(addons) else { return false };
+    entries.filter_map(Result::ok).any(|e| {
+        let is_vpk = e.file_name().to_string_lossy().to_ascii_lowercase().ends_with(".vpk");
+        is_vpk && e.metadata().map(|m| m.is_file() && sizes.contains(&m.len())).unwrap_or(false)
+    })
+}
+
+fn is_nvidia(video_txt: &str) -> bool {
+    video_txt.lines().any(|l| {
+        let parts: Vec<&str> = l.split('"').filter(|p| !p.trim().is_empty()).collect();
+        let [key, value, ..] = parts.as_slice() else { return false };
+        if !key.trim().eq_ignore_ascii_case("VendorID") {
+            return false;
+        }
+        let v = value.trim();
+        let parsed = match v.strip_prefix("0x").or_else(|| v.strip_prefix("0X")) {
+            Some(hex) => u64::from_str_radix(hex, 16).ok(),
+            None => v.parse().ok(),
+        };
+        parsed == Some(NVIDIA_VENDOR_ID)
+    })
+}
+
+/// Hints for the first-run guide from the game folder next to `gameinfo` and the player's video.txt.
+pub fn setup_hints(gameinfo: Option<&Path>, video: Option<&Path>) -> SetupHints {
+    let addons = gameinfo.and_then(Path::parent).map(|d| d.join("addons"));
+    SetupHints {
+        complock: addons.as_deref().is_some_and(complock_installed),
+        mods: gameinfo.is_some_and(|g| !enabled(g).is_empty()),
+        nvidia: video.and_then(|v| fs::read_to_string(v).ok()).is_some_and(|t| is_nvidia(&t)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_complock_paks_even_after_a_mod_manager_renumbers_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let addons = dir.path();
+        assert!(!complock_installed(addons));
+        fs::write(addons.join("complock.json"), r#"{"files":{"pak01_dir.vpk":{"src":"hud.vpk","size":5}}}"#).unwrap();
+        assert!(!complock_installed(addons), "manifest alone, paks deleted");
+        fs::write(addons.join("pak06_dir.vpk"), "12345").unwrap();
+        assert!(complock_installed(addons));
+        let mods = enabled_in(addons, None);
+        assert_eq!((mods[0].name.as_str(), mods[0].source.as_str()), ("CompLock: hud.vpk", "complock"));
+    }
+
+    #[test]
+    fn reads_nvidia_from_video_txt_in_decimal_or_hex() {
+        assert!(is_nvidia("\"config\"\n{\n\t\"VendorID\"\t\t\"4318\"\n}"));
+        assert!(is_nvidia("\t\"VendorID\" \"0x10DE\""));
+        assert!(!is_nvidia("\t\"VendorID\"\t\t\"4098\"")); // AMD
+        assert!(!is_nvidia("\t\"DeviceID\"\t\t\"4318\""));
+    }
+
+    #[test]
+    fn hints_without_a_game_folder_are_all_off() {
+        assert_eq!(setup_hints(None, None), SetupHints::default());
+    }
 
     #[test]
     fn lists_enabled_dmm_mods_with_their_variants_and_hand_copied_vpks() {
