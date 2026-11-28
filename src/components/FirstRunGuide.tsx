@@ -32,15 +32,15 @@ export const GUIDE_CHOICES: GuideChoice[] = [
   },
   {
     id: "mods",
-    title: "I use mods",
-    detail: "alz stable. More FPS while skins, HUD and other mods keep working. Any GPU, no upscaler in video.txt.",
+    title: "stable",
+    detail: "alz stable. More FPS on any GPU, made to run alongside your mods (skins, HUD and others). No upscaler in video.txt.",
     repo: ALZ_REPO,
     folder: "stable",
   },
   {
     id: "complock",
-    title: "CompLock mods, NVIDIA RTX",
-    detail: "alz apex-complock. Made to run with CompLock's mod paks (HUD++, Particle Pruning, Sound cap) for the best 1% lows. DLSS 1.7x in video.txt.",
+    title: "apex",
+    detail: "alz apex. The best 1% lows; recommended to run alongside CompLock's addons (HUD++, Particle Pruning, Sound cap). NVIDIA RTX, DLSS 1.7x in video.txt.",
     repo: ALZ_REPO,
     folder: "apex-complock",
   },
@@ -127,7 +127,7 @@ export function FirstRunGuide({ busy, onPick, onSkip, onNotify }: FirstRunGuideP
       </div>
       {complockMissing && (
         <p className="notice is-warn small">
-          CompLock's mod paks weren't found in your addons folder. Without them this config gives lower 1% lows; pick "I use mods" instead or install the paks first.
+          CompLock's addons weren't found in your game folder. apex gives lower 1% lows without them; pick stable instead or install them first.
         </p>
       )}
       <p className="muted small guide-launch">Also add these launch options in Steam (right-click Deadlock › Properties):</p>
